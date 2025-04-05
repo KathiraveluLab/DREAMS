@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# temp python file for local settings
+dreamsApp/temp.py
+
 # local custom models for sentiments Prediction
 local_model/
 
