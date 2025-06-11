@@ -1,7 +1,7 @@
 import pytest
 import json
 from flask import Flask
-from dreamsApp.captionSentiments import bp  # Adjust if Blueprint is registered differently
+from dreamsApp.app.captionSentiments import bp  # Adjust if Blueprint is registered differently
 
 @pytest.fixture
 def app():

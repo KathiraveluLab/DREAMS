@@ -12,6 +12,8 @@ local_model/
 # C extensions
 *.so
 
+#env files
+*.env
 # Distribution / packaging
 .Python
 build/
@@ -137,7 +139,7 @@ celerybeat.pid
 .env
 .venv
 env/
-venv/
+myenv/
 ENV/
 env.bak/
 venv.bak/
