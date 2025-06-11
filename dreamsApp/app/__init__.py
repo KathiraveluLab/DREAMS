@@ -29,9 +29,7 @@ def create_app(test_config=None):
     client = MongoClient(app.config["MONGO_URI"])
     app.mongo = client[app.config["MONGO_DB_NAME"]]
 
-    # Register blueprints
-    from .captionSentiments import bp as caption_bp
-    app.register_blueprint(caption_bp)
+
 
     from .ingestion.routes import bp as ingestion_bp
     app.register_blueprint(ingestion_bp)

@@ -44,6 +44,9 @@ MANIFEST
 pip-log.txt
 pip-delete-this-directory.txt
 
+#Images Folder
+dreamsApp/images/
+
 # Unit test / coverage reports
 htmlcov/
 .tox/
