@@ -34,4 +34,7 @@ def create_app(test_config=None):
     from .ingestion.routes import bp as ingestion_bp
     app.register_blueprint(ingestion_bp)
 
+    from .dashboard import bp as dashboard_bp
+    app.register_blueprint(dashboard_bp)
+
     return app
