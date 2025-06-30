@@ -50,7 +50,7 @@ def get_image_caption_and_sentiment(image_path_or_url: str, caption: str,  promp
     img_caption = blip_processor.decode(out[0], skip_special_tokens=True)
 
     # Sentiment Analysis
-    combined_text = f"{caption} {img_caption}"
+    combined_text = f"{caption}"
     processed_text = preprocess(combined_text)
     encoded_input = sentiment_tokenizer(processed_text, return_tensors="pt")
     with torch.no_grad():

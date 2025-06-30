@@ -3,19 +3,10 @@
 {% block content %}
     <body> 
         <div class="container">
-            <h1>Welcome to Your Dashboard</h1>
-            <p>Here you can manage your dreams and view your progress.</p>
-            <div class="dreams-list">
-                <h2>Your Dreams</h2>
-                <!-- Placeholder for dreams list -->
-                <ul id="dreamsList">
-                    <!-- Dreams will be dynamically inserted here -->
-                </ul>
-            </div>
-            <div class="actions">
-                <button id="addDreamButton">Add New Dream</button>
-            </div>
-        </div>
+        <body>
+            <h2>User Sentiment Trend</h2>
+            <img src="data:image/png;base64,{{ plot_url }}" alt="Trend Plot">
+        </body>
 
         <script src="/static/js/dashboard.js"></script>
     </body>
