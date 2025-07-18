@@ -17,6 +17,6 @@ Rather than viewing each input in isolation, the system will capture the sequenc
 
 ## Currently Working on
 
-Focusing on fast, local execution of models for audio, text, and image sentiment/emotion analysis using Using pretrained open-source models only.
+Focusing on fast, local execution of models for audio, text, and image sentiment/emotion analysis using pretrained open-source models only.
 
-Once single-sample, tri-modal analysis (image, audio, text) for one user is functional, then the idea is to extend the pipeline to handle multiple samples for the same user. This will allow us to observe how emotional indicators vary across different inputs over time. For each sample, we extract emotion or sentiment scores . These scores will then be timestamped and aligned to visualize emotion progression across time, enabling timeline-based analysis per user.
+Once single-sample, tri-modal analysis (image, audio, text) for one user is functional, then the idea is to extend the pipeline to handle multiple samples for the same user. This will allow us to observe how emotional indicators vary across different inputs over time. For each sample, we extract emotion or sentiment scores. These scores will then be timestamped and aligned to visualize emotion progression across time, enabling timeline-based analysis per user.

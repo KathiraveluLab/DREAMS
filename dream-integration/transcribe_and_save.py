@@ -8,13 +8,23 @@ def transcribe(audio_path):
         print(f"File not found: {audio_path}")
         return
 
-    model = whisper.load_model("tiny")
-    result = model.transcribe(str(audio_path))
+    try:
+        print("Loading Whisper model...")
+        model = whisper.load_model("tiny")
 
-    output_path = audio_path.with_suffix(".txt")
-    output_path.write_text(result["text"], encoding="utf-8")
+        print("Transcribing audio...")
+        result = model.transcribe(str(audio_path))
 
-    print(f" Transcription saved to: {output_path}")
+        output_path = audio_path.with_suffix(".txt")
+        
+        print("Saving transcript...")
+        output_path.write_text(result["text"], encoding="utf-8")
+
+        print(f"Transcription saved to: {output_path}")
+
+    except Exception as e:
+        print(f"An error occurred during transcription:\n{e}")
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
