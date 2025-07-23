@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block content %}
+    <div class="container mt-5">
+        <!-- Row container for cards -->
+        <div class="row">
+            {% for user in users %}
+                <!-- Each card takes up 4 columns (3 cards per row) -->
+                <div class="col-md-4 mb-4">
+                    <div class="card" style="width: 18rem;">
+                        <img src="https://imageio.forbes.com/specials-images/imageserve/5c76b7d331358e35dd2773a9/0x0.jpg?format=jpg&crop=4401,4401,x0,y0,safe&height=416&width=416&fit=bounds" class="card-img-top" alt="...">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ user }}</h5>
+                            <p class="card-text">Name : Zuck Mark</p>
+                            <p class="card-text">Email : somethign@beehive.com</p>
+                            <a href="{{ url_for('dashboard.profile', target=user)}}" class="btn btn-primary">Detailed Report</a>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+{% endblock %}
