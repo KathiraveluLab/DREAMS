@@ -14,12 +14,12 @@ def main():
     return render_template('dashboard/main.html', users=unique_users)
 
         
-@bp.route('/user/<int:target>', methods =['GET'])
+@bp.route('/user/<string:target>', methods =['GET'])
 def profile(target):
     mongo = current_app.mongo['posts']
     
 
-    target_user_id = str(target)
+    target_user_id = target
     user_posts = list(
     mongo.find({'user_id': target_user_id}).sort('timestamp', 1)
     )
