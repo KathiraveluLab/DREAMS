@@ -6,8 +6,10 @@ import pandas as pd
 import numpy as np
 import io
 import base64
+from flask_login import login_required
 
 @bp.route('/', methods =['GET'])
+@login_required
 def main():
     mongo = current_app.mongo['posts']
     unique_users = mongo.distinct('user_id')
@@ -15,6 +17,7 @@ def main():
 
         
 @bp.route('/user/<string:target>', methods =['GET'])
+@login_required
 def profile(target):
     mongo = current_app.mongo['posts']
     

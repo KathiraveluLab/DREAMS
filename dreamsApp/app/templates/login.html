@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<div class="container py-5 h-100">
+    <div class="row d-flex justify-content-center align-items-center h-100">
+        <div class="col-12 col-md-8 col-lg-6 col-xl-5">
+            <div class="card shadow-lg border-0" style="border-radius: 1rem;">
+                <div class="card-body p-5">
+                    
+                    <div class="text-center mb-4">
+                        <i class="fas fa-lock fa-3x text-dark mb-3"></i>
+                        <h3 class="fw-bold mb-2">Sign In to DREAMS</h3>
+                        <p class="text-muted">Enter your credentials to access your account.</p>
+                    </div>
+
+                    <form method="POST" action="{{ url_for('auth.login') }}">
+                        <div class="form-floating mb-3">
+                            <input type="text" class="form-control" id="username" name="username" placeholder="Username" required>
+                            <label for="username">Username</label>
+                        </div>
+
+                        <div class="form-floating mb-4">
+                            <input type="password" class="form-control" id="password" name="password" placeholder="Password" required>
+                            <label for="password">Password</label>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="remember" id="remember">
+                                <label class="form-check-label" for="remember">
+                                    Remember me
+                                </label>
+                            </div>
+                            <a href="#!" class="text-dark text-decoration-none small">Forgot password?</a>
+                        </div>
+
+                        <div class="d-grid">
+                            <button class="btn btn-dark btn-lg" type="submit">Login</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="card-footer text-center py-3 bg-transparent border-0">
+                    <div class="small">
+                        Don't have an account? <a href="{{ url_for('auth.register') }}" class="text-dark fw-bold text-decoration-none">Sign up</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .form-control:focus {
+        border-color: #212529; /* Bootstrap's dark color */
+        box-shadow: 0 0 0 0.25rem rgba(33, 37, 41, 0.25);
+    }
+    .form-check-input:checked {
+        background-color: #212529;
+        border-color: #212529;
+    }
+</style>
+{% endblock %}

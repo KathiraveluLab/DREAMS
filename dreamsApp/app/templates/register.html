@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Register{% endblock %}
+
+{% block content %}
+<div class="container py-5 h-100">
+    <div class="row d-flex justify-content-center align-items-center h-100">
+        <div class="col-12 col-md-8 col-lg-6 col-xl-5">
+            <div class="card shadow-lg border-0" style="border-radius: 1rem;">
+                <div class="card-body p-5">
+                    
+                    <div class="text-center mb-4">
+                        <i class="fas fa-user-plus fa-3x text-dark mb-3"></i>
+                        <h3 class="fw-bold mb-2">Create an Account</h3>
+                        <p class="text-muted">This Page Is Only To Be Accessed by Administrator</p>
+                    </div>
+
+                    <form method="POST" action="{{ url_for('auth.register') }}">
+                        <div class="form-floating mb-3">
+                            <input type="text" class="form-control" id="username" name="username" placeholder="Username" required>
+                            <label for="username">Username</label>
+                        </div>
+
+                        <div class="form-floating mb-3">
+                            <input type="email" class="form-control" id="email" name="email" placeholder="name@example.com" required>
+                            <label for="email">Email address</label>
+                        </div>
+
+                        <div class="form-floating mb-4">
+                            <input type="password" class="form-control" id="password" name="password" placeholder="Password" required>
+                            <label for="password">Password</label>
+                        </div>
+
+                        <div class="d-grid mt-4">
+                            <button class="btn btn-dark btn-lg" type="submit">Register</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="card-footer text-center py-3 bg-transparent border-0">
+                    <div class="small">
+                        Already have an account? <a href="{{ url_for('auth.login') }}" class="text-dark fw-bold text-decoration-none">Sign In</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .form-control:focus {
+        border-color: #212529; /* Bootstrap's dark color */
+        box-shadow: 0 0 0 0.25rem rgba(33, 37, 41, 0.25);
+    }
+</style>
+{% endblock %}
