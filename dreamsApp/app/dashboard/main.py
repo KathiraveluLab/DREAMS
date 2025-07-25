@@ -1,4 +1,4 @@
-from flask import render_template, request
+from flask import render_template, request, url_for
 from flask import current_app
 from . import bp
 import matplotlib.pyplot as plt
@@ -8,11 +8,18 @@ import io
 import base64
 
 @bp.route('/', methods =['GET'])
-def index():
+def main():
+    mongo = current_app.mongo['posts']
+    unique_users = mongo.distinct('user_id')
+    return render_template('dashboard/main.html', users=unique_users)
+
+        
+@bp.route('/user/<string:target>', methods =['GET'])
+def profile(target):
     mongo = current_app.mongo['posts']
     
 
-    target_user_id = "111"
+    target_user_id = target
     user_posts = list(
     mongo.find({'user_id': target_user_id}).sort('timestamp', 1)
     )
@@ -54,5 +61,5 @@ def index():
     buf.seek(0)
     plot_data = base64.b64encode(buf.read()).decode('utf-8')
     buf.close()
-    return render_template('dashboard/dashboard.html', plot_url=plot_data)
+    return render_template('dashboard/profile.html', plot_url=plot_data)
 
