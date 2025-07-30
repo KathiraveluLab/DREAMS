@@ -6,6 +6,7 @@ from flask import current_app
 from .  import bp
 
 from app.utils.sentiment import get_image_caption_and_sentiment
+from dreamsApp.app.utils.keywords import extract_keywords
 
 @bp.route('/upload', methods=['POST'])
 def upload_post():
@@ -22,8 +23,12 @@ def upload_post():
     image_path = os.path.join(upload_path, filename)
     image.save(image_path)
     result = get_image_caption_and_sentiment(image_path, caption)
+    
     sentiment = result["sentiment"]
     generated_caption = result["imgcaption"]
+    # keyword generation from the caption
+    keywords = extract_keywords(caption)
+    
 
     post_doc = {
         'user_id': user_id,

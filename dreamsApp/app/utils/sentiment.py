@@ -6,6 +6,8 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer, Auto
 import numpy as np
 from scipy.special import softmax
 import requests
+from setfit import AbsaModel
+
 
 # Load models once
 blip_processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-large")
@@ -15,6 +17,10 @@ sentiment_model_name = "cardiffnlp/twitter-roberta-base-sentiment-latest"
 sentiment_tokenizer = AutoTokenizer.from_pretrained(sentiment_model_name)
 sentiment_config = AutoConfig.from_pretrained(sentiment_model_name)
 sentiment_model = AutoModelForSequenceClassification.from_pretrained(sentiment_model_name)
+
+ASPECT_MODEL_ID = "tomaarsen/setfit-absa-paraphrase-mpnet-base-v2-restaurants-aspect"
+POLARITY_MODEL_ID = "tomaarsen/setfit-absa-paraphrase-mpnet-base-v2-restaurants-polarity"
+
 
 # Utility: load image from URL or path
 def load_image(path_or_url):
@@ -67,3 +73,30 @@ def get_image_caption_and_sentiment(image_path_or_url: str, caption: str,  promp
         "imgcaption": img_caption,
         "sentiment": top_sentiment  
     }
+
+def get_aspect(caption):
+    absa_model = AbsaModel.from_pretrained(
+        ASPECT_MODEL_ID,
+        POLARITY_MODEL_ID,
+        spacy_model="en_core_web_lm " # Pass as a keyword argument
+    )
+    if absa_model is None:
+        print("ABSA model is not initialized. Cannot perform aspect extraction.")
+        return None
+
+    # model.predict expects a list of strings
+    sentences = [caption]
+    aspects_predictions = absa_model.predict(sentences)
+
+    print(f"Full prediction output: {aspects_predictions}")
+
+    # The 'aspects_predictions' will be a list of dictionaries, one for each sentence.
+    # Each dictionary has a 'spans' key, which is a list of identified aspects.
+    # We want the 'spans' for the first (and only) sentence.
+    if aspects_predictions and 'spans' in aspects_predictions[0]:
+        extracted_spans = aspects_predictions[0]['spans']
+        print(f"Extracted aspects: {extracted_spans}")
+        return extracted_spans
+    else:
+        print("No aspects found or unexpected prediction format.")
+        return [] 
