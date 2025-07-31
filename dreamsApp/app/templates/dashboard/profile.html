@@ -1,12 +1,44 @@
 
 {% extends 'base.html' %}
 {% block content %}
-    <body> 
+
         <div class="container">
-        <body>
-            <h2>User Sentiment Trend</h2>
-            <img src="data:image/png;base64,{{ plot_url }}" alt="Trend Plot">
-        </body>
+            <div class="row">
+            <div class="col-md-12 text-center">
+                <h2>User Sentiment Trend</h2>
+                <img src="data:image/png;base64,{{ plot_url }}" alt="Trend Plot" class="img-fluid">
+            </div>
+            </div>
+            <div class="row">
+            <div class="col-md-6 text-center">
+                <h2>Positive Feelings  With</h2>
+                <img src="data:image/png;base64,{{ positive_wordcloud_url }}" alt="Positive Word Cloud" class="img-fluid" style="padding-bottom: 20px;">
+            </div>
+            <div class="col-md-6 text-center">
+                <h2>Negative Feelings With</h2>
+                <img src="data:image/png;base64,{{ negative_wordcloud_url }}" alt="Negative Word Cloud" class="img-fluid" style="padding-bottom: 20px;">
+            </div>
+            </div>
+        </div>
+        <style>
+            .container {
+            margin-top: 20px;
+            }
+            .text-center {
+            text-align: center;
+            }
+            .img-fluid {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 5px;
+            }
+            h2 {
+            color: #333;
+            margin-bottom: 20px;
+            }
+        </style>
 
         <script src="/static/js/dashboard.js"></script>
     </body>
