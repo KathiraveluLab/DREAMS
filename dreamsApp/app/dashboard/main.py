@@ -7,6 +7,7 @@ import numpy as np
 import io
 import base64
 from flask_login import login_required
+from wordcloud import WordCloud
 
 @bp.route('/', methods =['GET'])
 @login_required
@@ -16,6 +17,8 @@ def main():
     return render_template('dashboard/main.html', users=unique_users)
 
         
+import matplotlib.pyplot as plt
+
 @bp.route('/user/<string:target>', methods =['GET'])
 @login_required
 def profile(target):
@@ -64,5 +67,30 @@ def profile(target):
     buf.seek(0)
     plot_data = base64.b64encode(buf.read()).decode('utf-8')
     buf.close()
-    return render_template('dashboard/profile.html', plot_url=plot_data)
 
+    # Fetch keywords from MongoDB
+    keywords_data = current_app.mongo['keywords'].find_one({'user_id': target_user_id})
+    positive_keywords = keywords_data.get('positive_keywords', []) if keywords_data else []
+    negative_keywords = keywords_data.get('negative_keywords', []) if keywords_data else []
+
+    # Generate word cloud for positive keywords
+    wordcloud_positive = WordCloud(width=800, height=400, background_color='white').generate(' '.join(positive_keywords))
+
+    # Save word cloud to buffer
+    buf = io.BytesIO()
+    wordcloud_positive.to_image().save(buf, 'png')
+    buf.seek(0)
+    wordcloud_positive_data = base64.b64encode(buf.read()).decode('utf-8')
+    buf.close()
+
+    # Generate word cloud for negative keywords
+    wordcloud_negative = WordCloud(width=800, height=400, background_color='white').generate(' '.join(negative_keywords))
+
+    # Save word cloud to buffer
+    buf = io.BytesIO()
+    wordcloud_negative.to_image().save(buf, 'png')
+    buf.seek(0)
+    wordcloud_negative_data = base64.b64encode(buf.read()).decode('utf-8')
+    buf.close()
+
+    return render_template('dashboard/profile.html', plot_url=plot_data, positive_wordcloud_url=wordcloud_positive_data, negative_wordcloud_url=wordcloud_negative_data)

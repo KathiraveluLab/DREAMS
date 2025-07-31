@@ -6,6 +6,8 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer, Auto
 import numpy as np
 from scipy.special import softmax
 import requests
+from setfit import AbsaModel
+
 
 # Load models once
 blip_processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-large")
@@ -15,6 +17,10 @@ sentiment_model_name = "cardiffnlp/twitter-roberta-base-sentiment-latest"
 sentiment_tokenizer = AutoTokenizer.from_pretrained(sentiment_model_name)
 sentiment_config = AutoConfig.from_pretrained(sentiment_model_name)
 sentiment_model = AutoModelForSequenceClassification.from_pretrained(sentiment_model_name)
+
+ASPECT_MODEL_ID = "tomaarsen/setfit-absa-paraphrase-mpnet-base-v2-restaurants-aspect"
+POLARITY_MODEL_ID = "tomaarsen/setfit-absa-paraphrase-mpnet-base-v2-restaurants-polarity"
+
 
 # Utility: load image from URL or path
 def load_image(path_or_url):
