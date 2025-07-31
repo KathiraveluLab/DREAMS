@@ -6,7 +6,7 @@ from flask import current_app
 from .  import bp
 
 from app.utils.sentiment import get_image_caption_and_sentiment
-from dreamsApp.app.utils.keywords import extract_keywords
+from app.utils.keywords import extract_keyword
 
 @bp.route('/upload', methods=['POST'])
 def upload_post():
@@ -27,7 +27,35 @@ def upload_post():
     sentiment = result["sentiment"]
     generated_caption = result["imgcaption"]
     # keyword generation from the caption
-    keywords = extract_keywords(caption)
+    
+    if sentiment['label'] == 'negative':
+        keywords = extract_keyword(generated_caption)
+        keyword_type = 'negative_keywords'
+    elif sentiment['label'] == 'positive':
+        keywords = extract_keyword(generated_caption)
+        keyword_type = 'positive_keywords'
+    else:
+        keywords = []
+        keyword_type = None
+
+    if keywords:
+        mongo = current_app.mongo
+        result = mongo['keywords'].update_one(
+            {'user_id': user_id},
+            {'$push': {keyword_type: {'$each': keywords}}},
+            upsert=True
+        )
+        if result.upserted_id:
+            if keyword_type == 'negative_keywords':
+                mongo['keywords'].update_one(
+                    {'_id': result.upserted_id},
+                    {'$set': {'positive_keywords': []}}
+                )
+            elif keyword_type == 'positive_keywords':
+                mongo['keywords'].update_one(
+                    {'_id': result.upserted_id},
+                    {'$set': {'negative_keywords': []}}
+                )
     
 
     post_doc = {
