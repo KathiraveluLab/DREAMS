@@ -8,12 +8,22 @@ Rather than viewing each input in isolation, the system will capture the sequenc
 - Project structure sample data folders, virtual environment, and requirements file has been created.
 - Audio transcript generation using [OpenAI Whisper](https://github.com/openai/whisper).
 - One test sample added for person-01. Audio to text Conversion done Successfully.
+- Emotion analysis code framework (analysis/) added for modular model-based scoring
+- Text emotion scoring using DistilBERT added and results stored in structured format (analysis-p01/text_scores.json)
+- Requirements updated for transformers and torch dependencies
 
 ## Tools Used (Till Now)
 
 - Whisper (for audio transcription)
 - Python 3.x
 - Virtualenv
+- HuggingFace Transformers + DistilBERT (for text emotion scoring)
+- Torch (PyTorch backend)
+
+## Project Folder Highlights
+
+- dream-integration/analysis/: Contains modular scripts for analyzing text, audio and image inputs (Currently Working on this)
+- dream-integration/person-01/analysis-p01/: Stores per-user emotion scores in structured form (JSON)
 
 ## Currently Working on
 

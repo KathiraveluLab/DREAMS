@@ -1,0 +1,62 @@
+{
+  "clip-01.txt": [
+    {
+      "label": "joy",
+      "score": 0.9708040356636047
+    },
+    {
+      "label": "neutral",
+      "score": 0.014333289116621017
+    },
+    {
+      "label": "sadness",
+      "score": 0.00869052018970251
+    },
+    {
+      "label": "surprise",
+      "score": 0.0025650435127317905
+    },
+    {
+      "label": "disgust",
+      "score": 0.0019695337396115065
+    },
+    {
+      "label": "anger",
+      "score": 0.0012010227655991912
+    },
+    {
+      "label": "fear",
+      "score": 0.0004366276552900672
+    }
+  ],
+  "description-01.txt": [
+    {
+      "label": "joy",
+      "score": 0.9864851236343384
+    },
+    {
+      "label": "neutral",
+      "score": 0.005278781056404114
+    },
+    {
+      "label": "sadness",
+      "score": 0.004085559863597155
+    },
+    {
+      "label": "disgust",
+      "score": 0.0014205722836777568
+    },
+    {
+      "label": "anger",
+      "score": 0.001338688307441771
+    },
+    {
+      "label": "surprise",
+      "score": 0.0010697623947635293
+    },
+    {
+      "label": "fear",
+      "score": 0.0003214319876860827
+    }
+  ]
+}
