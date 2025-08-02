@@ -6,7 +6,10 @@ from flask import current_app
 from .  import bp
 
 from app.utils.sentiment import get_image_caption_and_sentiment
-from app.utils.keywords import extract_keyword
+from app.utils.keywords import extract_keywords_and_vectors
+from sentence_transformers import SentenceTransformer
+model = SentenceTransformer("all-MiniLM-L6-V2")
+
 
 @bp.route('/upload', methods=['POST'])
 def upload_post():
@@ -28,34 +31,36 @@ def upload_post():
     generated_caption = result["imgcaption"]
     # keyword generation from the caption
     
+    # Extract keyword + vector pairs
     if sentiment['label'] == 'negative':
-        keywords = extract_keyword(generated_caption)
+        keywords_with_vectors = extract_keywords_and_vectors(generated_caption)
         keyword_type = 'negative_keywords'
     elif sentiment['label'] == 'positive':
-        keywords = extract_keyword(generated_caption)
+        keywords_with_vectors = extract_keywords_and_vectors(generated_caption)
         keyword_type = 'positive_keywords'
     else:
-        keywords = []
+        keywords_with_vectors = []
         keyword_type = None
 
-    if keywords:
+    if keywords_with_vectors:
         mongo = current_app.mongo
         result = mongo['keywords'].update_one(
             {'user_id': user_id},
-            {'$push': {keyword_type: {'$each': keywords}}},
+            {'$push': {keyword_type: {'$each': keywords_with_vectors}}},
             upsert=True
         )
-        if result.upserted_id:
-            if keyword_type == 'negative_keywords':
-                mongo['keywords'].update_one(
-                    {'_id': result.upserted_id},
-                    {'$set': {'positive_keywords': []}}
-                )
-            elif keyword_type == 'positive_keywords':
-                mongo['keywords'].update_one(
-                    {'_id': result.upserted_id},
-                    {'$set': {'negative_keywords': []}}
-                )
+
+    if result.upserted_id:
+        if keyword_type == 'negative_keywords':
+            mongo['keywords'].update_one(
+                {'_id': result.upserted_id},
+                {'$set': {'positive_keywords': []}}
+            )
+        elif keyword_type == 'positive_keywords':
+            mongo['keywords'].update_one(
+                {'_id': result.upserted_id},
+                {'$set': {'negative_keywords': []}}
+            )
     
 
     post_doc = {
