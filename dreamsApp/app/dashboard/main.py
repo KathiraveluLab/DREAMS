@@ -8,6 +8,8 @@ import io
 import base64
 from flask_login import login_required
 from wordcloud import WordCloud
+from app.utils.llms import generate
+from flask import jsonify
 
 @bp.route('/', methods =['GET'])
 @login_required
@@ -49,29 +51,51 @@ def profile(target):
     df["rolling_avg"] = df["score"].rolling(window=5, min_periods=1).mean()
     df["ema_score"] = df["score"].ewm(span=5, adjust=False).mean()
 
+    # 📈 Create user-friendly visual
     plt.figure(figsize=(12, 6))
-    plt.plot(df["timestamp"], df["cumulative_score"], label="Cumulative Sentiment", color="blue", marker="o", alpha=0.5)
-    plt.plot(df["timestamp"], df["rolling_avg"], label="Rolling Avg (5 days)", color="orange", linestyle="--", marker="x")
-    plt.plot(df["timestamp"], df["ema_score"], label="EMA (span=5)", color="green", linestyle="-", marker="s")
+
+    plt.plot(df["timestamp"], df["cumulative_score"],
+            label="Overall Emotional Journey", color="blue", marker="o", alpha=0.5)
+
+    plt.plot(df["timestamp"], df["rolling_avg"],
+            label="5-Day Emotional Smoothing", color="orange", linestyle="--", marker="x")
+
+    plt.plot(df["timestamp"], df["ema_score"],
+            label="Recent Emotional Trend", color="green", linestyle="-", marker="s")
+
     plt.axhline(0, color="gray", linestyle="--", linewidth=1)
-    plt.title(f"Sentiment Trend for User {target_user_id}")
-    plt.xlabel("Date")
-    plt.ylabel("Sentiment Score")
-    plt.legend()
+
+    #  Friendly and interpretive title and axis labels
+    plt.title("How This Person’s Feelings Shifted Over Time", fontsize=14)
+    plt.xlabel("When Posts Were Made", fontsize=12)
+    plt.ylabel("Mood Score (Higher = Happier)", fontsize=12)
+
+    #  Improve legend
+    plt.legend(title="What the Lines Mean", fontsize=10)
     plt.grid(True)
     plt.xticks(rotation=45)
     plt.tight_layout()
 
+    #  Save to base64 for embedding
     buf = io.BytesIO()
     plt.savefig(buf, format='png')
     buf.seek(0)
     plot_data = base64.b64encode(buf.read()).decode('utf-8')
     buf.close()
-
+    
     # Fetch keywords from MongoDB
     keywords_data = current_app.mongo['keywords'].find_one({'user_id': target_user_id})
-    positive_keywords = keywords_data.get('positive_keywords', []) if keywords_data else []
-    negative_keywords = keywords_data.get('negative_keywords', []) if keywords_data else []
+    positive_keywords = [item['keyword'] for item in keywords_data.get('positive_keywords', [])] if keywords_data else []
+    
+    negative_keywords =  [item['keyword'] for item in keywords_data.get('negative_keywords', [])] if keywords_data else []
+    
+    # Check if thematics exist in the database
+    thematics_data = current_app.mongo['thematic_analysis'].find_one({'user_id': str(target_user_id)})
+    
+    if not thematics_data or "data" not in thematics_data:
+        thematics = generate(str(target_user_id), positive_keywords, negative_keywords)
+    else:
+        thematics = thematics_data["data"]
 
     # Generate word cloud for positive keywords
     wordcloud_positive = WordCloud(width=800, height=400, background_color='white').generate(' '.join(positive_keywords))
@@ -93,7 +117,7 @@ def profile(target):
     wordcloud_negative_data = base64.b64encode(buf.read()).decode('utf-8')
     buf.close()
 
-    return render_template('dashboard/profile.html', plot_url=plot_data, positive_wordcloud_url=wordcloud_positive_data, negative_wordcloud_url=wordcloud_negative_data)
+    return render_template('dashboard/profile.html', plot_url=plot_data, positive_wordcloud_url=wordcloud_positive_data, negative_wordcloud_url=wordcloud_negative_data, thematics=thematics,user_id=str(target_user_id))
 
 @bp.route('/clusters/<user_id>')
 @login_required
@@ -121,3 +145,25 @@ def show_clusters(user_id):
         grouped[sentiment][cluster].append(keyword)
 
     return render_template('dashboard/clusters.html', grouped=grouped)
+
+@bp.route('/refresh_thematic/<user_id>', methods=['POST'])
+@login_required
+def thematic_refresh(user_id):
+    try:
+        keywords_data = current_app.mongo['keywords'].find_one({'user_id': str(user_id)})
+        positive_keywords = [item['keyword'] for item in keywords_data.get('positive_keywords', [])] if keywords_data else []
+
+        negative_keywords = [item['keyword'] for item in keywords_data.get('negative_keywords', [])] if keywords_data else []
+    
+        thematic_data = generate(str(user_id), positive_keywords, negative_keywords)
+        print("Refresed thematic data:")
+        
+        return jsonify({
+            "success": True,
+            "message": "Thematic updated successfully"
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 500

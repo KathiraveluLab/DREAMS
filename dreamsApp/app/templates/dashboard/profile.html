@@ -1,45 +1,183 @@
-
 {% extends 'base.html' %}
 {% block content %}
 
-        <div class="container">
-            <div class="row">
-            <div class="col-md-12 text-center">
-                <h2>User Sentiment Trend</h2>
-                <img src="data:image/png;base64,{{ plot_url }}" alt="Trend Plot" class="img-fluid">
+<style>
+    body {
+        background-color: #121212;
+        color: #e0e0e0;
+    }
+
+    h2.section-title {
+        font-weight: 600;
+        margin-bottom: 1rem;
+        color: #ffffff;
+    }
+
+    p.section-description {
+        font-size: 1rem;
+        color: #cccccc;
+        margin-bottom: 2rem;
+    }
+
+    .section {
+        padding: 3rem 0;
+        border-top: 1px solid #333;
+    }
+
+    .card {
+        background-color: #1e1e1e;
+        border: 1px solid #333;
+        border-radius: 1rem;
+        transition: transform 0.2s;
+        color: #e0e0e0;
+    }
+
+    .card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 0.5rem 1rem rgba(255, 255, 255, 0.05);
+    }
+
+    .card-header {
+        font-weight: 500;
+        font-size: 1.1rem;
+        border-bottom: none;
+        background-color: transparent;
+        color: #ffffff;
+    }
+
+    .img-section img {
+        border-radius: 0.75rem;
+        box-shadow: 0 0.5rem 1rem rgba(255, 255, 255, 0.05);
+        max-height: 350px;
+        object-fit: contain;
+        background-color: #222;
+    }
+
+    .btn-outline-primary {
+        border-color: #90caf9;
+        color: #90caf9;
+    }
+
+    .btn-outline-primary:hover {
+        background-color: #90caf9;
+        color: #121212;
+    }
+
+    .border-success-subtle {
+        border-color: #2e7d32 !important;
+    }
+
+    .border-danger-subtle {
+        border-color: #c62828 !important;
+    }
+
+    .bg-success {
+        background-color: #2e7d32 !important;
+    }
+
+    .bg-danger {
+        background-color: #c62828 !important;
+    }
+</style>
+
+<div class="container">
+
+    <!-- Sentiment Trend -->
+    <section class="section text-center">
+        <h2 class="section-title">How Has the Mood Changed Over Time?</h2>
+        <p class="section-description">
+            This chart shows how the user's emotional tone has shifted over time, based on their shared captions.
+        </p>
+        <div class="img-section">
+            <img src="data:image/png;base64,{{ plot_url }}" alt="Sentiment Trend Over Time" class="img-fluid">
+        </div>
+    </section>
+
+    <!-- Wordclouds -->
+    <section class="section">
+        <div class="row justify-content-center text-center">
+            <div class="col-md-6 mb-4" style="border-right: 3px solid #333;">
+                <h2 class="section-title">What Makes Them Smile?</h2>
+                <p class="section-description">These are the most common words in positive moments.</p>
+                <img src="data:image/png;base64,{{ positive_wordcloud_url }}" alt="Positive Word Cloud" class="img-fluid">
             </div>
-            </div>
-            <div class="row">
-            <div class="col-md-6 text-center">
-                <h2>Positive Feelings  With</h2>
-                <img src="data:image/png;base64,{{ positive_wordcloud_url }}" alt="Positive Word Cloud" class="img-fluid" style="padding-bottom: 20px;">
-            </div>
-            <div class="col-md-6 text-center">
-                <h2>Negative Feelings With</h2>
-                <img src="data:image/png;base64,{{ negative_wordcloud_url }}" alt="Negative Word Cloud" class="img-fluid" style="padding-bottom: 20px;">
-            </div>
+            <div class="col-md-6 mb-4">
+                <h2 class="section-title">What’s Been Difficult?</h2>
+                <p class="section-description">These are the words often found in negative or hard moments.</p>
+                <img src="data:image/png;base64,{{ negative_wordcloud_url }}" alt="Negative Word Cloud" class="img-fluid">
             </div>
         </div>
-        <style>
-            .container {
-            margin-top: 20px;
-            }
-            .text-center {
-            text-align: center;
-            }
-            .img-fluid {
-            max-width: 100%;
-            height: auto;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            padding: 5px;
-            }
-            h2 {
-            color: #333;
-            margin-bottom: 20px;
-            }
-        </style>
+    </section>
 
-        <script src="/static/js/dashboard.js"></script>
-    </body>
+    <!-- Positive Themes -->
+    <section class="section text-center">
+        <h2 class="section-title">Uplifting Themes</h2>
+        <p class="section-description">
+            These recurring ideas and topics show what brings hope, joy, or comfort to the user.
+        </p>
+        <div class="row justify-content-center">
+            {% for item in thematics.positive %}
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 border border-success-subtle shadow-sm">
+                    <div class="card-header bg-success bg-opacity-75 text-white">
+                        {{ item.theme }}
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">{{ item.meaning }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- Negative Themes -->
+    <section class="section text-center">
+        <h2 class="section-title">Challenging Themes</h2>
+        <p class="section-description">
+            These themes reflect pain points or struggles that appear frequently in the user’s expressions.
+        </p>
+        <div class="row justify-content-center">
+            {% for item in thematics.negative %}
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 border border-danger-subtle shadow-sm">
+                    <div class="card-header bg-danger bg-opacity-75 text-white">
+                        {{ item.theme }}
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">{{ item.meaning }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            <div class="text-end my-3">
+                <button class="btn btn-outline-primary" onclick="refreshThematic()">🔄 Refresh Thematic Analysis</button>
+            </div>
+        </div>
+    </section>
+
+</div>
+
+<script>
+    const userId = "{{ user_id }}";  // make sure this is being passed in the Flask route
+
+    function refreshThematic() {
+        fetch(`/dashboard/refresh_thematic/${userId}`, {
+            method: "POST"
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert("Refreshed successfully!");
+                location.reload();
+            } else {
+                alert("Failed to refresh: " + data.message);
+            }
+        })
+        .catch(error => {
+            alert("Failed to refresh: " + error.message);
+        });
+    }
+</script>
+
 {% endblock %}
