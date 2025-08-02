@@ -94,3 +94,30 @@ def profile(target):
     buf.close()
 
     return render_template('dashboard/profile.html', plot_url=plot_data, positive_wordcloud_url=wordcloud_positive_data, negative_wordcloud_url=wordcloud_negative_data)
+
+@bp.route('/clusters/<user_id>')
+@login_required
+def show_clusters(user_id):
+    mongo = current_app.mongo
+    user_doc = mongo['keywords'].find_one({'user_id': user_id})
+
+    if not user_doc or 'clustered_keywords' not in user_doc:
+        return "No clusters found.", 404
+
+    clustered_data = user_doc['clustered_keywords']
+
+    # Group by sentiment → cluster → keywords
+    grouped = {}
+    for item in clustered_data:
+        sentiment = item['sentiment']
+        cluster = item['cluster']
+        keyword = item['keyword']
+
+        if sentiment not in grouped:
+            grouped[sentiment] = {}
+        if cluster not in grouped[sentiment]:
+            grouped[sentiment][cluster] = []
+
+        grouped[sentiment][cluster].append(keyword)
+
+    return render_template('dashboard/clusters.html', grouped=grouped)
