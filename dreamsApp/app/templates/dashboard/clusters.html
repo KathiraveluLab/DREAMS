@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+  <title>Keyword Clusters</title>
+  <style>
+    body { font-family: sans-serif; padding: 2rem; }
+    .sentiment {
+      margin-top: 2rem;
+      padding: 1rem;
+      background: #f7f7f7;
+      border-radius: 10px;
+    }
+    .cluster {
+      margin-top: 1rem;
+      padding: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      background: #fff;
+    }
+    .cluster-title {
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+      color: #444;
+    }
+    .keyword {
+      margin-left: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>Clusters for User</h1>
+  {% for sentiment, clusters in grouped.items() %}
+    <div class="sentiment">
+      <h2>{{ sentiment.replace('_', ' ').title() }}</h2>
+      {% for cluster, keywords in clusters.items() %}
+        <div class="cluster">
+          <div class="cluster-title">
+            Cluster: {{ cluster if cluster != 'noise' else "Noise / Unclustered" }}
+          </div>
+          {% for keyword in keywords %}
+            <div class="keyword">- {{ keyword }}</div>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+  {% endfor %}
+</body>
+{% endblock %}
+</html>
