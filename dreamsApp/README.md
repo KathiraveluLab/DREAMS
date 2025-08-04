@@ -1,95 +1,58 @@
-# DREAMS
-
-DREAMS is a Flask web application for uploading images and captions, performing sentiment analysis, extracting keywords, clustering, and visualizing user emotional journeys over time.
-
-## Features
-
-- **User Authentication** (Flask-Login)
-- **Image & Caption Upload**
-- **Sentiment Analysis** on captions
-- **Keyword Extraction** and clustering
-- **User Dashboard** with emotional journey plots and word clouds
-- **MongoDB** backend for data storage
-
-## Requirements
-
-- Python 3.8+
-- MongoDB
-- [See `requirements.txt` for Python dependencies]
-
-## Setup
-
-1. **Clone the repository**
-    ```bash
-    git clone https://github.com/yourusername/dreams.git
-    cd dreams
-    ```
-
-2. **Create a virtual environment and activate it**
-    ```bash
-    python3 -m venv myenv
-    source myenv/bin/activate
-    ```
-
-3. **Install dependencies**
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-4. **Configure environment variables**
-
-    Create a `.env` file or edit `dreamsApp/app/config.py` with your MongoDB URI and other settings:
-    ```
-    MONGO_URI=mongodb://localhost:27017/
-    MONGO_DB_NAME=dreams_db
-    SECRET_KEY=your_secret_key
-    UPLOAD_FOLDER=uploads
-    ```
-
-5. **Run MongoDB**
-
-    Make sure MongoDB is running locally or update the URI for your setup.
-
-6. **Run the app**
-    ```bash
-    export FLASK_APP=dreamsApp
-    export FLASK_ENV=development
-    flask run
-    ```
-
-## Usage
-
-- Register and log in.
-- Upload images and captions.
-- View your dashboard for emotional journey and keyword analysis.
-- Admins can run clustering via `/run_clustering`.
-
-## Project Structure
-
-```
-dreamsApp/
-  app/
-    __init__.py
-    models.py
-    auth/
-    dashboard/
-    ingestion/
-    utils/
-  requirements.txt
-  README.md
-```
-
-## API Endpoints
-
-- `POST /ingestion/upload` — Upload a post (image + caption)
-- `GET /dashboard/` — Main dashboard
-- `GET /dashboard/user/<user_id>` — User profile with analytics
-- `GET /ingestion/run_clustering` — Run keyword clustering
-
-## License
-
-MIT License
+# DREAMS 
+**Documenting Recovery Experiences through Emotion-Aware Multimedia Stories**
 
 ---
 
-*For questions or contributions, please open an issue or pull request.*
+## Overview
+**DREAMS** is an open-source, research-ready platform designed to support **clinicians**, **researchers**, and **mental health professionals** in analyzing how individuals document recovery journeys through photos and captions.
+
+By combining **natural language processing**, **temporal analysis**, and **thematic clustering**, DREAMS enables the study of emotional trajectories and life narratives — particularly within **vulnerable or marginalized communities**.
+
+---
+
+##  Who Is This For?
+
+-  **Researchers** studying behavioral health, narrative medicine, or digital mental health
+-  **Psychologists / Clinicians** interested in tracking emotional patterns in patients
+-  **Community Organizations** supporting recovery and social well-being
+-  **Developers** working at the intersection of AI and social good
+
+---
+
+##  What Does DREAMS Do?
+
+| Feature                         | Description                                                                 |
+|----------------------------------|-----------------------------------------------------------------------------|
+|  Caption Sentiment Analysis     | Real-time classification of emotional tone from user-written captions      |
+|  Keyword Clustering              | Groups keywords from captions into themes over time                        |
+|  Temporal Narrative Modeling    | Tracks how sentiment and themes evolve chronologically                     |
+|  Location-Aware Mood Insights   | (Coming soon) Compare emotional trends across recurring or similar places  |
+|  LLM-Based Thematic Summaries   | Uses language models to extract deeper narrative meaning                   |
+
+---
+
+## Architecture and Flow
+
+At a high level, DREAMS uses a modular architecture:
+
+1.  **Data Ingestion**: Users upload photos and captions via a web or mobile interface of Beehive.
+2.  **NLP Pipeline**: Captions are processed for sentiment, keywords, and other features.
+3.  **Analysis Engine**: Temporal and thematic analyses are performed.
+4.  **Visualization**: Results are displayed through interactive dashboards.
+
+→ Architecture diagrams & schema are available in [`/docs`](./docs/)
+
+##  Use Cases
+
+- **Track recovery progress** across months via emotional sentiment from image captions
+- **Identify thematic triggers** (e.g. certain places or topics linked to mood changes)
+- **Study collective healing patterns** in group-based recovery programs
+- **Enable personalized, data-driven mental health interventions**
+
+---
+
+## Full documentation
+
+Detailed Documentation are available in ['/docs'](./docs/)
+
+
