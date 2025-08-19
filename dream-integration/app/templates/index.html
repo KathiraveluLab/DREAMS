@@ -1,0 +1,90 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>DREAMS Multimodal Analysis</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+  <div class="container">
+    <h1> DREAMS Multimodal Analysis (Local Simulation)</h1>
+
+    <form method="get" action="{{ url_for('index') }}" class="picker">
+      <label>
+        Person:
+        <select name="person" onchange="this.form.submit()">
+          {% for p in persons %}
+            <option value="{{ p }}" {% if p == selected_person %}selected{% endif %}>{{ p }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>
+        Sample:
+        <select name="sample" onchange="this.form.submit()">
+          {% for s in samples %}
+            <option value="{{ s }}" {% if s == selected_sample %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </form>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul class="flash">
+          {% for category, message in messages %}
+            <li class="{{ category }}">{{ message }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    <div class="grid">
+      <div class="card">
+        <h2>Image</h2>
+        {% if img_url %}
+          <img src="{{ img_url }}" alt="sample image" class="preview">
+        {% else %}
+          <p>no image found in this sample.</p>
+        {% endif %}
+      </div>
+
+      <div class="card">
+        <h2>Transcript</h2>
+        <pre class="mono">{{ transcript_text or "—" }}</pre>
+      </div>
+
+      <div class="card">
+        <h2>Description</h2>
+        <pre class="mono">{{ description_text or "—" }}</pre>
+      </div>
+    </div>
+
+    <form method="post" action="{{ url_for('analyze') }}">
+      <input type="hidden" name="person" value="{{ selected_person }}">
+      <input type="hidden" name="sample" value="{{ selected_sample }}">
+      <button type="submit">Run Analysis</button>
+    </form>
+
+    <h2>Results</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>Text Scores</h3>
+        {% if text_scores %}
+          <pre class="mono">{{ text_scores | tojson(indent=2) }}</pre>
+        {% else %}
+          <p>not analyzed yet.</p>
+        {% endif %}
+      </div>
+      <div class="card">
+        <h3>Image Scores</h3>
+        {% if image_scores %}
+          <pre class="mono">{{ image_scores | tojson(indent=2) }}</pre>
+        {% else %}
+          <p>not analyzed yet.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</body>
+</html>
