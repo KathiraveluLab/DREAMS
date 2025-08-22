@@ -10,7 +10,8 @@ Rather than viewing each input in isolation, the system will capture the sequenc
 - One test sample added for person-01. Audio to text Conversion done Successfully.
 - Emotion analysis code framework (analysis/) added for modular model-based scoring
 - Text emotion scoring using DistilBERT added and results stored in structured format (analysis-p01/text_scores.json)
-- Requirements updated for transformers and torch dependencies
+- **Image sentiment analysis using DeepFace added to the analysis pipeline**
+- Requirements updated for transformers, torch, and image analysis dependencies
 
 ## Tools Used (Till Now)
 
@@ -19,6 +20,7 @@ Rather than viewing each input in isolation, the system will capture the sequenc
 - Virtualenv
 - HuggingFace Transformers + DistilBERT (for text emotion scoring)
 - Torch (PyTorch backend)
+- **DeepFace (for facial emotion/sentiment analysis)**
 
 ## Project Folder Highlights
 
