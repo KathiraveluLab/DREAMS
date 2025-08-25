@@ -4,7 +4,7 @@ nlp = spacy.load("en_core_web_lg")
 from datetime import datetime
 from sentence_transformers import SentenceTransformer
 
-model = SentenceTransformer("all-MiniLM-L6-v2")  # or whatever model you're using
+model = SentenceTransformer("all-MiniLM-L6-v2")  
 
 def extract_keywords_and_vectors(sentence, include_timestamp=True):
     doc = nlp(sentence)

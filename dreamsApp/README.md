@@ -53,6 +53,6 @@ At a high level, DREAMS uses a modular architecture:
 
 ## Full documentation
 
-Detailed Documentation are available in ['/docs'](./docs/)
+Detailed Documentation are available in [/docs](./docs/)
 
 
