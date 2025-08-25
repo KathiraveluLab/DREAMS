@@ -193,8 +193,8 @@ The DREAMS architecture is intentionally modular. Future extensions may include:
     Sentiment --> Database
     Preprocess --> MediaStorage[Save media files]
 
-    Admin[Admin Dashboard] -->|GET| DreamsAPI
-    Admin --> Auth[Authentication]
+    Admin[Admin Dashboard] --> Auth[Authentication]
+    Auth --> DreamsAPI
     DreamsAPI --> Database
     DreamsAPI --> MediaStorage
 ```
