@@ -1,77 +1,58 @@
-# Image Caption Sentiment Analysis API
-
-A lightweight Flask API for performing sentiment analysis using Hugging Face transformer model DistillBERT.
-
-
-## 📁 Project Structure
-    DREAMS/
-    ├── dreamsApp/
-    │   ├── __init__.py                #        App factory
-    │   ├── captionSentiments.py       # API logic and model loading
- 
-
-## 🧠 How It Works
-
-The API exposes a single endpoint:
-
-### 📮 POST `/sentiments/caption`
-
-**Request:**
-
-```json
-{
-  "caption": "I am getting better #recovring"
-}
-```
-
-**Response**
-```json
-[
-    {'label': 'POSITIVE',
-    'score': 0.9030401110649109
-    }
-]
-```
-## 💡 Use Case & Integration with Beehive
-
-This API is designed to classify the **sentiment** of a text caption—currently leveraging the powerful `distilBERT` model from Hugging Face. It plays a valuable role in analyzing patient recovery trends by extracting emotional context from captions uploaded alongside photos in Beehive.
-
-### 🧠 The Idea
-
-Whenever a user uploads a **photo** on Beehive and adds a **caption**, that caption is sent to this API:
-
-1. 🔁 Beehive → sends caption to `/sentiments/caption`
-2. 🧠 This API → returns sentiment classification
-3. 🧾 Beehive → stores this result in the database
-
-Over time, this data allows us to:
-
-- 🔍 Track patient emotional progress (improving, worsening, fluctuating)
-- 📊 Visualize trends in mental/emotional recovery
-- 🧠 Add valuable metadata to patient records
-- 🧪 Enable research on emotional impact of treatments
+# DREAMS 
+**Documenting Recovery Experiences through Emotion-Aware Multimedia Stories**
 
 ---
 
-### 🔬 Current Model
+## Overview
+**DREAMS** is an open-source, research-ready platform designed to support **clinicians**, **researchers**, and **mental health professionals** in analyzing how individuals document recovery journeys through photos and captions.
 
-- **Model**: `distilBERT-base-uncased-finetuned-sst-2-english`
-- **Why it works**: Lightweight, fast, and achieves excellent performance on general sentiment classification tasks.
-
----
-
-### 🚀 Future Plans
-
-As we gather more **domain-specific data** (medical captions), we aim to:
-
-- 🎯 **Fine-tune** the model on our own dataset
-- 🧾 Introduce **custom classes** (e.g., Hopeful, Anxious, Calm, etc.)
-- 📈 Improve accuracy through **data augmentation**
-- 🧠 Build a robust medical sentiment engine tailored to Beehive
+By combining **natural language processing**, **temporal analysis**, and **thematic clustering**, DREAMS enables the study of emotional trajectories and life narratives — particularly within **vulnerable or marginalized communities**.
 
 ---
 
-### 🤝 Why It Matters
+##  Who Is This For?
 
-This approach turns passive user input into **valuable insights**. It enables Beehive to go beyond storage and into intelligent analysis—helping caregivers, researchers, and patients themselves.
+-  **Researchers** studying behavioral health, narrative medicine, or digital mental health
+-  **Psychologists / Clinicians** interested in tracking emotional patterns in patients
+-  **Community Organizations** supporting recovery and social well-being
+-  **Developers** working at the intersection of AI and social good
+
+---
+
+##  What Does DREAMS Do?
+
+| Feature                         | Description                                                                 |
+|----------------------------------|-----------------------------------------------------------------------------|
+|  Caption Sentiment Analysis     | Real-time classification of emotional tone from user-written captions      |
+|  Keyword Clustering              | Groups keywords from captions into themes over time                        |
+|  Temporal Narrative Modeling    | Tracks how sentiment and themes evolve chronologically                     |
+|  Location-Aware Mood Insights   | (Coming soon) Compare emotional trends across recurring or similar places  |
+|  LLM-Based Thematic Summaries   | Uses language models to extract deeper narrative meaning                   |
+
+---
+
+## Architecture and Flow
+
+At a high level, DREAMS uses a modular architecture:
+
+1.  **Data Ingestion**: Users upload photos and captions via a web or mobile interface of Beehive.
+2.  **NLP Pipeline**: Captions are processed for sentiment, keywords, and other features.
+3.  **Analysis Engine**: Temporal and thematic analyses are performed.
+4.  **Visualization**: Results are displayed through interactive dashboards.
+
+→ Architecture diagrams & schema are available in [`/docs`](./docs/)
+
+##  Use Cases
+
+- **Track recovery progress** across months via emotional sentiment from image captions
+- **Identify thematic triggers** (e.g. certain places or topics linked to mood changes)
+- **Study collective healing patterns** in group-based recovery programs
+- **Enable personalized, data-driven mental health interventions**
+
+---
+
+## Full documentation
+
+Detailed Documentation is available in [/docs](./docs/)
+
 
