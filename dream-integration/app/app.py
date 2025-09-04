@@ -145,6 +145,22 @@ def analyze():
     img = find_image(sample_dir)
     transcript = find_transcript(sample_dir)
     description = find_description(sample_dir)
+    
+    # Check for audio if transcript missing
+    if not transcript:
+        audio_files = glob.glob(os.path.join(sample_dir, "clip-*.mp3")) + glob.glob(os.path.join(sample_dir, "clip-*.wav"))
+        if audio_files:
+            audio_path = audio_files[0]
+            try:
+                cmd_audio = [
+                    sys.executable, os.path.join(ANALYSIS_SCRIPTS_DIR, "transcribe_and_save.py"),
+                    audio_path
+                ]
+                subprocess.run(cmd_audio, check=True)
+                # After transcription, update transcript path
+                transcript = find_transcript(sample_dir)
+            except subprocess.CalledProcessError as e:
+                flash(f"Audio transcription failed: {e}", "error")
 
     # full paths
     img_path = os.path.join(sample_dir, img) if img else None
