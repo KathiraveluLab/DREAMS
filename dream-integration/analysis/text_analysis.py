@@ -7,7 +7,7 @@ classifier = pipeline("text-classification", model="j-hartmann/emotion-english-d
 
 # Custom Paths 
 input_dir = "/media/bagwan/BAGWAN/workspace/DREAMS/dream-integration/data/person-01/sample-01"         
-output_dir = "/media/bagwan/BAGWAN/workspace/DREAMS/dream-integration/data/person-01/analysis-p01"       
+output_dir = "/media/bagwan/BAGWAN/workspace/DREAMS/dream-integration/data/person-01/analysis-p01/sample-01"       
 os.makedirs(output_dir, exist_ok=True)
 
 # Files to analyse
