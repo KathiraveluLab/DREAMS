@@ -212,9 +212,9 @@ def analyze():
     transcript_path = os.path.join(sample_dir, transcript) if transcript else None
     description_path = os.path.join(sample_dir, description) if description else None
 
-    # Text analysis
+    # Text analysis - NEW: Check if output already exists
     text_out = os.path.join(out_dir, "text_scores.json")
-    if transcript_path or description_path:
+    if not os.path.exists(text_out) and (transcript_path or description_path):
         cmd_text = [
             sys.executable,
             os.path.join(ANALYSIS_SCRIPTS_DIR, "text_analysis.py"),
@@ -235,9 +235,9 @@ def analyze():
         except subprocess.CalledProcessError as e:
             flash(f"Text analysis failed: {e}", "error")
 
-    # Image analysis
+    # Image analysis - NEW: Check if output already exists
     img_out = os.path.join(out_dir, "image_scores.json")
-    if img_path:
+    if not os.path.exists(img_out) and img_path:
         cmd_img = [
             sys.executable,
             os.path.join(ANALYSIS_SCRIPTS_DIR, "image_analysis.py"),

@@ -7,6 +7,12 @@ def transcribe(audio_path):
     if not audio_path.exists():
         print(f"File not found: {audio_path}")
         return
+    
+    # Check if transcript already exists
+    output_path = audio_path.with_suffix(".txt")
+    if output_path.exists():
+        print(f"Transcript already exists: {output_path}")
+        return
 
     try:
         print("Loading Whisper model...")
