@@ -36,7 +36,24 @@ def find_image(sample_dir):
 
 def find_transcript(sample_dir):
     # For both clip-*.txt and transcript-*.txt
-    cand = sorted(glob.glob(os.path.join(sample_dir, "clip-*.txt")) + glob.glob(os.path.join(sample_dir, "transcript-*.txt")))
+    p = os.path.join(sample_dir, "transcript.txt")
+    if os.path.isfile(p):
+        return os.path.basename(p)
+
+    cand = sorted(glob.glob(os.path.join(sample_dir, "transcript-*.txt")))
+    if cand:
+        return os.path.basename(cand[0])
+
+    cand2 = sorted(glob.glob(os.path.join(sample_dir, "clip-*.txt")))
+    if cand2:
+        return os.path.basename(cand2[0])
+
+    return None
+
+def find_audio(sample_dir):
+    """Find any .mp3 or .wav file in sample_dir. Returns basename or None."""
+    cand = sorted(glob.glob(os.path.join(sample_dir, "*.mp3")) +
+                  glob.glob(os.path.join(sample_dir, "*.wav")))
     return os.path.basename(cand[0]) if cand else None
 
 def find_description(sample_dir):
@@ -139,23 +156,68 @@ def analyze():
     sample = request.form["sample"]
 
     sample_dir = os.path.join(DATA_DIR, person, sample)
+    person_dir = os.path.join(DATA_DIR, person)
     out_dir = get_analysis_dir(person, sample)
     os.makedirs(out_dir, exist_ok=True)
 
+    # Find files
     img = find_image(sample_dir)
     transcript = find_transcript(sample_dir)
     description = find_description(sample_dir)
 
-    # full paths
+    # Transcribe audio if transcript missing
+    if not transcript:
+        audio_basename = find_audio(sample_dir)
+        if audio_basename:
+            audio_path = os.path.join(sample_dir, audio_basename)
+            before_txt = set(glob.glob(os.path.join(sample_dir, "*.txt")))
+
+            try:
+                cmd_audio = [
+                    sys.executable,
+                    os.path.join(ANALYSIS_SCRIPTS_DIR, "transcribe_and_save.py"),
+                    audio_path
+                ]
+                subprocess.run(cmd_audio, check=True)
+
+                after_txt = set(glob.glob(os.path.join(sample_dir, "*.txt")))
+                new_txt = sorted(list(after_txt - before_txt))
+
+                # ignore description files
+                new_txt_filtered = [p for p in new_txt if not os.path.basename(p).lower().startswith("description")]
+
+                chosen = None
+                if new_txt_filtered:
+                    chosen = new_txt_filtered[0]
+                else:
+                    fallback = find_transcript(sample_dir)
+                    if fallback:
+                        chosen = os.path.join(sample_dir, fallback)
+
+                if chosen:
+                    target = os.path.join(sample_dir, "transcript.txt")
+                    if os.path.abspath(chosen) != os.path.abspath(target):
+                        if os.path.exists(target):
+                            os.remove(target)
+                        os.replace(chosen, target)
+                    transcript = "transcript.txt"
+                else:
+                    flash("Transcription finished but no transcript file detected.", "error")
+
+            except subprocess.CalledProcessError as e:
+                flash(f"Audio transcription failed: {e}", "error")
+
+    # Paths
     img_path = os.path.join(sample_dir, img) if img else None
     transcript_path = os.path.join(sample_dir, transcript) if transcript else None
     description_path = os.path.join(sample_dir, description) if description else None
 
-    # ---- Text analysis ----
+    # Text analysis
     text_out = os.path.join(out_dir, "text_scores.json")
     if transcript_path or description_path:
         cmd_text = [
-            sys.executable, os.path.join(ANALYSIS_SCRIPTS_DIR, "text_analysis.py"),
+            sys.executable,
+            os.path.join(ANALYSIS_SCRIPTS_DIR, "text_analysis.py"),
             "--output", text_out
         ]
         if transcript_path:
@@ -165,15 +227,22 @@ def analyze():
 
         try:
             subprocess.run(cmd_text, check=True)
+            # Fallback if script ignored --output
+            legacy_candidate = os.path.join(person_dir, "analysis-p01", "text_scores.json")
+            if not os.path.exists(text_out) and os.path.exists(legacy_candidate):
+                os.makedirs(os.path.dirname(text_out), exist_ok=True)
+                os.replace(legacy_candidate, text_out)
         except subprocess.CalledProcessError as e:
             flash(f"Text analysis failed: {e}", "error")
 
-    # ---- Image analysis ----
+    # Image analysis
     img_out = os.path.join(out_dir, "image_scores.json")
     if img_path:
         cmd_img = [
-            sys.executable, os.path.join(ANALYSIS_SCRIPTS_DIR, "image_analysis.py"),
-            "--image", img_path, "--output", img_out
+            sys.executable,
+            os.path.join(ANALYSIS_SCRIPTS_DIR, "image_analysis.py"),
+            "--image", img_path,
+            "--output", img_out
         ]
         try:
             subprocess.run(cmd_img, check=True)
@@ -181,7 +250,6 @@ def analyze():
             flash(f"Image analysis failed: {e}", "error")
 
     flash("Analysis complete.", "success")
-    # back to index with same selection
     return redirect(url_for("index", person=person, sample=sample))
 
 if __name__ == "__main__":
