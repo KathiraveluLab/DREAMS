@@ -40,7 +40,6 @@ def preprocess(text):
         new_text.append(t)
     return " ".join(new_text)
 
-# Main function
 def get_image_caption_and_sentiment(image_path_or_url: str, caption: str,  prompt: str = "a photography of"):
     raw_image = load_image(image_path_or_url)
 
