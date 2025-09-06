@@ -4,11 +4,11 @@
   <meta charset="utf-8" />
   <title>DREAMS Multimodal Analysis</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 </head>
 <body>
   <div class="container">
-    <h1><center>DREAMS Multimodal Analysis (Enhanced Charts)</center></h1>
+    <h1 style="text-align: center;">DREAMS Multimodal Analysis (Enhanced Charts)</h1>
 
     <form method="get" action="{{ url_for('index') }}" class="picker">
       <label>
@@ -169,7 +169,7 @@
     // Fallback Chart.js loader
     function loadChartJSFallback(callback) {
       const script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js';
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js';
       script.onload = function() {
         console.log('Chart.js fallback loaded');
         callback();
