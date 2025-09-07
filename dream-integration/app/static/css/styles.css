@@ -150,8 +150,8 @@ button:hover {
     border-radius: 12px;
     padding: 24px;
     margin-bottom: 24px;
-    height: 300px;
-    max-width: 500px;
+    height: 400px;
+    max-width: 700px;
     margin-left: auto;
     margin-right: auto;
     position: relative;
@@ -278,9 +278,9 @@ button:hover {
 }
 
 #debugInfo {
-    background: rgba(31, 41, 55, 0.9) !important;
-    color: #d1d5db !important;
-    border: 1px solid rgba(107, 114, 128, 0.3) !important;
+    background: rgba(31, 41, 55, 0.9);
+    color: #d1d5db;
+    border: 1px solid rgba(107, 114, 128, 0.3);
     border-radius: 8px;
     padding: 10px;
     margin: 10px 0;
@@ -342,20 +342,6 @@ button:hover {
     box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
 }
 
-.chart-container {
-    background: rgba(249, 250, 251, 0.95);
-    border: 1px solid rgba(107, 114, 128, 0.3);
-    border-radius: 12px;
-    padding: 24px;
-    margin-bottom: 24px;
-    height: 400px;
-    max-width: 700px;
-    margin-left: auto;
-    margin-right: auto;
-    position: relative;
-    overflow: hidden;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-}
 
 .chart-wrapper {
     width: 100%;
