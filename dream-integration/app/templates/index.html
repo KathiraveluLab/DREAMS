@@ -4,10 +4,11 @@
   <meta charset="utf-8" />
   <title>DREAMS Multimodal Analysis</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 </head>
 <body>
   <div class="container">
-    <h1> DREAMS Multimodal Analysis (Local Simulation)</h1>
+    <h1 style="text-align: center;">DREAMS Multimodal Analysis (Enhanced Charts)</h1>
 
     <form method="get" action="{{ url_for('index') }}" class="picker">
       <label>
@@ -66,25 +67,649 @@
       <button type="submit">Run Analysis</button>
     </form>
 
-    <h2>Results</h2>
-    <div class="grid">
-      <div class="card">
-        <h3>Text Scores</h3>
-        {% if text_scores %}
-          <pre class="mono">{{ text_scores | tojson(indent=2) }}</pre>
-        {% else %}
-          <p>not analyzed yet.</p>
-        {% endif %}
+    <!-- EMOTION ANALYSIS RESULTS -->
+    {% if text_scores or image_scores %}
+    <div class="analysis-results">
+      <h2>📊 Enhanced Emotion Analysis Results</h2>
+      
+      <!-- Debug Info -->
+      <div id="debugInfo" style="background: #f0f0f0; padding: 10px; margin: 10px 0; font-family: monospace; font-size: 12px;">
+        <strong>Debug Information:</strong><br>
+        Text Scores Available: {{ 'Yes' if text_scores else 'No' }}<br>
+        Image Scores Available: {{ 'Yes' if image_scores else 'No' }}<br>
+        Chart.js Loaded: <span id="chartjsStatus">Checking...</span>
       </div>
-      <div class="card">
-        <h3>Image Scores</h3>
-        {% if image_scores %}
-          <pre class="mono">{{ image_scores | tojson(indent=2) }}</pre>
-        {% else %}
-          <p>not analyzed yet.</p>
-        {% endif %}
+      
+      <!-- Chart Type Controls -->
+      <div class="chart-controls">
+        <button class="chart-btn active" onclick="switchChart('radar')" id="radar-btn">
+          🎯 Radar Chart
+        </button>
+        <button class="chart-btn" onclick="switchChart('bar')" id="bar-btn">
+          📊 Bar Chart
+        </button>
+      </div>
+
+      <!-- Chart Descriptions -->
+      <div class="chart-description" id="chart-description">
+        Best for pattern recognition and comparative analysis. Enhanced visibility ensures even tiny emotions are visible!
+      </div>
+      
+      <!-- Chart Container -->
+      <div class="chart-container">
+        <!-- Radar Chart -->
+        <div class="chart-wrapper active" id="radar-wrapper">
+          <canvas id="emotionRadarChart" width="400" height="400"></canvas>
+        </div>
+        
+        <!-- Bar Chart -->
+        <div class="chart-wrapper" id="bar-wrapper">
+          <canvas id="emotionBarChart" width="400" height="400"></canvas>
+        </div>
+      </div>
+
+      <div class="zoom-hint">
+        💡 Tip: Use Ctrl+Scroll to zoom charts for better detail viewing
+      </div>
+
+      <!-- EMOTION CARDS WITH PROGRESS BARS -->
+      <div class="emotion-cards-grid" id="emotionCards">
+        <div style="grid-column: 1 / -1; text-align: center; padding: 20px; color: #666;">
+          Loading emotion analysis...
+        </div>
+      </div>
+
+      <!-- COLLAPSIBLE RAW JSON -->
+      <div class="collapsible-section">
+        <button class="collapsible-toggle" onclick="toggleCollapsible('rawData')">
+          📄 Raw Analysis Data <span class="toggle-icon">▼</span>
+        </button>
+        <div id="rawData" class="collapsible-content">
+          <div class="grid">
+            <div class="card">
+              <h3>Text Scores (Raw)</h3>
+              {% if text_scores %}
+                <pre class="mono">{{ text_scores | tojson(indent=2) }}</pre>
+              {% else %}
+                <p>not analyzed yet.</p>
+              {% endif %}
+            </div>
+            <div class="card">
+              <h3>Image Scores (Raw)</h3>
+              {% if image_scores %}
+                <pre class="mono">{{ image_scores | tojson(indent=2) }}</pre>
+              {% else %}
+                <p>not analyzed yet.</p>
+              {% endif %}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
+    {% endif %}
+
   </div>
+
+  <script type="text/javascript">
+    // Wait for Chart.js to load with multiple CDN fallbacks
+    function waitForChart(callback) {
+      if (typeof Chart !== 'undefined') {
+        console.log('Chart.js loaded successfully');
+        callback();
+      } else if (window.chartLoadAttempts < 5) {
+        window.chartLoadAttempts = (window.chartLoadAttempts || 0) + 1;
+        console.log('Waiting for Chart.js... attempt', window.chartLoadAttempts);
+        setTimeout(() => waitForChart(callback), 200);
+      } else {
+        console.error('Chart.js failed to load after 5 attempts, trying fallback...');
+        loadChartJSFallback(callback);
+      }
+    }
+
+    // Fallback Chart.js loader
+    function loadChartJSFallback(callback) {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js';
+      script.onload = function() {
+        console.log('Chart.js fallback loaded');
+        callback();
+      };
+      script.onerror = function() {
+        console.error('Chart.js fallback also failed to load');
+        document.getElementById('emotionRadarChart').innerHTML = 
+          '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #ef4444;">Chart.js failed to load. Please refresh the page.</div>';
+      };
+      document.head.appendChild(script);
+    }
+
+    // Data from Flask - with error handling
+    let textScores, imageScores;
+    try {
+      textScores = {{ text_scores | tojson | safe }};
+      imageScores = {{ image_scores | tojson | safe }};
+      console.log('Text scores loaded:', textScores);
+      console.log('Image scores loaded:', imageScores);
+    } catch (e) {
+      console.error('Error loading scores:', e);
+      textScores = {};
+      imageScores = {};
+    }
+
+    // Chart management
+    let currentChart = 'radar';
+    let charts = {};
+
+    // Update debug info
+    function updateDebugInfo() {
+      const chartStatus = document.getElementById('chartjsStatus');
+      if (chartStatus) {
+        chartStatus.textContent = typeof Chart !== 'undefined' ? 'Yes' : 'No';
+        chartStatus.style.color = typeof Chart !== 'undefined' ? 'green' : 'red';
+      }
+    }
+
+    // Enhanced scaling function for radar chart - guarantees minimum visibility
+    function enhanceVisibility(value) {
+      if (value === 0) return 0;
+      
+      // Multi-layered transformation for guaranteed visibility
+      let enhanced = value;
+      
+      // 1. Square root transformation (reduces large gaps)
+      enhanced = Math.sqrt(enhanced);
+      
+      // 2. Minimum boost (ensures tiny values are visible)
+      const minVisible = 0.15; // 15% minimum visibility
+      enhanced = Math.max(enhanced, minVisible);
+      
+      // 3. Logarithmic compression for very high values
+      if (enhanced > 0.8) {
+        enhanced = 0.8 + (enhanced - 0.8) * 0.3;
+      }
+      
+      return Math.min(enhanced, 1.0);
+    }
+
+    // Emotion processing functions
+    function normalizeImageScores(scores) {
+      const normalized = {};
+      for (const [emotion, score] of Object.entries(scores)) {
+        // Handle both 0-1 and 0-100 scales
+        const normalizedScore = score > 1 ? score / 100 : score;
+        normalized[emotion] = Math.max(0, Math.min(1, normalizedScore));
+      }
+      return normalized;
+    }
+
+    function averageTextScores(textData) {
+      if (!textData || Object.keys(textData).length === 0) return {};
+      
+      const emotionTotals = {};
+      const emotionCounts = {};
+      
+      // Sum up scores from all text files
+      for (const [filename, emotions] of Object.entries(textData)) {
+        if (Array.isArray(emotions)) {
+          emotions.forEach(item => {
+            if (item && item.label && typeof item.score === 'number') {
+              const emotion = item.label.toLowerCase();
+              const score = item.score;
+              emotionTotals[emotion] = (emotionTotals[emotion] || 0) + score;
+              emotionCounts[emotion] = (emotionCounts[emotion] || 0) + 1;
+            }
+          });
+        }
+      }
+      
+      // Calculate averages
+      const averaged = {};
+      for (const emotion of Object.keys(emotionTotals)) {
+        averaged[emotion] = emotionTotals[emotion] / emotionCounts[emotion];
+      }
+      
+      return averaged;
+    }
+
+    function getAllEmotions(textEmotions, imageEmotions) {
+      const allEmotions = new Set();
+      Object.keys(textEmotions).forEach(emotion => allEmotions.add(emotion.toLowerCase()));
+      Object.keys(imageEmotions).forEach(emotion => allEmotions.add(emotion.toLowerCase()));
+      return Array.from(allEmotions).sort();
+    }
+
+    // Chart switching function
+    function switchChart(chartType) {
+      // Update button states
+      document.querySelectorAll('.chart-btn').forEach(btn => btn.classList.remove('active'));
+      document.getElementById(`${chartType}-btn`).classList.add('active');
+      
+      // Update chart wrappers
+      document.querySelectorAll('.chart-wrapper').forEach(wrapper => wrapper.classList.remove('active'));
+      document.getElementById(`${chartType}-wrapper`).classList.add('active');
+      
+      // Update description
+      const descriptions = {
+        radar: "Best for pattern recognition and comparative analysis. Enhanced visibility ensures even tiny emotions are visible! Click legend to toggle datasets.",
+        bar: "Perfect for precise value reading and exact comparison. Shows original percentages without transformation.",
+      };
+      document.getElementById('chart-description').textContent = descriptions[chartType];
+      
+      currentChart = chartType;
+      
+      // Create chart if it doesn't exist
+      if (!charts[chartType]) {
+        createChart(chartType);
+      }
+    }
+
+    // Create different chart types
+    function createChart(chartType) {
+      // Process the actual Flask data
+      const textEmotions = averageTextScores(textScores);
+      const imageEmotions = imageScores && imageScores.emotion_scores ? 
+        normalizeImageScores(imageScores.emotion_scores) : {};
+      
+      console.log('Processed text emotions:', textEmotions);
+      console.log('Processed image emotions:', imageEmotions);
+      
+      const allEmotions = getAllEmotions(textEmotions, imageEmotions);
+      console.log('All emotions found:', allEmotions);
+      
+      if (allEmotions.length === 0) {
+        document.getElementById('emotionCards').innerHTML = 
+          '<div style="grid-column: 1 / -1; text-align: center; padding: 20px; color: #666;">No emotions detected in the analysis.</div>';
+        return;
+      }
+      
+      switch(chartType) {
+        case 'radar':
+          createRadarChart(allEmotions, textEmotions, imageEmotions);
+          break;
+        case 'bar':
+          createBarChart(allEmotions, textEmotions, imageEmotions);
+          break;
+      }
+    }
+
+    function createRadarChart(emotions, textEmotions, imageEmotions) {
+      const ctx = document.getElementById('emotionRadarChart');
+      if (!ctx || charts.radar) return;
+
+      const datasets = [];
+      
+      if (Object.keys(textEmotions).length > 0) {
+        datasets.push({
+          label: 'Text Analysis',
+          data: emotions.map(emotion => enhanceVisibility(textEmotions[emotion] || 0)),
+          borderColor: '#2563eb',
+          backgroundColor: '#2563eb30',
+          borderWidth: 3,
+          pointBackgroundColor: '#2563eb',
+          pointBorderColor: '#2563eb',
+          pointRadius: 6,
+          pointHoverRadius: 8
+        });
+      }
+      
+      if (Object.keys(imageEmotions).length > 0) {
+        datasets.push({
+          label: 'Image Analysis',
+          data: emotions.map(emotion => enhanceVisibility(imageEmotions[emotion] || 0)),
+          borderColor: '#dc2626',
+          backgroundColor: '#dc262630',
+          borderWidth: 3,
+          pointBackgroundColor: '#dc2626',
+          pointBorderColor: '#dc2626',
+          pointRadius: 6,
+          pointHoverRadius: 8
+        });
+      }
+
+      if (datasets.length === 0) {
+        console.log('No datasets to display');
+        return;
+      }
+
+      try {
+        charts.radar = new Chart(ctx, {
+          type: 'radar',
+          data: {
+            labels: emotions.map(e => e.charAt(0).toUpperCase() + e.slice(1)),
+            datasets: datasets
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            interaction: {
+              intersect: false
+            },
+            scales: {
+              r: {
+                beginAtZero: true,
+                max: 1,
+                ticks: {
+                  stepSize: 0.2,
+                  callback: function(value) {
+                    return (value * 100).toFixed(0) + '%';
+                  },
+                  font: {
+                    size: 12
+                  }
+                },
+                pointLabels: {
+                  font: {
+                    size: 13,
+                    weight: 'bold'
+                  }
+                },
+                grid: {
+                  color: '#e5e7eb'
+                },
+                angleLines: {
+                  color: '#e5e7eb'
+                }
+              }
+            },
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: {
+                  padding: 20,
+                  usePointStyle: true,
+                  font: {
+                    size: 14,
+                    weight: 'bold'
+                  }
+                },
+                onClick: function(evt, legendItem, legend) {
+                  // Allow toggling datasets by clicking legend
+                  const index = legendItem.datasetIndex;
+                  const chart = legend.chart;
+                  const meta = chart.getDatasetMeta(index);
+                  
+                  meta.hidden = meta.hidden === null ? !chart.data.datasets[index].hidden : null;
+                  chart.update();
+                }
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    const emotionName = emotions[context.dataIndex];
+                    const dataset = context.dataset.label;
+                    let originalValue;
+                    
+                    if (dataset === 'Text Analysis') {
+                      originalValue = textEmotions[emotionName] || 0;
+                    } else {
+                      originalValue = imageEmotions[emotionName] || 0;
+                    }
+                    
+                    return `${dataset}: ${(originalValue * 100).toFixed(1)}% (original)`;
+                  }
+                }
+              }
+            }
+          }
+        });
+        console.log('Radar chart created successfully');
+      } catch (error) {
+        console.error('Error creating radar chart:', error);
+      }
+    }
+
+    function createBarChart(emotions, textEmotions, imageEmotions) {
+      const ctx = document.getElementById('emotionBarChart');
+      if (!ctx || charts.bar) return;
+
+      const datasets = [];
+      
+      if (Object.keys(textEmotions).length > 0) {
+        datasets.push({
+          label: 'Text Analysis',
+          data: emotions.map(emotion => (textEmotions[emotion] || 0) * 100),
+          backgroundColor: '#2563eb',
+          borderColor: '#1d4ed8',
+          borderWidth: 1
+        });
+      }
+      
+      if (Object.keys(imageEmotions).length > 0) {
+        datasets.push({
+          label: 'Image Analysis',
+          data: emotions.map(emotion => (imageEmotions[emotion] || 0) * 100),
+          backgroundColor: '#dc2626',
+          borderColor: '#b91c1c',
+          borderWidth: 1
+        });
+      }
+
+      if (datasets.length === 0) {
+        console.log('No datasets to display in bar chart');
+        return;
+      }
+
+      try {
+        charts.bar = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: emotions.map(e => e.charAt(0).toUpperCase() + e.slice(1)),
+            datasets: datasets
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+              x: {
+                ticks: {
+                  color: '#374151',
+                  font: {
+                    size: 12,
+                    weight: 'bold'
+                  }
+                },
+                grid: {
+                  display: false
+                }
+              },
+              y: {
+                beginAtZero: true,
+                ticks: {
+                  callback: function(value) {
+                    return value + '%';
+                  },
+                  color: '#374151',
+                  font: {
+                    size: 12
+                  }
+                },
+                grid: {
+                  color: '#e5e7eb'
+                }
+              }
+            },
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: {
+                  padding: 20,
+                  usePointStyle: true,
+                  font: {
+                    size: 14,
+                    weight: 'bold'
+                  }
+                },
+                onClick: function(evt, legendItem, legend) {
+                  // Allow toggling datasets by clicking legend
+                  const index = legendItem.datasetIndex;
+                  const chart = legend.chart;
+                  const meta = chart.getDatasetMeta(index);
+                  
+                  meta.hidden = meta.hidden === null ? !chart.data.datasets[index].hidden : null;
+                  chart.update();
+                }
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    return `${context.dataset.label}: ${context.parsed.y.toFixed(1)}%`;
+                  }
+                }
+              }
+            }
+          }
+        });
+        console.log('Bar chart created successfully');
+      } catch (error) {
+        console.error('Error creating bar chart:', error);
+      }
+    }
+
+
+    function createProgressCards(emotions, textEmotions, imageEmotions) {
+      const container = document.getElementById('emotionCards');
+      if (!container) {
+        console.error('Emotion cards container not found');
+        return;
+      }
+
+      if (emotions.length === 0) {
+        container.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 20px; color: #666;">No emotions to display</div>';
+        return;
+      }
+
+      // Sort emotions by combined score (descending)
+      const emotionsWithScores = emotions.map(emotion => {
+        const textScore = textEmotions[emotion.toLowerCase()] || 0;
+        const imageScore = imageEmotions[emotion.toLowerCase()] || 0;
+        return {
+          emotion: emotion,
+          textScore: textScore,
+          imageScore: imageScore,
+          combinedScore: textScore + imageScore
+        };
+      }).sort((a, b) => b.combinedScore - a.combinedScore);
+
+      const cards = emotionsWithScores.map(({emotion, textScore, imageScore}) => {
+        return `
+          <div class="emotion-card">
+            <h3>${emotion.charAt(0).toUpperCase() + emotion.slice(1)}</h3>
+            <div class="progress-container">
+              <div class="progress-item">
+                <span class="progress-label">Text</span>
+                <div class="progress-bar">
+                  <div class="progress-fill text-fill" style="width: ${Math.max(0, Math.min(100, textScore * 100))}%"></div>
+                </div>
+                <span class="progress-value">${(textScore * 100).toFixed(1)}%</span>
+              </div>
+              <div class="progress-item">
+                <span class="progress-label">Image</span>
+                <div class="progress-bar">
+                  <div class="progress-fill image-fill" style="width: ${Math.max(0, Math.min(100, imageScore * 100))}%"></div>
+                </div>
+                <span class="progress-value">${(imageScore * 100).toFixed(1)}%</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      container.innerHTML = cards;
+      console.log('Progress cards created successfully and sorted by combined score');
+    }
+
+    // Process and visualize data
+    function initializeVisualization() {
+      console.log('Initializing visualization...');
+      
+      if (!textScores && !imageScores) {
+        console.log('No scores available');
+        return;
+      }
+
+      // Process scores
+      const textEmotions = averageTextScores(textScores);
+      const imageEmotions = imageScores && imageScores.emotion_scores ? 
+        normalizeImageScores(imageScores.emotion_scores) : {};
+      
+      console.log('Processed text emotions:', textEmotions);
+      console.log('Processed image emotions:', imageEmotions);
+      
+      const allEmotions = getAllEmotions(textEmotions, imageEmotions);
+      console.log('All emotions found:', allEmotions);
+      
+      if (allEmotions.length === 0) {
+        document.getElementById('emotionCards').innerHTML = 
+          '<div style="grid-column: 1 / -1; text-align: center; padding: 20px; color: #666;">No emotions detected in the analysis.</div>';
+        return;
+      }
+      
+      // Create initial radar chart
+      createChart('radar');
+      
+      // Create progress cards
+      createProgressCards(allEmotions, textEmotions, imageEmotions);
+    }
+
+    function toggleCollapsible(id) {
+      const content = document.getElementById(id);
+      if (!content) return;
+      
+      const toggle = content.previousElementSibling.querySelector('.toggle-icon');
+      
+      if (content.style.display === 'none' || !content.style.display) {
+        content.style.display = 'block';
+        if (toggle) toggle.textContent = '▲';
+      } else {
+        content.style.display = 'none';
+        if (toggle) toggle.textContent = '▼';
+      }
+    }
+
+    // Initialize when everything is ready
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('DOM loaded, waiting for Chart.js...');
+      updateDebugInfo();
+      
+      waitForChart(function() {
+        console.log('Chart.js loaded, initializing visualization...');
+        updateDebugInfo();
+        setTimeout(initializeVisualization, 100); // Small delay to ensure everything is ready
+      });
+    });
+
+    // Fallback initialization
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        if (document.getElementById('emotionCards').innerHTML.includes('Loading emotion analysis')) {
+          console.log('Fallback initialization triggered');
+          initializeVisualization();
+        }
+      }, 1000);
+    });
+
+    // Enable zoom with Ctrl+Scroll - Fixed to work properly
+    document.addEventListener('wheel', function(e) {
+      const chartContainer = e.target.closest('.chart-container');
+      
+      if (e.ctrlKey && chartContainer) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const scale = e.deltaY > 0 ? 0.9 : 1.1;
+        const currentTransform = chartContainer.style.transform || 'scale(1)';
+        const currentScale = parseFloat(currentTransform.match(/scale\(([^)]+)\)/)?.[1] || '1');
+        const newScale = Math.max(0.5, Math.min(2.5, currentScale * scale));
+        
+        chartContainer.style.transform = `scale(${newScale})`;
+        chartContainer.style.transformOrigin = 'center';
+        
+        // Add visual feedback
+        chartContainer.style.transition = 'transform 0.1s ease-out';
+        setTimeout(() => {
+          chartContainer.style.transition = '';
+        }, 100);
+      }
+    }, { passive: false });
+  </script>
 </body>
 </html>

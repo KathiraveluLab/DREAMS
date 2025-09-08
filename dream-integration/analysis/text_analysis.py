@@ -33,11 +33,10 @@ for file_path in files_to_analyze:
     output[os.path.basename(file_path)] = scores[0]  # keep filename as key
 
 # Ensure output dir exists
-os.makedirs(args.output, exist_ok=True)
+os.makedirs(os.path.dirname(args.output), exist_ok=True)
 
 # Save result
-output_file_path = os.path.join(args.output, "text_scores.json")
-with open(output_file_path, 'w', encoding='utf-8') as f:
+with open(args.output, 'w', encoding='utf-8') as f:
     json.dump(output, f, indent=2)
 
-print(f"Text analysis done. Results saved to {output_file_path}")
+print(f"Text analysis done. Results saved to {args.output}")

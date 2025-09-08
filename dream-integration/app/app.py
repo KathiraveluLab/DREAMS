@@ -212,9 +212,9 @@ def analyze():
     transcript_path = os.path.join(sample_dir, transcript) if transcript else None
     description_path = os.path.join(sample_dir, description) if description else None
 
-    # Text analysis
+    # Text analysis - NEW: Check if output already exists
     text_out = os.path.join(out_dir, "text_scores.json")
-    if transcript_path or description_path:
+    if not os.path.exists(text_out) and (transcript_path or description_path):
         cmd_text = [
             sys.executable,
             os.path.join(ANALYSIS_SCRIPTS_DIR, "text_analysis.py"),
@@ -227,27 +227,34 @@ def analyze():
 
         try:
             subprocess.run(cmd_text, check=True)
-            # Fallback if script ignored --output
-            legacy_candidate = os.path.join(person_dir, "analysis-p01", "text_scores.json")
+            # Fallback if script ignored --output (check inside sample folder too)
+            legacy_candidate = os.path.join(person_dir, "analysis-p01", sample, "text_scores.json")
             if not os.path.exists(text_out) and os.path.exists(legacy_candidate):
                 os.makedirs(os.path.dirname(text_out), exist_ok=True)
                 os.replace(legacy_candidate, text_out)
         except subprocess.CalledProcessError as e:
             flash(f"Text analysis failed: {e}", "error")
 
-    # Image analysis
+    # Image analysis - ensure output lands in correct folder
     img_out = os.path.join(out_dir, "image_scores.json")
     if img_path:
-        cmd_img = [
-            sys.executable,
-            os.path.join(ANALYSIS_SCRIPTS_DIR, "image_analysis.py"),
-            "--image", img_path,
-            "--output", img_out
-        ]
-        try:
-            subprocess.run(cmd_img, check=True)
-        except subprocess.CalledProcessError as e:
-            flash(f"Image analysis failed: {e}", "error")
+        # Only run if file doesn't already exist
+        if not os.path.exists(img_out):
+            cmd_img = [
+                sys.executable,
+                os.path.join(ANALYSIS_SCRIPTS_DIR, "image_analysis.py"),
+                "--image", img_path,
+                "--output", img_out
+            ]
+            try:
+                subprocess.run(cmd_img, check=True)
+                # Fallback: if script ignored --output
+                legacy_candidate_img = os.path.join(person_dir, "analysis-p01", sample, "image_scores.json")
+                if not os.path.exists(img_out) and os.path.exists(legacy_candidate_img):
+                    os.makedirs(os.path.dirname(img_out), exist_ok=True)
+                    os.replace(legacy_candidate_img, img_out)
+            except subprocess.CalledProcessError as e:
+                flash(f"Image analysis failed: {e}", "error")
 
     flash("Analysis complete.", "success")
     return redirect(url_for("index", person=person, sample=sample))
