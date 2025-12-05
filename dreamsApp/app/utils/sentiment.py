@@ -7,6 +7,7 @@ import numpy as np
 from scipy.special import softmax
 import requests
 from setfit import AbsaModel
+from flask import Blueprint, request, jsonify
 
 
 # Load models once
@@ -72,3 +73,30 @@ def get_image_caption_and_sentiment(image_path_or_url: str, caption: str,  promp
         "imgcaption": img_caption,
         "sentiment": top_sentiment  
     }
+
+bp = Blueprint("sentiment", __name__, url_prefix="/sentiment")
+
+
+@bp.route("/analyze", methods=["POST"])
+def analyze_sentiment():
+    """
+    Expects JSON body with:
+      - image_path_or_url (str)
+      - caption (str)
+    Returns:
+      - JSON with image caption and sentiment
+    """
+    data = request.get_json() or {}
+
+    image_path_or_url = data.get("image_path_or_url")
+    caption = data.get("caption", "")
+
+    if not image_path_or_url:
+        return jsonify({"error": "image_path_or_url is required"}), 400
+
+    result = get_image_caption_and_sentiment(
+        image_path_or_url=image_path_or_url,
+        caption=caption,
+    )
+
+    return jsonify(result), 200
