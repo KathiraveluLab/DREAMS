@@ -72,14 +72,14 @@ Sub-questions:
 
 **Composite Proximity Score**:
 ```
-P(L₁, L₂) = α·Pₘₑₒ(L₁, L₂) + β·Pᴄₐₜ(L₁, L₂) + γ·Pₗᵢₙₘ(L₁, L₂) + δ·Pᴄᵤₗₜ(L₁, L₂)
+P(L₁, L₂) = α·P_geo(L₁, L₂) + β·P_cat(L₁, L₂) + γ·P_ling(L₁, L₂) + δ·P_cult(L₁, L₂)
 ```
 
 Where:
-- **Pₘₑₒ**: Geographic proximity (Haversine distance, normalized)
-- **Pᴄₐₜ**: Categorical similarity (place type matching)
-- **Pₗᵢₙₘ**: Linguistic similarity (language context)
-- **Pᴄᵤₗₜ**: Cultural similarity (Jaccard index of cultural tags)
+- **P_geo**: Geographic proximity (Haversine distance, normalized)
+- **P_cat**: Categorical similarity (place type matching)
+- **P_ling**: Linguistic similarity (language context)
+- **P_cult**: Cultural similarity (Jaccard index of cultural tags)
 - **α, β, γ, δ**: Weights (Σ = 1.0)
 
 **Weight Selection**:
@@ -91,17 +91,17 @@ Where:
 
 **Exact Match**: Same place type → 1.0
 ```
-Pᴄₐₜ(church, church) = 1.0
+P_cat(church, church) = 1.0
 ```
 
 **Related Categories**: Functionally similar → 0.5
 ```
-Pᴄₐₜ(hospital, clinic) = 0.5
+P_cat(hospital, clinic) = 0.5
 ```
 
 **Different Categories**: Unrelated → 0.0
 ```
-Pᴄₐₜ(church, hospital) = 0.0
+P_cat(church, hospital) = 0.0
 ```
 
 **Category Groups**:

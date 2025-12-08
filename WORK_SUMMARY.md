@@ -81,13 +81,6 @@ Traditional location analysis uses only GPS coordinates. This module goes beyond
 - Expected findings
 - Validation metrics
 
-#### `INTEGRATION_GUIDE.md`
-- Step-by-step integration with DREAMS
-- Code examples
-- MongoDB schema updates
-- Template creation
-- Troubleshooting
-
 #### `requirements.txt`
 - Dependencies: Pillow, numpy, scikit-learn
 
@@ -160,12 +153,12 @@ P(L₁, L₂) = α·Pgeo + β·Pcat + γ·Pling + δ·Pcult
 
 ### Demo 1: Proximity Calculation
 ```
-St. Mary's Church <-> Holy Trinity Church: 0.889
-Alaska Native Medical Center <-> Providence Hospital: 0.816
+St. Mary's Church <-> Holy Trinity Church: 0.850
+Alaska Native Medical Center <-> Providence Hospital: 0.725
 St. Mary's Church <-> Hospital: 0.345
 ```
 
-**Insight**: Churches cluster together (0.889) despite different locations, while church-hospital proximity is low (0.345)
+**Insight**: Churches cluster together (0.850) despite different locations, while church-hospital proximity is low (0.345)
 
 ### Demo 2: Emotion-Location Mapping
 ```
@@ -264,17 +257,21 @@ User → Beehive → DREAMS API → ML Modules → MongoDB → Dashboard
 
 ## 📈 Future Enhancements
 
-### Phase 1 (Immediate)
+### Phase 2 (Next)
 - [ ] Google Places API integration
 - [ ] Automated place type detection
 - [ ] Interactive map visualization (Folium)
 
-### Phase 2 (Short-term)
+### Phase 3 (Future)
 - [ ] Real-time clustering as data arrives
 - [ ] Cross-user location analysis
 - [ ] Temporal-spatial pattern mining
 
-### Phase 3 (Long-term)
+- [ ] Real-time clustering as data arrives
+- [ ] Cross-user location analysis
+- [ ] Temporal-spatial pattern mining
+
+### Phase 4 (Long-term)
 - [ ] Image-based place recognition (CNN)
 - [ ] Causal inference methods
 - [ ] Federated learning for privacy
@@ -376,8 +373,7 @@ DREAMS/
 │   ├── test_proximity.py
 │   ├── requirements.txt
 │   ├── README.md
-│   ├── RESEARCH.md
-│   └── INTEGRATION_GUIDE.md
+│   └── RESEARCH.md
 ├── LOCATION_PROXIMITY_SUMMARY.md    # NEW
 ├── WORK_SUMMARY.md                  # NEW (this file)
 ├── dreamsApp/                       # EXISTING
