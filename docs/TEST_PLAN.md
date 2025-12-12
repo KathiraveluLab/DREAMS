@@ -249,7 +249,7 @@ Comprehensive testing strategy for the location-proximity analysis module, cover
 #### Test Case: SC-EC-001
 **Description**: Insufficient data for clustering
 **Input**: Dataset with only 2 locations
-**Expected Output**: Appropriate handling (no clusters or single cluster)
+**Expected Output**: Both points are labeled as noise (cluster label -1) if their distance exceeds eps. Otherwise, they form a single cluster.
 **Priority**: Medium
 
 #### Test Case: SC-EC-002
