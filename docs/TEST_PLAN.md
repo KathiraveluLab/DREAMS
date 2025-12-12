@@ -191,7 +191,7 @@ Comprehensive testing strategy for the location-proximity analysis module, cover
 #### Test Case: ELM-UT-005
 **Description**: Temporal emotion trend analysis
 **Input**: Location with sentiment data over 6 months
-**Expected Output**: Trend direction (improving/declining/stable)
+**Expected Output**: Trend is 'improving' if linear regression slope > 0.1, 'declining' if slope < -0.1, 'stable' if -0.1 ≤ slope ≤ 0.1
 **Priority**: Low
 
 ### Edge Cases
