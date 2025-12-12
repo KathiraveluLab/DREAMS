@@ -145,28 +145,25 @@ graph TD
 ## Component Integration Points
 
 ### 1. Photo Ingestion Integration
-```
-dreamsApp/app/ingestion/routes.py
-├── Extract EXIF data from uploaded photos
-├── Call location_proximity.location_extractor
-└── Store location data in post schema
-```
+
+**`dreamsApp/app/ingestion/routes.py`**
+- Extract EXIF data from uploaded photos
+- Call `location_proximity.location_extractor`
+- Store location data in post schema
 
 ### 2. Dashboard Integration
-```
-dreamsApp/app/dashboard/main.py
-├── Location analysis endpoints
-├── Proximity visualization routes
-└── Emotion-location pattern displays
-```
+
+**`dreamsApp/app/dashboard/main.py`**
+- Location analysis endpoints
+- Proximity visualization routes
+- Emotion-location pattern displays
 
 ### 3. API Extensions
-```
-/api/v1/locations/proximity
-├── Calculate proximity between locations
-├── Return multi-dimensional scores
-└── Support batch processing
-```
+
+**`/api/v1/locations/proximity`**
+- Calculate proximity between locations
+- Return multi-dimensional scores
+- Support batch processing
 
 ## Data Flow Architecture
 
