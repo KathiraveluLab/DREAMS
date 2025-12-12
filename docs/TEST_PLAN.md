@@ -185,7 +185,7 @@ Comprehensive testing strategy for the location-proximity analysis module, cover
 #### Test Case: ELM-UT-004
 **Description**: Compare place types sentiment
 **Input**: Multiple churches and hospitals with sentiment data
-**Expected Output**: Statistical comparison (mean, variance, significance)
+**Expected Output**: Mean sentiment for 'church' (e.g., 0.75) is significantly higher than for 'hospital' (e.g., 0.4), with a t-test p-value < 0.05
 **Priority**: Medium
 
 #### Test Case: ELM-UT-005
