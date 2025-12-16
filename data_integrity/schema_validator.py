@@ -39,7 +39,7 @@ def validate_schema(data: dict, schema_path: Optional[Path] = None) -> List[Vali
     
     # Try to load schema
     try:
-        with open(schema_path, 'r') as f:
+        with open(schema_path, 'r', encoding='utf-8') as f:
             schema = json.load(f)
     except json.JSONDecodeError as e:
         issues.append(ValidationIssue(
