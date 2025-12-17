@@ -1,9 +1,21 @@
 """Location proximity analysis module for photo clustering."""
 
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, TypedDict
 
 
-def extract_location(metadata: Dict) -> Optional[Dict]:
+class Location(TypedDict):
+    """Location data structure."""
+    lat: float
+    lon: float
+
+
+class ProximityResult(TypedDict):
+    """Proximity calculation result."""
+    distance: float
+    is_proximate: bool
+
+
+def extract_location(metadata: Dict) -> Optional[Location]:
     """Extract location data from photo metadata.
     
     Args:
@@ -12,10 +24,10 @@ def extract_location(metadata: Dict) -> Optional[Dict]:
     Returns:
         Dictionary with lat/lon coordinates and accuracy, or None if no location data
     """
-    pass
+    raise NotImplementedError
 
 
-def compute_proximity(location1: Dict, location2: Dict, threshold_meters: float) -> Dict:
+def compute_proximity(location1: Location, location2: Location, threshold_meters: float) -> ProximityResult:
     """Compute proximity between two geographic locations.
     
     Args:
@@ -26,10 +38,10 @@ def compute_proximity(location1: Dict, location2: Dict, threshold_meters: float)
     Returns:
         Dictionary with distance and proximity boolean result
     """
-    pass
+    raise NotImplementedError
 
 
-def cluster_locations(locations: List[Dict], proximity_threshold: float) -> List[List[Dict]]:
+def cluster_locations(locations: List[Location], proximity_threshold: float) -> List[List[Location]]:
     """Cluster locations based on geographic proximity.
     
     Args:
@@ -39,7 +51,7 @@ def cluster_locations(locations: List[Dict], proximity_threshold: float) -> List
     Returns:
         List of location clusters, each cluster is a list of nearby locations
     """
-    pass
+    raise NotImplementedError
 
 
 def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -54,7 +66,7 @@ def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     Returns:
         Distance in meters between the two points
     """
-    pass
+    raise NotImplementedError
 
 
 def validate_coordinates(lat: float, lon: float) -> bool:
@@ -67,11 +79,11 @@ def validate_coordinates(lat: float, lon: float) -> bool:
     Returns:
         True if coordinates are valid, False otherwise
     """
-    pass
+    raise NotImplementedError
 
 
-def find_nearby_locations(target_location: Dict, locations: List[Dict], 
-                         radius_meters: float) -> List[Dict]:
+def find_nearby_locations(target_location: Location, locations: List[Location], 
+                         radius_meters: float) -> List[Location]:
     """Find all locations within specified radius of target location.
     
     Args:
@@ -82,4 +94,4 @@ def find_nearby_locations(target_location: Dict, locations: List[Dict],
     Returns:
         List of locations within the specified radius
     """
-    pass
+    raise NotImplementedError
