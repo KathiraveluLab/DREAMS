@@ -1,0 +1,60 @@
+{
+  "proximity_expectations": {
+    "same_type_high": {
+      "church_001_church_002": {
+        "expected_range": [0.8, 1.0],
+        "reason": "Same type (church), same language, similar cultural tags"
+      },
+      "hospital_001_hospital_002": {
+        "expected_range": [0.7, 0.9], 
+        "reason": "Same type (hospital), same language, healthcare tags"
+      },
+      "park_001_park_002": {
+        "expected_range": [0.6, 0.8],
+        "reason": "Same type (park), same language, outdoor tags"
+      }
+    },
+    "different_type_low": {
+      "church_001_hospital_001": {
+        "expected_range": [0.1, 0.4],
+        "reason": "Different types, different cultural contexts"
+      },
+      "park_001_hospital_001": {
+        "expected_range": [0.1, 0.4], 
+        "reason": "Different types, recreational vs medical"
+      }
+    }
+  },
+  "clustering_expectations": {
+    "expected_clusters": 3,
+    "cluster_composition": {
+      "cluster_0": ["church_001", "church_002", "church_003"],
+      "cluster_1": ["hospital_001", "hospital_002", "hospital_003"], 
+      "cluster_2": ["park_001", "park_002", "park_003"]
+    },
+    "dbscan_params": {
+      "eps": 0.4,
+      "min_samples": 2
+    }
+  },
+  "emotion_expectations": {
+    "place_type_patterns": {
+      "church": {
+        "dominant_sentiment": "positive",
+        "expected_mean_score": 0.75
+      },
+      "hospital": {
+        "dominant_sentiment": "negative", 
+        "expected_mean_score": 0.30
+      },
+      "park": {
+        "dominant_sentiment": "positive",
+        "expected_mean_score": 0.70
+      }
+    },
+    "hotspots": {
+      "positive_hotspots": ["church_001", "church_002", "park_001"],
+      "negative_hotspots": ["hospital_001", "hospital_002"]
+    }
+  }
+}
