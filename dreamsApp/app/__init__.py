@@ -4,7 +4,7 @@ import os
 from flask_login import LoginManager
 from .models import User  
 from bson.objectid import ObjectId 
-
+#creating app
 def create_app(test_config=None):
     app = Flask(__name__, instance_relative_config=True)
 
