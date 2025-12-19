@@ -1,0 +1,31 @@
+name: Data Integrity Validation
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev]
+
+jobs:
+  validate-data-integrity:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install optional dependencies
+        run: |
+          pip install jsonschema
+
+      - name: Run data integrity validator on valid example data
+        run: |
+          python -m data_integrity.validator \
+            --input data_integrity/examples/valid_data.json \
+            --schema data_integrity/examples/sample_schema.json \
+            --json
