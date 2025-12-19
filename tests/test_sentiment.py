@@ -15,7 +15,7 @@ def app():
 def client(app):
     return app.test_client()
 
-# Mock the AI response for all tests ---
+# Mock the AI response for all tests 
 @pytest.fixture
 def mock_sentiment():
     with patch('dreamsApp.app.utils.sentiment.get_image_caption_and_sentiment') as mock:
@@ -32,13 +32,12 @@ def test_valid_caption(client, mock_sentiment):
         "image_path_or_url": "http://mock.url/img.jpg" # ADDED: Required by App
     }
     response = client.post(
-        "/sentiment/analyze", # CHANGED: Correct URL
+        "/sentiment/analyze", 
         data=json.dumps(payload),
         content_type="application/json"
     )
     assert response.status_code == 200
     json_data = response.get_json()
-    # CHANGED: Assertion matches Dict structure, not List
     assert "sentiment" in json_data
     assert json_data["sentiment"]["label"] == "POSITIVE"
 
