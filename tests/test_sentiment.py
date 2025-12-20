@@ -38,8 +38,7 @@ def test_valid_caption(client, mock_sentiment):
     )
     assert response.status_code == 200
     json_data = response.get_json()
-    assert "sentiment" in json_data
-    assert json_data["sentiment"]["label"] == "POSITIVE"
+    assert json_data == mock_sentiment.return_value
 
 def test_empty_caption(client, mock_sentiment):
     """
