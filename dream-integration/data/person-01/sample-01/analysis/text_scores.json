@@ -1,0 +1,32 @@
+{
+  "description-01.txt": [
+    {
+      "label": "joy",
+      "score": 0.9864851236343384
+    },
+    {
+      "label": "neutral",
+      "score": 0.005278781056404114
+    },
+    {
+      "label": "sadness",
+      "score": 0.004085569176822901
+    },
+    {
+      "label": "disgust",
+      "score": 0.0014205715851858258
+    },
+    {
+      "label": "anger",
+      "score": 0.001338689005933702
+    },
+    {
+      "label": "surprise",
+      "score": 0.0010697629768401384
+    },
+    {
+      "label": "fear",
+      "score": 0.0003214319876860827
+    }
+  ]
+}

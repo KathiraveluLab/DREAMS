@@ -14,7 +14,8 @@ args = parser.parse_args()
 classifier = pipeline(
     "text-classification",
     model="j-hartmann/emotion-english-distilroberta-base",
-    top_k=None
+    top_k=None,
+    
 )
 
 # Files to analyse (only those that exist)

@@ -1,3 +1,4 @@
+import cmd
 import os
 import json
 import glob
@@ -57,6 +58,7 @@ def index():
     persons = list_persons()
     if not persons:
         return "No persons found in MongoDB.", 200
+    
 
     person = request.values.get("person", persons[0])
     samples = list_samples(person)
@@ -86,6 +88,13 @@ def index():
 @app.route("/analyze", methods=["POST"])
 def analyze():
     """
+    Analysis scripts located in ./analysis/ with the selected person/sample.
+    text_analysis.py:
+        python analysis/text_analysis.py --transcript <path> --description <path> --output <json>
+        (As text_scores.json)
+    image_analysis.py:
+        python analysis/image_analysis.py --image <path> --output <json>
+    
     Analysis scripts REQUIRE filesystem paths.
     We keep data/ as a staging area.
     """
@@ -95,14 +104,26 @@ def analyze():
     sample_dir = os.path.join(DATA_DIR, person, sample)
     os.makedirs(sample_dir, exist_ok=True)
 
-    # expected files
-    img_path = glob.glob(os.path.join(sample_dir, "*.png"))
-    transcript_path = glob.glob(os.path.join(sample_dir, "transcript*.txt"))
-    description_path = glob.glob(os.path.join(sample_dir, "description*.txt"))
+    
+    image_patterns = ["*.png", "*.jpg", "*.jpeg", "*.gif", "*.bmp", "*.webp"]
+    img_path = None
+    for pattern in image_patterns:
+        matches = glob.glob(os.path.join(sample_dir, pattern))
+        if matches:
+            img_path = matches[0]
+            break
 
-    img_path = img_path[0] if img_path else None
-    transcript_path = transcript_path[0] if transcript_path else None
-    description_path = description_path[0] if description_path else None
+
+    transcript_path = None
+    for pattern in ("transcript*.txt", "clip-*.txt"):
+        matches = glob.glob(os.path.join(sample_dir, pattern))
+        if matches:
+            transcript_path = matches[0]
+            break
+
+    description_matches = glob.glob(os.path.join(sample_dir, "description*.txt"))
+    description_path = description_matches[0] if description_matches else None
+
 
     out_dir = os.path.join(sample_dir, "analysis")
     os.makedirs(out_dir, exist_ok=True)
@@ -120,18 +141,45 @@ def analyze():
         if description_path:
             cmd += ["--description", description_path]
 
-        subprocess.run(cmd, check=True)
+        try:
+            subprocess.run(cmd, check=True)
+
+    
+            legacy_candidate = os.path.join(
+                person_dir, "analysis-p01", sample, "text_scores.json"
+            )
+            if not os.path.exists(text_out) and os.path.exists(legacy_candidate):
+                os.makedirs(os.path.dirname(text_out), exist_ok=True)
+                os.replace(legacy_candidate, text_out)
+
+        except subprocess.CalledProcessError as e:
+            flash(f"Text analysis failed: {e}", "error")
+
+
 
     # Image analysis
     img_out = os.path.join(out_dir, "image_scores.json")
     if img_path and not os.path.exists(img_out):
-        subprocess.run([
-            sys.executable,
-            os.path.join(ANALYSIS_SCRIPTS_DIR, "image_analysis.py"),
-            "--image", img_path,
-            "--output", img_out
-        ], check=True)
+        cmd_img = [
+        sys.executable,
+        os.path.join(ANALYSIS_SCRIPTS_DIR, "image_analysis.py"),
+        "--image", img_path,
+        "--output", img_out
+        ]
 
+        try:
+            subprocess.run(cmd_img, check=True)
+
+        # Fallback if script ignored --output (legacy behavior)
+            legacy_candidate_img = os.path.join(
+            person_dir, "analysis-p01", sample, "image_scores.json"
+            )
+            if not os.path.exists(img_out) and os.path.exists(legacy_candidate_img):
+                os.makedirs(os.path.dirname(img_out), exist_ok=True)
+                os.replace(legacy_candidate_img, img_out)
+
+        except subprocess.CalledProcessError as e:
+            flash(f"Image analysis failed: {e}", "error")
 
     results = {}
     if os.path.exists(text_out):
