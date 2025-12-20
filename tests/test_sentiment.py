@@ -2,7 +2,7 @@ import pytest
 import json
 from unittest.mock import patch
 from flask import Flask
-from dreamsApp.app.utils.sentiment import bp # Adjust if Blueprint is registered differentl
+from dreamsApp.app.utils.sentiment import bp  # Adjust if Blueprint is registered differently
 
 @pytest.fixture
 def app():
