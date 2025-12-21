@@ -102,6 +102,7 @@ def analyze():
     sample = request.form["sample"]
 
     sample_dir = os.path.join(DATA_DIR, person, sample)
+    person_dir = os.path.join(DATA_DIR, person)
     os.makedirs(sample_dir, exist_ok=True)
 
     
