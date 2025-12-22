@@ -1,0 +1,102 @@
+{
+  "sentiment_data": [
+    {
+      "location_id": "park_001",
+      "sentiment": "positive",
+      "score": 0.85,
+      "timestamp": "2024-01-15T10:30:00Z",
+      "user_id": "user_001"
+    },
+    {
+      "location_id": "park_001", 
+      "sentiment": "positive",
+      "score": 0.78,
+      "timestamp": "2024-01-20T14:15:00Z",
+      "user_id": "user_001"
+    },
+    {
+      "location_id": "park_002",
+      "sentiment": "positive",
+      "score": 0.92,
+      "timestamp": "2024-01-25T09:45:00Z", 
+      "user_id": "user_001"
+    },
+    {
+      "location_id": "park_003",
+      "sentiment": "neutral",
+      "score": 0.55,
+      "timestamp": "2024-02-01T16:20:00Z",
+      "user_id": "user_001"
+    },
+    {
+      "location_id": "hospital_001",
+      "sentiment": "negative",
+      "score": 0.25,
+      "timestamp": "2024-01-18T11:00:00Z",
+      "user_id": "user_001"
+    },
+    {
+      "location_id": "hospital_001",
+      "sentiment": "negative", 
+      "score": 0.30,
+      "timestamp": "2024-01-22T13:30:00Z",
+      "user_id": "user_001"
+    },
+    {
+      "location_id": "hospital_002",
+      "sentiment": "negative",
+      "score": 0.35,
+      "timestamp": "2024-02-05T08:15:00Z",
+      "user_id": "user_001"
+    },
+    {
+      "location_id": "hospital_003",
+      "sentiment": "neutral",
+      "score": 0.48,
+      "timestamp": "2024-02-10T15:45:00Z",
+      "user_id": "user_001"
+    },
+    {
+      "location_id": "church_001",
+      "sentiment": "positive",
+      "score": 0.88,
+      "timestamp": "2024-01-21T10:00:00Z",
+      "user_id": "user_001"
+    },
+    {
+      "location_id": "church_002",
+      "sentiment": "positive",
+      "score": 0.82,
+      "timestamp": "2024-01-28T11:30:00Z",
+      "user_id": "user_001"
+    },
+    {
+      "location_id": "church_003",
+      "sentiment": "positive", 
+      "score": 0.75,
+      "timestamp": "2024-02-03T09:15:00Z",
+      "user_id": "user_001"
+    },
+    {
+      "location_id": "park_001",
+      "sentiment": "positive",
+      "score": 0.80,
+      "timestamp": "2024-02-08T12:00:00Z",
+      "user_id": "user_002"
+    },
+    {
+      "location_id": "hospital_002",
+      "sentiment": "negative",
+      "score": 0.28,
+      "timestamp": "2024-02-12T14:30:00Z",
+      "user_id": "user_002"
+    },
+    {
+      "location_id": "church_001",
+      "sentiment": "neutral",
+      "score": 0.62,
+      "timestamp": "2024-02-15T10:45:00Z",
+      "user_id": "user_002"
+    }
+  ]
+}
