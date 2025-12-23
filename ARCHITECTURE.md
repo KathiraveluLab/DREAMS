@@ -2,55 +2,160 @@
 
 ## System Architecture
 
-```mermaid
-graph TB
-    subgraph "User Interface Layer"
-        UI[Web Dashboard]
-        API[REST API Endpoints]
-    end
-    
-    subgraph "Core DREAMS Application"
-        APP[Flask Application]
-        AUTH[Authentication Module]
-        INGEST[Photo Ingestion Service]
-        SENTIMENT[Caption Sentiment Analysis]
-    end
-    
-    subgraph "Location-Proximity Module"
-        EXTRACT[Location Extractor]
-        PROXIMITY[Proximity Calculator]
-        MAPPER[Emotion-Location Mapper]
-        CLUSTER[Semantic Clustering]
-    end
-    
-    subgraph "Data Layer"
-        DB[(Database)]
-        FILES[File Storage]
-        CACHE[Cache Layer]
-    end
-    
-    subgraph "External Services"
-        HF[Hugging Face Models]
-        PLACES[Google Places API]
-    end
-    
-    UI --> API
-    API --> APP
-    APP --> AUTH
-    APP --> INGEST
-    APP --> SENTIMENT
-    
-    INGEST --> EXTRACT
-    EXTRACT --> PROXIMITY
-    PROXIMITY --> MAPPER
-    MAPPER --> CLUSTER
-    
-    APP --> DB
-    APP --> FILES
-    APP --> CACHE
-    
-    SENTIMENT --> HF
-    EXTRACT --> PLACES
+```
+Dreams
+
+┌─────────────────────────────────────────────────────────────────┐
+│                         USER INTERFACE                          │
+│  (Beehive Frontend - Photo Upload with Captions)                │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      DREAMS API LAYER                           │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  Upload Route: /upload                                   │   │
+│  │  - Receives: Image + Caption + Timestamp                 │   │
+│  │  - Returns: Post ID + Sentiment + Location               │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                   PROCESSING PIPELINE                           │
+│                                                                 │
+│  ┌─────────────────┐  ┌──────────────────┐  ┌────────────────┐  │
+│  │ Image Analysis  │  │ Text Analysis    │  │ Location       │  │
+│  │                 │  │                  │  │ Analysis       │  │
+│  │ • BLIP Caption  │  │ • Sentiment      │  │ • GPS Extract  │  │
+│  │ • DeepFace      │  │ • Keywords       │  │ • Proximity    │  │
+│  │   Emotion       │  │ • Clustering     │  │ • Patterns     │  │
+│  └────────┬────────┘  └────────┬─────────┘  └────────┬───────┘  │
+│           │                    │                      │         │
+│           └────────────────────┴──────────────────────┘         │
+│                              │                                  │
+└──────────────────────────────┼──────────────────────────────────┘
+                               │
+                               ▼
+┌────────────────────────────────────────────────────────────────┐
+│                    LOCATION-PROXIMITY MODULE                   │
+│                      (Your Contribution)                       │
+│                                                                │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  1. Location Extractor                                   │  │
+│  │     Input: Image file                                    │  │
+│  │     Output: {lat, lon, timestamp}                        │  │ 
+│  │     Tech: Pillow EXIF parsing                            │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                              │                                 │
+│                              ▼                                 │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  2. Place Enrichment (Optional - Future)                 │  │
+│  │     Input: {lat, lon}                                    │  │
+│  │     Output: {place_type, name, language, cultural_tags}  │  │
+│  │     Tech: Google Places API / Nominatim                  │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                              │                                 │
+│                              ▼                                 │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  3. Proximity Calculator                                 │  │
+│  │     Input: Place1, Place2                                │  │
+│  │     Output: Proximity score (0-1)                        │  │
+│  │                                                          │  │
+│  │     Components:                                          │  │
+│  │     • Geographic: Haversine distance                     │  │
+│  │     • Categorical: Place type matching                   │  │
+│  │     • Linguistic: Language similarity                    │  │
+│  │     • Cultural: Tag similarity (Jaccard)                 │  │
+│  │     • Composite: Weighted combination                    │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                              │                                 │
+│                              ▼                                 │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  4. Emotion-Location Mapper                              │  │
+│  │     Input: location_id, sentiment, score, metadata       │  │
+│  │     Storage: In-memory dictionary                        │  │
+│  │                                                          │  │
+│  │     Functions:                                           │  │
+│  │     • add_entry()                                        │  │
+│  │     • get_location_sentiment_profile()                   │  │
+│  │     • find_emotional_hotspots()                          │  │
+│  │     • compare_place_types()                              │  │
+│  │     • temporal_emotion_trend()                           │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                              │                                 │
+│                              ▼                                 │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  5. Semantic Clustering                                  │  │
+│  │     Input: Proximity matrix + Emotion profiles           │  │
+│  │     Algorithm: DBSCAN                                    │  │
+│  │     Output: Cluster labels + Emotion statistics          │  │
+│  │                                                          │  │
+│  │     Parameters:                                          │  │
+│  │     • eps: 0.3-0.5 (neighborhood distance)               │  │
+│  │     • min_samples: 2-3 (core point threshold)            │  │
+│  └──────────────────────────────────────────────────────────┘  │
+└────────────────────────────┬───────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      DATA STORAGE LAYER                         │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  MongoDB Collections:                                     │  │
+│  │                                                           │  │
+│  │  • posts: {                                               │  │
+│  │      user_id, caption, timestamp, image_path,             │  │
+│  │      sentiment: {label, score},                           │  │
+│  │      location: {lat, lon, place_type, language}           │  │
+│  │    }                                                      │  │
+│  │                                                           │  │
+│  │  • keywords: {                                            │  │
+│  │      user_id,                                             │  │
+│  │      positive_keywords: [{keyword, embedding, timestamp}],│  │
+│  │      negative_keywords: [{keyword, embedding, timestamp}] │  │
+│  │    }                                                      │  │
+│  │                                                           │  │
+│  │  • location_analysis: {                                   │  │
+│  │      user_id,                                             │  │
+│  │      locations: [{id, lat, lon, visits, emotions}],       │  │
+│  │      clusters: [{id, members, emotion_dist}],             │  │
+│  │      hotspots: [{location_id, sentiment, confidence}]     │  │
+│  │    }                                                      │  │
+│  │                                                           │  │
+│  │  • thematic_analysis: {                                   │  │
+│  │      user_id,                                             │  │
+│  │      data: {positive: [...], negative: [...]}             │  │
+│  │    }                                                      │  │
+│  └───────────────────────────────────────────────────────────┘  │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+                             ▼
+┌────────────────────────────────────────────────────────────────┐
+│                    VISUALIZATION LAYER                         │
+│                                                                │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  Dashboard Routes:                                       │  │
+│  │                                                          │  │
+│  │  • /dashboard/<user_id>                                  │  │
+│  │    - Sentiment timeline                                  │  │
+│  │    - Word clouds                                         │  │
+│  │    - Thematic cards                                      │  │
+│  │                                                          │  │
+│  │  • /location_analysis/<user_id>  (NEW)                   │  │
+│  │    - Emotional hotspots map                              │  │
+│  │    - Place type comparison chart                         │  │
+│  │    - Location clusters visualization                     │  │
+│  │    - Temporal-spatial patterns                           │  │
+│  │                                                          │  │
+│  │  • /clusters/<user_id>                                   │  │
+│  │    - Cluster details                                     │  │
+│  │    - Member locations                                    │  │
+│  │    - Emotion distributions                               │  │
+│  └──────────────────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────────────────┘
+
+this is the system architecture
 ```
 
 ## Location-Proximity Pipeline
