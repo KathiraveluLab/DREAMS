@@ -6,9 +6,9 @@ from flask import current_app
 from .  import bp
 
 
-from app.utils.sentiment import get_image_caption_and_sentiment
-from app.utils.keywords import extract_keywords_and_vectors
-from app.utils.clustering import cluster_keywords_for_all_users
+from ..utils.sentiment import get_image_caption_and_sentiment
+from ..utils.keywords import extract_keywords_and_vectors
+from ..utils.clustering import cluster_keywords_for_all_users
 
 from sentence_transformers import SentenceTransformer
 model = SentenceTransformer("all-MiniLM-L6-V2")
