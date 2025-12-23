@@ -1,5 +1,7 @@
 # DREAMS Architecture Overview
 
+**Note**: This document provides a high-level system architecture overview. For detailed implementation of the DREAMS application components, see `dreamsApp/docs/architecture.md`.
+
 ## System Architecture
 
 ```
@@ -31,12 +33,12 @@ Dreams
 │  │ • DeepFace      │  │ • Keywords       │  │ • Proximity    │  │
 │  │   Emotion       │  │ • Clustering     │  │ • Patterns     │  │
 │  └────────┬────────┘  └────────┬─────────┘  └────────┬───────┘  │
-│           │                    │                      │         │
-│           └────────────────────┴──────────────────────┘         │
-│                              │                                  │
-└──────────────────────────────┼──────────────────────────────────┘
-                               │
-                               ▼
+│           │                    │                     │          │
+│           └────────────────────┴─────────────────────┘          │
+│                                │                                │
+└────────────────────────────────┼────────────────────────────────┘
+                                 │
+                                 ▼
 ┌────────────────────────────────────────────────────────────────┐
 │                    LOCATION-PROXIMITY MODULE                   │
 │                      (Your Contribution)                       │
@@ -75,6 +77,9 @@ Dreams
 │  │  4. Emotion-Location Mapper                              │  │
 │  │     Input: location_id, sentiment, score, metadata       │  │
 │  │     Storage: In-memory dictionary                        │  │
+│  │     Note: Temporary storage for prototype; should be     │  │
+│  │           moved to persistent database (MongoDB) for     │  │
+│  │           production scalability and data persistence.   │  │
 │  │                                                          │  │
 │  │     Functions:                                           │  │
 │  │     • add_entry()                                        │  │
@@ -125,7 +130,10 @@ Dreams
 │  │                                                           │  │
 │  │  • thematic_analysis: {                                   │  │
 │  │      user_id,                                             │  │
-│  │      data: {positive: [...], negative: [...]}             │  │
+│  │      data: {positive: [{theme: string,                    │  │
+│  │             interpretation: string}],                     │  │
+│  │             negative: [{theme: string,                    │  │
+│  │             interpretation: string}]}                     │  │
 │  │    }                                                      │  │
 │  └───────────────────────────────────────────────────────────┘  │
 └────────────────────────────┬────────────────────────────────────┘
@@ -154,8 +162,6 @@ Dreams
 │  │    - Emotion distributions                               │  │
 │  └──────────────────────────────────────────────────────────┘  │
 └────────────────────────────────────────────────────────────────┘
-
-this is the system architecture
 ```
 
 ## Location-Proximity Pipeline
@@ -318,7 +324,7 @@ graph TD
 - **Backend**: Python Flask, SQLAlchemy
 - **Analysis**: NumPy, scikit-learn, Pandas
 - **Visualization**: Matplotlib, Folium (future)
-- **Database**: PostgreSQL (recommended), SQLite (development)
+- **Database**: MongoDB (recommended), SQLite (development)
 
 ### External Dependencies
 - **Image Processing**: Pillow (EXIF extraction)
