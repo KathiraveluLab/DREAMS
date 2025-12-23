@@ -1,17 +1,50 @@
+# =========================
 # Core dependencies
+# =========================
 numpy>=1.24.0
 scikit-learn>=1.3.0
 Pillow>=10.0.0
 
+# =========================
+# Backend / API
+# =========================
+Flask>=3.0.0
+pymongo>=4.6.0
+
+# =========================
+# NLP / ML
+# =========================
+torch
+transformers>=4.40.0
+sentence-transformers>=2.6.0
+spacy>=3.7.0
+hdbscan
+
+# NOTE:
+# Install spaCy language model separately:
+# python -m spacy download en_core_web_sm
+
+# =========================
+# LLM Integration
+# =========================
+google-generativeai
+
+# =========================
 # Visualization
+# =========================
 matplotlib>=3.7.0
 seaborn>=0.12.0
+wordcloud
 jupyter>=1.0.0
 
+# =========================
 # Testing
+# =========================
 pytest>=7.0.0
 pytest-cov>=4.0.0
 
+# =========================
 # Development
+# =========================
 black>=23.0.0
 flake8>=6.0.0
