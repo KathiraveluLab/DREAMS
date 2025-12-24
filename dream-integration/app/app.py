@@ -107,13 +107,17 @@ def analyze():
 
     
     image_patterns = ["*.png", "*.jpg", "*.jpeg", "*.gif", "*.bmp", "*.webp"]
-    img_path = None
-    for pattern in image_patterns:
-        matches = glob.glob(os.path.join(sample_dir, pattern))
-        if matches:
-            img_path = matches[0]
-            break
-
+    
+    def _find_first_file(directory, patterns):
+        for pattern in patterns:
+            matches = glob.glob(os.path.join(directory, pattern))
+            if matches:
+                return matches[0]
+        return None
+# In analyze():
+    img_path = _find_first_file(sample_dir, ["*.png", "*.jpg", "*.jpeg", "*.gif", "*.bmp", "*.webp"])
+    transcript_path = _find_first_file(sample_dir, ["transcript*.txt", "clip-*.txt"])
+    description_path = _find_first_file(sample_dir, ["description*.txt"])
 
     transcript_path = None
     for pattern in ("transcript*.txt", "clip-*.txt"):

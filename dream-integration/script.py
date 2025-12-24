@@ -1,7 +1,6 @@
 import os
 import json
-from pymongo import MongoClient
-from gridfs import GridFS
+from app.db import users_col, samples_col, results_col, fs
 
 
 
@@ -9,17 +8,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 
 
-mongo_uri = os.getenv("MONGO_URI")
-if not mongo_uri:
-    raise RuntimeError("MONGO_URI environment variable not set. Please create a .env file with it.")
-client = MongoClient(mongo_uri)
 
-db = client["dreams"]
-
-users_col = db.users
-samples_col = db.samples
-results_col = db.results
-fs = GridFS(db)
 
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
 AUDIO_EXTS = {".mp3", ".wav"}
@@ -154,7 +143,7 @@ def migrate():
 
     print("\n✅ Migration completed successfully.")
 
-    print("\n✅ Migration completed successfully.")
+    
 
 
 
