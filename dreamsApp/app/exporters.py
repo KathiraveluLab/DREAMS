@@ -1,45 +1,14 @@
 # app/exporters.py
 
+"""
+Export utilities for EmotionTimeline.
+
+Note: For basic JSON export, use timeline.to_dict() method directly.
+This module provides additional specialized export formats.
+"""
+
 from typing import Dict, List, Any
 from ..analytics.emotion_timeline import EmotionTimeline
-
-
-def timeline_to_dict(timeline: EmotionTimeline) -> Dict[str, Any]:
-    """
-    Convert EmotionTimeline to a JSON-serializable dictionary.
-    
-    Preserves event ordering and converts timestamps to ISO 8601 strings.
-    No data modification occurs.
-    
-    Args:
-        timeline: EmotionTimeline to export
-    
-    Returns:
-        Dict with keys: subject_id, events (list), metadata (optional)
-    """
-    events_list = []
-    for event in timeline.events:
-        event_dict = {
-            'timestamp': event.timestamp.isoformat(),
-            'emotion_label': event.emotion_label,
-        }
-        if event.score is not None:
-            event_dict['score'] = event.score
-        if event.source_id is not None:
-            event_dict['source_id'] = event.source_id
-        if event.metadata is not None:
-            event_dict['metadata'] = event.metadata
-        events_list.append(event_dict)
-    
-    result = {
-        'subject_id': timeline.subject_id,
-        'events': events_list,
-    }
-    
-    if timeline.metadata is not None:
-        result['metadata'] = timeline.metadata
-    
-    return result
 
 
 def timeline_to_csv_rows(timeline: EmotionTimeline) -> List[Dict[str, Any]]:
@@ -82,18 +51,21 @@ def timeline_events_summary(timeline: EmotionTimeline) -> Dict[str, Any]:
     Returns:
         Dict with subject_id, event_count, time_span, and events
     """
-    if len(timeline.events) == 0:
+    if timeline.is_empty():
         return {
             'subject_id': timeline.subject_id,
             'event_count': 0,
-            'time_span': None,
+            'time_span_seconds': None,
+            'first_event': None,
+            'last_event': None,
             'events': [],
             'metadata': timeline.metadata,
         }
     
-    first_timestamp = timeline.events[0].timestamp
-    last_timestamp = timeline.events[-1].timestamp
-    time_span_seconds = (last_timestamp - first_timestamp).total_seconds()
+    first_timestamp = timeline.start_time()
+    last_timestamp = timeline.end_time()
+    time_span = timeline.time_span()
+    time_span_seconds = time_span.total_seconds() if time_span is not None else 0.0
     
     events_data = []
     for i, event in enumerate(timeline.events):

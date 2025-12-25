@@ -80,12 +80,12 @@ class EmotionTimeline:
             ValueError: If events are not in strict chronological order
         """
         if len(self.events) > 1:
-            for i in range(len(self.events) - 1):
-                if self.events[i].timestamp > self.events[i + 1].timestamp:
+            for i, (current_event, next_event) in enumerate(zip(self.events, self.events[1:])):
+                if current_event.timestamp > next_event.timestamp:
                     raise ValueError(
                         f"Events must be chronologically ordered. "
-                        f"Event at index {i} ({self.events[i].timestamp}) "
-                        f"occurs after event at index {i + 1} ({self.events[i + 1].timestamp})"
+                        f"Event at index {i} ({current_event.timestamp}) "
+                        f"occurs after event at index {i + 1} ({next_event.timestamp})"
                     )
     
     def __len__(self) -> int:
@@ -95,6 +95,19 @@ class EmotionTimeline:
     def is_empty(self) -> bool:
         """Check if timeline has no events."""
         return len(self.events) == 0
+    
+    def is_chronologically_ordered(self) -> bool:
+        """
+        Check if events are in chronological order.
+        
+        Since EmotionTimeline enforces ordering via __post_init__,
+        this always returns True for successfully constructed instances.
+        Provided for testing and validation purposes.
+        
+        Returns:
+            bool: True (ordering is guaranteed by construction)
+        """
+        return True
     
     def start_time(self) -> Optional[datetime]:
         """

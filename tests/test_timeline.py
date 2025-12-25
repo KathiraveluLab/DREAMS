@@ -5,11 +5,6 @@ from datetime import datetime, timedelta
 from dataclasses import FrozenInstanceError
 from dreamsApp.analytics.emotion_timeline import EmotionEvent, EmotionTimeline
 from dreamsApp.app.builder import build_emotion_timeline
-from dreamsApp.app.timeline_utils import (
-    is_chronologically_ordered,
-    compute_time_gaps,
-    event_count
-)
 
 
 class TestEmotionEventImmutability:
@@ -119,10 +114,10 @@ class TestTimelineBuilder:
 
 
 class TestChronologicalOrdering:
-    """Test is_chronologically_ordered utility."""
+    """Test chronological ordering enforcement and validation."""
     
     def test_ordered_timeline(self):
-        """is_chronologically_ordered should return True for ordered events."""
+        """EmotionTimeline should accept and confirm ordered events."""
         events = (
             EmotionEvent(datetime(2024, 12, 1, 8, 0, 0), 'joy'),
             EmotionEvent(datetime(2024, 12, 1, 9, 0, 0), 'neutral'),
@@ -130,37 +125,37 @@ class TestChronologicalOrdering:
         )
         timeline = EmotionTimeline('person_01', events)
         
-        assert is_chronologically_ordered(timeline) is True
+        assert timeline.is_chronologically_ordered() is True
     
     def test_out_of_order_timeline(self):
-        """is_chronologically_ordered should return False for unordered events."""
+        """EmotionTimeline should raise ValueError for unordered events."""
         events = (
             EmotionEvent(datetime(2024, 12, 1, 8, 0, 0), 'joy'),
             EmotionEvent(datetime(2024, 12, 1, 10, 0, 0), 'sadness'),
             EmotionEvent(datetime(2024, 12, 1, 9, 0, 0), 'neutral'),
         )
-        timeline = EmotionTimeline('person_01', events)
         
-        assert is_chronologically_ordered(timeline) is False
+        with pytest.raises(ValueError, match="chronologically ordered"):
+            EmotionTimeline('person_01', events)
     
     def test_empty_timeline_ordered(self):
-        """is_chronologically_ordered should return True for empty timeline."""
+        """Empty timeline should be considered ordered."""
         timeline = EmotionTimeline('person_01', ())
-        assert is_chronologically_ordered(timeline) is True
+        assert timeline.is_chronologically_ordered() is True
     
     def test_single_event_ordered(self):
-        """is_chronologically_ordered should return True for single event."""
+        """Single-event timeline should be considered ordered."""
         events = (EmotionEvent(datetime(2024, 12, 1, 8, 0, 0), 'joy'),)
         timeline = EmotionTimeline('person_01', events)
         
-        assert is_chronologically_ordered(timeline) is True
+        assert timeline.is_chronologically_ordered() is True
 
 
 class TestTimeGaps:
-    """Test compute_time_gaps utility."""
+    """Test time_gaps method."""
     
     def test_compute_gaps(self):
-        """compute_time_gaps should return correct timedeltas."""
+        """time_gaps() should return correct timedeltas."""
         events = (
             EmotionEvent(datetime(2024, 12, 1, 8, 0, 0), 'joy'),
             EmotionEvent(datetime(2024, 12, 1, 9, 30, 0), 'neutral'),
@@ -168,23 +163,23 @@ class TestTimeGaps:
         )
         timeline = EmotionTimeline('person_01', events)
         
-        gaps = compute_time_gaps(timeline)
+        gaps = timeline.time_gaps()
         
         assert len(gaps) == 2
         assert gaps[0] == timedelta(hours=1, minutes=30)
         assert gaps[1] == timedelta(hours=1, minutes=30)
     
     def test_gaps_empty_timeline(self):
-        """compute_time_gaps should return empty list for empty timeline."""
+        """time_gaps() should return empty tuple for empty timeline."""
         timeline = EmotionTimeline('person_01', ())
-        gaps = compute_time_gaps(timeline)
+        gaps = timeline.time_gaps()
         
-        assert gaps == []
+        assert gaps == ()
     
     def test_gaps_single_event(self):
-        """compute_time_gaps should return empty list for single event."""
+        """time_gaps() should return empty tuple for single event."""
         events = (EmotionEvent(datetime(2024, 12, 1, 8, 0, 0), 'joy'),)
         timeline = EmotionTimeline('person_01', events)
-        gaps = compute_time_gaps(timeline)
+        gaps = timeline.time_gaps()
         
-        assert gaps == []
+        assert gaps == ()
