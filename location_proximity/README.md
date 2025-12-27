@@ -6,7 +6,7 @@ This module extends DREAMS to analyze how semantically similar locations (not ju
 
 ---
 
-## 🎯 Core Concept
+## Core Concept
 
 Traditional location analysis uses only GPS coordinates. This module introduces **multi-dimensional proximity**:
 
@@ -17,7 +17,71 @@ Traditional location analysis uses only GPS coordinates. This module introduces 
 
 ---
 
-## 📦 Components
+## Research Background
+
+### Theoretical Foundation
+
+This module is grounded in **affective geography** - the study of how emotions are spatially distributed and how places influence emotional experiences. Traditional location analysis focuses solely on geographic distance, but recovery narratives reveal that semantically similar locations can evoke similar emotions regardless of physical proximity.
+
+### Key Research Questions
+
+1. **Semantic Similarity**: Can we formalize location proximity beyond GPS coordinates to capture functional, cultural, and linguistic similarities?
+2. **Emotion-Place Associations**: Do semantically similar places consistently evoke similar emotions across individuals?
+3. **Recovery Applications**: How can understanding place-emotion patterns support personal recovery journeys?
+
+### Multi-Dimensional Proximity Framework
+
+The module implements a composite proximity score combining four dimensions:
+
+- **Geographic Proximity**: Physical distance using Haversine formula
+- **Categorical Similarity**: Place type matching (church ↔ church, hospital ↔ clinic)
+- **Linguistic Similarity**: Language context and naming patterns
+- **Cultural Similarity**: Shared cultural significance and associations
+
+**Composite Score**: P(L₁, L₂) = α·P_geo + β·P_cat + γ·P_ling + δ·P_cult
+
+Where default weights are: α=0.3 (geographic), β=0.4 (categorical), γ=0.15 (linguistic), δ=0.15 (cultural)
+
+### Expected Findings
+
+- Semantically similar places evoke similar emotions across individuals
+- Categorical proximity is more predictive of emotional response than geographic proximity alone
+- Certain place categories consistently associate with specific emotions
+- Emotional associations with place types evolve during recovery trajectories
+
+---
+
+## Related Work
+
+### Affective Geography
+- **Thien, D. (2005)**: "After or beyond feeling? A consideration of affect and emotion in geography" - Foundational work on emotional geographies
+- **Davidson, J., & Milligan, C. (2004)**: "Embodying emotion sensing space: introducing emotional geographies" - Introduction of emotional topography concepts
+
+### Place and Mental Health
+- **Gesler, W. (1992)**: "Therapeutic landscapes: medical issues in light of the new cultural geography" - Therapeutic landscapes theory
+- **Williams, A. (2007)**: "Therapeutic landscapes" - Comprehensive review of healing places
+
+### Semantic Similarity
+- **Ballatore, A., et al. (2013)**: "Computing the semantic similarity of geographic terms using volunteered lexical definitions" - Geographic term similarity computation
+- **Janowicz, K., et al. (2011)**: "Semantic similarity measurement and geospatial applications" - Semantic approaches to geospatial data
+
+### Recovery and Place
+- **Topor, A., et al. (2011)**: "Others: The role of family, friends, and professionals in the recovery process" - Social support in recovery
+- **Borg, M., & Davidson, L. (2008)**: "The nature of recovery as lived in everyday experience" - Lived experience of recovery
+
+### Key Insights from Literature
+
+1. **Place Attachment**: Individuals develop emotional bonds with locations that become symbolic in recovery narratives
+2. **Therapeutic Landscapes**: Certain environments promote healing and well-being
+3. **Semantic Place Similarity**: Locations share meaning beyond physical proximity
+4. **Cultural Context**: Place-emotion associations vary by cultural background
+5. **Temporal Dynamics**: Emotional responses to places evolve over time
+
+This work extends these foundations by formalizing multi-dimensional proximity for emotion analysis in digitized recovery memories.
+
+---
+
+## Components
 
 ### `location_extractor.py`
 Extract GPS coordinates from image EXIF data.
@@ -69,7 +133,7 @@ summary = clusterer.cluster_with_emotions(proximity_matrix, emotion_profiles)
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Run the Demo
 
@@ -99,7 +163,7 @@ Alaska Native Medical Center ↔ Providence Hospital : 0.725
 
 ---
 
-## 🔬 Research Applications
+## Research Applications
 
 ### 1. Categorical Emotion Analysis
 **Question**: Do all churches evoke similar emotions, or just specific ones?
@@ -134,7 +198,7 @@ score = composite_proximity(place1, place2, weights=weights)
 
 ---
 
-## 📊 Integration with DREAMS
+## Integration with DREAMS
 
 ### Extend Post Schema
 
@@ -191,7 +255,7 @@ def location_analysis(user_id):
 
 ---
 
-## 🛠️ Dependencies
+## Dependencies
 
 ```bash
 pip install pillow numpy scikit-learn
@@ -204,7 +268,7 @@ pip install -r ../requirements.txt
 
 ---
 
-## 📈 Future Enhancements
+## Future Enhancements
 
 - [ ] Google Places API integration for place enrichment
 - [ ] Real-time location clustering as data arrives
@@ -215,7 +279,7 @@ pip install -r ../requirements.txt
 
 ---
 
-## 🎓 Research Contribution
+## Research Contribution
 
 This module addresses the GSoC 2026 project:
 > "Understanding proximity in locations and emotions through digitized memories"
@@ -227,7 +291,7 @@ This module addresses the GSoC 2026 project:
 
 ---
 
-## 📝 Citation
+## Citation
 
 If you use this module in research, please cite:
 
@@ -239,7 +303,7 @@ https://github.com/KathiraveluLab/DREAMS
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 This is part of GSoC 2026. Contributions welcome!
 
@@ -250,7 +314,7 @@ This is part of GSoC 2026. Contributions welcome!
 
 ---
 
-## 📧 Contact
+## Contact
 
 - Mentors: Jihye Kwon (jkwon2@alaska.edu), Pradeeban Kathiravelu (pkathiravelu@alaska.edu)
 - Project: https://github.com/KathiraveluLab/DREAMS
