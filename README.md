@@ -50,7 +50,7 @@ pip install -r requirements.txt
 pytest
 
 # 5. Start the Flask server in debug mode
-flask --app dreamsApp run --debug
+flask --app "dreamsApp.app:create_app()" run --debug
 ```
 
 More coming soon!

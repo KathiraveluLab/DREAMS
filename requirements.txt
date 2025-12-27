@@ -7,11 +7,22 @@ Pillow>=10.0.0
 matplotlib>=3.7.0
 seaborn>=0.12.0
 jupyter>=1.0.0
+wordcloud
 
 # Testing
 pytest>=7.0.0
 pytest-cov>=4.0.0
+Flask>=3.0.0
+pymongo>=4.6.0
 
 # Development
 black>=23.0.0
 flake8>=6.0.0
+
+# NLP / ML
+torch
+transformers>=4.40.0
+sentence-transformers>=2.6.0
+spacy>=3.7.0
+hdbscan
+google-generativeai

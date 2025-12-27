@@ -1,6 +1,6 @@
 import spacy
 
-nlp = spacy.load("en_core_web_lg")
+nlp = spacy.load("en_core_web_sm")
 from datetime import datetime
 from sentence_transformers import SentenceTransformer
 
