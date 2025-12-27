@@ -54,20 +54,20 @@ Where default weights are: α=0.3 (geographic), β=0.4 (categorical), γ=0.15 (l
 ## Related Work
 
 ### Affective Geography
-- **Thien, D. (2005)**: "After or beyond feeling? A consideration of affect and emotion in geography" - Foundational work on emotional geographies
-- **Davidson, J., & Milligan, C. (2004)**: "Embodying emotion sensing space: introducing emotional geographies" - Introduction of emotional topography concepts
+- **Thien, D. (2005)**. After or beyond feeling? A consideration of affect and emotion in geography. *Area*, 37(4), 450-454.
+- **Davidson, J., & Milligan, C. (2004)**. Embodying emotion sensing space: introducing emotional geographies. *Social & Cultural Geography*, 5(4), 523-542.
 
 ### Place and Mental Health
-- **Gesler, W. (1992)**: "Therapeutic landscapes: medical issues in light of the new cultural geography" - Therapeutic landscapes theory
-- **Williams, A. (2007)**: "Therapeutic landscapes" - Comprehensive review of healing places
+- **Gesler, W. (1992)**. Therapeutic landscapes: medical issues in light of the new cultural geography. *Social Science & Medicine*, 34(7), 735-746.
+- **Williams, A. (Ed.). (2007)**. *Therapeutic landscapes*. Routledge.
 
 ### Semantic Similarity
-- **Ballatore, A., et al. (2013)**: "Computing the semantic similarity of geographic terms using volunteered lexical definitions" - Geographic term similarity computation
-- **Janowicz, K., et al. (2011)**: "Semantic similarity measurement and geospatial applications" - Semantic approaches to geospatial data
+- **Ballatore, A., Bertolotto, M., & Wilson, D. C. (2013)**. Computing the semantic similarity of geographic terms using volunteered lexical definitions. In *Proceedings of the 21st ACM SIGSPATIAL International Conference on Advances in Geographic Information Systems* (pp. 414-417).
+- **Janowicz, K., Raubal, M., & Kuhn, W. (2011)**. Semantic similarity measurement and geospatial applications. *Transactions in GIS*, 15(3), 299-318.
 
 ### Recovery and Place
-- **Topor, A., et al. (2011)**: "Others: The role of family, friends, and professionals in the recovery process" - Social support in recovery
-- **Borg, M., & Davidson, L. (2008)**: "The nature of recovery as lived in everyday experience" - Lived experience of recovery
+- **Topor, A., Borg, M., Di Girolamo, S., & Davidson, L. (2011)**. Others: The role of family, friends, and professionals in the recovery process. In *The Routledge international handbook of recovery* (pp. 131-142). Routledge.
+- **Borg, M., & Davidson, L. (2008)**. The nature of recovery as lived in everyday experience. *Journal of Mental Health*, 17(2), 129-140.
 
 ### Key Insights from Literature
 
