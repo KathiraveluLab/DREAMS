@@ -102,7 +102,7 @@ Comprehensive testing strategy for the DREAMS (Digitization for Recovery: Explor
 
 ---
 
-# Location-Proximity Module Test Plan
+## Location-Proximity Module Test Plan
 
 ## Overview
 
