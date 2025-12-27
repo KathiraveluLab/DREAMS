@@ -183,3 +183,4 @@ cython_debug/
 
 # Virtual environments
 venv310/
+venv/
