@@ -1,6 +1,6 @@
 # Location-Proximity Analysis Extension
 
-## 🎯 Overview
+## Overview
 
 A new module for DREAMS that analyzes **multi-dimensional location proximity** to understand how semantically similar places influence emotional patterns in recovery journeys.
 
@@ -8,7 +8,7 @@ A new module for DREAMS that analyzes **multi-dimensional location proximity** t
 
 ---
 
-## 📁 Module Location
+## Module Location
 
 ```
 DREAMS/location_proximity/
@@ -26,7 +26,7 @@ DREAMS/location_proximity/
 
 ---
 
-## 🚀 Quick Demo
+## Quick Demo
 
 ```bash
 cd location_proximity
@@ -47,7 +47,7 @@ Alaska Native Medical Center ↔ Providence Hospital : 0.725
 
 ---
 
-## 💡 Key Features
+## Key Features
 
 ### 1. Multi-Dimensional Proximity
 Calculates location similarity using:
@@ -70,7 +70,7 @@ Calculates location similarity using:
 
 ---
 
-## 🔬 Research Questions Addressed
+## Research Questions Addressed
 
 1. **Do semantically similar places evoke similar emotions?**
    - Compare two different churches vs. church and hospital
@@ -86,7 +86,7 @@ Calculates location similarity using:
 
 ---
 
-## 📊 Example Use Cases
+## Example Use Cases
 
 ### Use Case 1: Categorical Analysis
 **Question**: Do all churches evoke positive emotions, or just specific ones?
@@ -127,7 +127,7 @@ for hospital in hospitals:
 
 ---
 
-## 🔗 Integration with DREAMS
+## Integration with DREAMS
 
 ### Extend Post Schema
 ```python
@@ -153,7 +153,7 @@ def location_analysis(user_id):
 
 ---
 
-## 📈 Metrics & Validation
+## Metrics & Validation
 
 ### Clustering Quality
 - Silhouette score
@@ -170,7 +170,7 @@ def location_analysis(user_id):
 
 ---
 
-## 🎓 Research Contribution
+## Research Contribution
 
 **Novel Contribution**: First formalization of multi-dimensional location proximity for emotion analysis in recovery journeys.
 
@@ -181,7 +181,7 @@ def location_analysis(user_id):
 
 ---
 
-## 📚 Dependencies
+## Dependencies
 
 ```
 Pillow>=10.0.0          # Image EXIF extraction
@@ -191,7 +191,7 @@ scikit-learn>=1.3.0     # Clustering algorithms
 
 ---
 
-## ✅ Testing
+## Testing
 
 ```bash
 cd location_proximity
@@ -207,7 +207,7 @@ pytest test_proximity.py -v
 
 ---
 
-## 🚧 Future Enhancements
+## Future Enhancements
 
 ### Phase 1 (Current)
 - [x] Multi-dimensional proximity calculation
@@ -229,7 +229,7 @@ pytest test_proximity.py -v
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 This module was developed as part of GSoC 2026 project:
 > "Understanding proximity in locations and emotions through digitized memories"
@@ -241,7 +241,7 @@ Contributions welcome! See [location_proximity/README.md](location_proximity/REA
 
 ---
 
-## 📧 Contact
+## Contact
 
 - **Project**: https://github.com/KathiraveluLab/DREAMS
 - **Discussions**: https://github.com/KathiraveluLab/DREAMS/discussions
@@ -249,7 +249,7 @@ Contributions welcome! See [location_proximity/README.md](location_proximity/REA
 
 ---
 
-## 📄 License
+## License
 
 Same as DREAMS project (see [LICENSE](LICENSE))
 
