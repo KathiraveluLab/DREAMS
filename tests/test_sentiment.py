@@ -18,15 +18,23 @@ def client(app):
 # Mock the AI response for all tests 
 @pytest.fixture
 def mock_sentiment():
-    with patch('dreamsApp.app.utils.sentiment.get_image_caption_and_sentiment') as mock:
-        mock.return_value = {
+    with patch('dreamsApp.app.utils.sentiment.get_image_caption_and_sentiment') as mock_img, \
+         patch('dreamsApp.app.utils.sentiment.get_aspect_sentiment') as mock_aspect:
+        
+        mock_img.return_value = {
             "imgcaption": "A mock caption",
             "sentiment": {"label": "POSITIVE", "score": 0.99}
         }
-        yield mock
+        
+        mock_aspect.return_value = [
+            {"span": "day", "polarity": "positive"}
+        ]
+        
+        yield mock_img, mock_aspect
 
 def test_valid_caption(client, mock_sentiment):
     """Refactored to include image and correct URL"""
+    mock_img, mock_aspect = mock_sentiment
     payload = {
         "caption": "This is a wonderful day!",
         "image_path_or_url": "http://mock.url/img.jpg" # ADDED: Required by App
@@ -38,23 +46,61 @@ def test_valid_caption(client, mock_sentiment):
     )
     assert response.status_code == 200
     json_data = response.get_json()
-    assert json_data == mock_sentiment.return_value
+    
+    # Verify structure includes both original and new fields
+    expected_response = mock_img.return_value.copy()
+    expected_response["aspect_sentiment"] = mock_aspect.return_value
+    
+    assert json_data == expected_response
 
 def test_empty_caption(client, mock_sentiment):
     """
     CHANGED: The app logic allows empty captions (defaults to ""),
     so we now expect 200 OK, not 400.
     """
+    mock_img, mock_aspect = mock_sentiment
     payload = {
         "caption": "",
         "image_path_or_url": "http://mock.url/img.jpg"
     }
     response = client.post(
-        "/sentiment/analyze",
+        "/sentiment/analyze", 
         data=json.dumps(payload),
         content_type="application/json"
     )
-    assert response.status_code == 200 # App allows empty caption
+    assert response.status_code == 200
+    
+    # Verify aspect sentiment was called (even if empty string passed)
+    mock_aspect.assert_called()
+
+def test_aspect_sentiment_integration(client, mock_sentiment):
+    """Verify aspect sentiment is correctly integrated into response"""
+    mock_img, mock_aspect = mock_sentiment
+    
+    # Setup specific mock return for this test
+    mock_aspect.return_value = [
+        {"span": "food", "polarity": "positive"},
+        {"span": "service", "polarity": "negative"}
+    ]
+    
+    payload = {
+        "caption": "Great food but bad service",
+        "image_path_or_url": "http://mock.url/img.jpg"
+    }
+    
+    response = client.post(
+        "/sentiment/analyze", 
+        data=json.dumps(payload),
+        content_type="application/json"
+    )
+    
+    assert response.status_code == 200
+    data = response.get_json()
+    
+    assert "aspect_sentiment" in data
+    assert len(data["aspect_sentiment"]) == 2
+    assert data["aspect_sentiment"][0]["span"] == "food"
+    assert data["aspect_sentiment"][1]["polarity"] == "negative"
 
 def test_missing_caption_key(client, mock_sentiment):
     """
