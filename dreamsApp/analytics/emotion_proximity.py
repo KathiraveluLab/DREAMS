@@ -357,9 +357,9 @@ def compare_timelines_distance(
         start_b = timeline_b.start_time()
         
         if start_a is None and start_b is None:
-            # Both empty - use current time as arbitrary anchor
-            # WARNING: This breaks determinism; callers should provide explicit anchor_time
-            anchor_time = datetime.now()
+            # Both timelines are empty and no anchor_time was provided.
+            # Raise an error to enforce deterministic behavior.
+            raise ValueError("Cannot compare two empty timelines without an explicit anchor_time.")
         elif start_a is None:
             anchor_time = start_b
         elif start_b is None:
