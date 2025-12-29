@@ -52,7 +52,7 @@ def get_aspect_sentiment(text):
         # Predict returns a list of dicts: [{'span': 'aspect', 'polarity': 'positive'}, ...]
         return absa_model.predict(text)
     except Exception as e:
-        print(f"ABSA Error: {e}")
+        logging.error(f"ABSA Error: {e}")
         return []
 
 def get_image_caption_and_sentiment(image_path_or_url: str, caption: str,  prompt: str = "a photography of"):
