@@ -21,6 +21,7 @@ sentiment_model = AutoModelForSequenceClassification.from_pretrained(sentiment_m
 
 ASPECT_MODEL_ID = "tomaarsen/setfit-absa-paraphrase-mpnet-base-v2-restaurants-aspect"
 POLARITY_MODEL_ID = "tomaarsen/setfit-absa-paraphrase-mpnet-base-v2-restaurants-polarity"
+absa_model = AbsaModel.from_pretrained(ASPECT_MODEL_ID, POLARITY_MODEL_ID)
 
 
 # Utility: load image from URL or path
@@ -40,6 +41,19 @@ def preprocess(text):
         t = "http" if t.startswith("http") else t
         new_text.append(t)
     return " ".join(new_text)
+
+def get_aspect_sentiment(text):
+    """
+    Extracts aspects and their sentiment polarity from text.
+    """
+    if not text:
+        return []
+    try:
+        # Predict returns a list of dicts: [{'span': 'aspect', 'polarity': 'positive'}, ...]
+        return absa_model.predict(text)
+    except Exception as e:
+        print(f"ABSA Error: {e}")
+        return []
 
 def get_image_caption_and_sentiment(image_path_or_url: str, caption: str,  prompt: str = "a photography of"):
     raw_image = load_image(image_path_or_url)
@@ -98,5 +112,8 @@ def analyze_sentiment():
         image_path_or_url=image_path_or_url,
         caption=caption,
     )
+    # We analyze the user-provided caption if it exists, otherwise we could analyze the generated imgcaption
+    text_to_analyze = caption if caption else result["imgcaption"]
+    result["aspect_sentiment"] = get_aspect_sentiment(text_to_analyze)
 
     return jsonify(result), 200

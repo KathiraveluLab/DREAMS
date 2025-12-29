@@ -26,3 +26,4 @@ sentence-transformers>=2.6.0
 spacy>=3.7.0
 hdbscan
 google-generativeai
+setfit
