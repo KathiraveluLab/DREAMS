@@ -42,7 +42,7 @@ def preprocess(text):
         new_text.append(t)
     return " ".join(new_text)
 
-def get_aspect_sentiment(text):
+def get_aspect_sentiment(text: str) -> list:
     """
     Extracts aspects and their sentiment polarity from text.
     """
