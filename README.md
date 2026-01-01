@@ -21,16 +21,39 @@ DREAMS is an extension of the Beehive project, focused on exploring time and ord
 
 ## Repository Structure
 
-    DREAMS/
-    ├── dreamsApp/
-    │   ├── __init__.py                #        App factory
-    │   ├── captionSentiments.py       # API logic and model loading
-    |   ├── README.md
-    ├──tests/
-    |  ├──test_sentiment.py
-    ├──pytest.ini
-    ├──README.md
-    ├──requirements.txt
+DREAMS/
+├── dreamsApp/                  # Main application package
+│   ├── app/                    # Flask app package (app factory + blueprints)
+│   │   ├── __init__.py         # create_app() factory
+│   │   ├── config.py           # App configuration
+│   │   ├── models.py           # Database models
+│   │   ├── auth.py             # Authentication routes
+│   │   │
+│   │   ├── ingestion/          # Image ingestion & processing
+│   │   │   ├── __init__.py
+│   │   │   └── routes.py
+│   │   │
+│   │   ├── dashboard/          # Dashboard & analytics views
+│   │   │   ├── __init__.py
+│   │   │   └── main.py
+│   │   │
+│   │   └── utils/              # Core ML / NLP utilities
+│   │       ├── sentiment.py    # Caption sentiment analysis
+│   │       ├── keywords.py     # Keyword extraction
+│   │       ├── clustering.py   # Keyword clustering (HDBSCAN)
+│   │       └── llms.py         # LLM (Gemini) integration
+│   │
+│   └── docs/                   # Project documentation
+│
+├── data_integrity/             # Data validation utilities
+├── location_proximity/         # Location-based analysis (future)
+├── dream-integration/          # Integration & experimental code
+├── tests/                      # Unit and integration tests
+│
+├── requirements.txt            # Python dependencies
+├── pytest.ini                  # Pytest configuration
+└── README.md                   # Project documentation
+
  
 ## Installation and Setup
 
