@@ -21,6 +21,7 @@ DREAMS is an extension of the Beehive project, focused on exploring time and ord
 
 ## Repository Structure
 
+```text
 DREAMS/
 ├── dreamsApp/                  # Main application package
 │   ├── app/                    # Flask app package (app factory + blueprints)
