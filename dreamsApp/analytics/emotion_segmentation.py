@@ -225,7 +225,7 @@ def segment_timeline_by_gaps(
         end_time=segment_end,
         index=len(segments)
     )
-    segment_timeline = EmotionTimeline(current_segment_events)
+    segment_timeline = EmotionTimeline(subject_id=timeline.subject_id, events=tuple(current_segment_events))
     segments.append((window, segment_timeline))
     
     return segments
