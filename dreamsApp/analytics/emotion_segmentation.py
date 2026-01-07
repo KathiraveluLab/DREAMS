@@ -289,7 +289,7 @@ def align_timelines_to_windows(
             ]
             
             # Create new EmotionTimeline for this segment
-            segment_timeline = EmotionTimeline(events_in_window)
+            segment_timeline = EmotionTimeline(subject_id=timeline.subject_id, events=tuple(events_in_window))
             aligned_segments.append(segment_timeline)
         
         aligned[window_index] = aligned_segments
