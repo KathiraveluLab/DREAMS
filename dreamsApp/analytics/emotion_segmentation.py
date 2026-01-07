@@ -187,7 +187,7 @@ def segment_timeline_by_gaps(
             end_time=event.timestamp + timedelta(microseconds=1),
             index=0
         )
-        segment_timeline = EmotionTimeline([event])
+        segment_timeline = EmotionTimeline(subject_id=timeline.subject_id, events=(event,))
         return [(window, segment_timeline)]
     
     # Split based on gaps
