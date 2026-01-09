@@ -52,36 +52,94 @@ def profile(target):
     df["ema_score"] = df["score"].ewm(span=5, adjust=False).mean()
 
     # 📈 Create user-friendly visual
-    plt.figure(figsize=(12, 6))
+    plt.style.use('dark_background')
+    plt.figure(figsize=(12, 6), facecolor='#121212')
+    ax = plt.gca()
+    ax.set_facecolor('#1e1e1e')
 
     plt.plot(df["timestamp"], df["cumulative_score"],
-            label="Overall Emotional Journey", color="blue", marker="o", alpha=0.5)
+            label="Overall Emotional Journey", color="#90caf9", marker="o", alpha=0.5)
 
     plt.plot(df["timestamp"], df["rolling_avg"],
-            label="5-Day Emotional Smoothing", color="orange", linestyle="--", marker="x")
+            label="5-Day Emotional Smoothing", color="#ffcc80", linestyle="--", marker="x")
 
     plt.plot(df["timestamp"], df["ema_score"],
-            label="Recent Emotional Trend", color="green", linestyle="-", marker="s")
+            label="Recent Emotional Trend", color="#a5d6a7", linestyle="-", marker="s")
 
-    plt.axhline(0, color="gray", linestyle="--", linewidth=1)
+    plt.axhline(0, color="#555555", linestyle="--", linewidth=1)
 
     #  Friendly and interpretive title and axis labels
-    plt.title("How This Person’s Feelings Shifted Over Time", fontsize=14)
-    plt.xlabel("When Posts Were Made", fontsize=12)
-    plt.ylabel("Mood Score (Higher = Happier)", fontsize=12)
+    plt.title("How This Person’s Feelings Shifted Over Time", fontsize=14, color='white', fontweight='bold')
+    plt.xlabel("When Posts Were Made", fontsize=12, color='#e0e0e0')
+    plt.ylabel("Mood Score (Higher = Happier)", fontsize=12, color='#e0e0e0')
 
     #  Improve legend
-    plt.legend(title="What the Lines Mean", fontsize=10)
-    plt.grid(True)
-    plt.xticks(rotation=45)
+    plt.legend(title="What the Lines Mean", fontsize=10, facecolor='#222', edgecolor='#444')
+    plt.grid(color='#333333', linestyle=':', alpha=0.5)
+    plt.xticks(rotation=45, color='#888888')
+    plt.yticks(color='#888888')
     plt.tight_layout()
 
     #  Save to base64 for embedding
     buf = io.BytesIO()
-    plt.savefig(buf, format='png')
+    plt.savefig(buf, format='png', facecolor='#121212')
     buf.seek(0)
     plot_data = base64.b64encode(buf.read()).decode('utf-8')
     buf.close()
+    plt.clf() # Clear timeline plot
+
+    # --- CHIME Radar Chart ---
+    chime_counts = {
+        "Connectedness": 0, "Hope": 0, "Identity": 0, 
+        "Meaning": 0, "Empowerment": 0
+    }
+    
+    for post in user_posts:
+        if 'chime_analysis' in post and post['chime_analysis']:
+            label = post['chime_analysis'].get('label', '')
+            for key in chime_counts:
+                if key.lower() == label.lower():
+                    chime_counts[key] += 1
+    
+    categories = list(chime_counts.keys())
+    values = list(chime_counts.values())
+    
+    # Radar chart requires closing the loop
+    N = len(categories)
+    angles = [n / float(N) * 2 * np.pi for n in range(N)]
+    values += values[:1]
+    angles += angles[:1]
+    
+    # Setup the plot with dark theme colors to match dashboard
+    plt.style.use('dark_background')
+    fig = plt.figure(figsize=(7, 7), facecolor='#121212') # Deep dark background
+    ax = plt.subplot(111, polar=True)
+    ax.set_facecolor('#1e1e1e') # Slightly lighter plot area
+    
+    # Set radial limits based on data but with a minimum for visual clarity
+    max_val = max(values) if any(values) else 1
+    limit = max(2, max_val + 1)
+    ax.set_ylim(0, limit)
+    
+    # Draw axes and labels
+    plt.xticks(angles[:-1], categories, color='#00d4ff', size=12, fontweight='bold')
+    ax.tick_params(colors='#888888') # Radial scale label color
+    ax.grid(color='#444444', linestyle='--')
+
+    # Plot data with vibrant blue fill and markers
+    ax.plot(angles, values, color='#00d4ff', linewidth=3, linestyle='solid', marker='o', markersize=8)
+    ax.fill(angles, values, color='#00d4ff', alpha=0.3)
+    
+    plt.title("Personal Recovery Footprint", size=18, color='white', pad=20, fontweight='bold')
+    
+    buf = io.BytesIO()
+    # Save with specific facecolor to ensure transparency/consistency
+    plt.savefig(buf, format='png', bbox_inches='tight', facecolor='#121212')
+    buf.seek(0)
+    chime_plot_data = base64.b64encode(buf.read()).decode('utf-8')
+    buf.close()
+    plt.clf() # Clean up radar plot
+    plt.style.use('default') # Reset style for next plots
     
     # Fetch keywords from MongoDB
     keywords_data = current_app.mongo['keywords'].find_one({'user_id': target_user_id})
@@ -98,26 +156,40 @@ def profile(target):
         thematics = thematics_data["data"]
 
     # Generate word cloud for positive keywords
-    wordcloud_positive = WordCloud(width=800, height=400, background_color='white').generate(' '.join(positive_keywords))
-
-    # Save word cloud to buffer
-    buf = io.BytesIO()
-    wordcloud_positive.to_image().save(buf, 'png')
-    buf.seek(0)
-    wordcloud_positive_data = base64.b64encode(buf.read()).decode('utf-8')
-    buf.close()
+    if positive_keywords:
+        wordcloud_positive = WordCloud(
+            width=800, 
+            height=400, 
+            background_color='#121212', 
+            colormap='GnBu'
+        ).generate(' '.join(positive_keywords))
+        # Save word cloud to buffer
+        buf = io.BytesIO()
+        wordcloud_positive.to_image().save(buf, 'png')
+        buf.seek(0)
+        wordcloud_positive_data = base64.b64encode(buf.read()).decode('utf-8')
+        buf.close()
+    else:
+        wordcloud_positive_data = None
 
     # Generate word cloud for negative keywords
-    wordcloud_negative = WordCloud(width=800, height=400, background_color='white').generate(' '.join(negative_keywords))
+    if negative_keywords:
+        wordcloud_negative = WordCloud(
+            width=800, 
+            height=400, 
+            background_color='#121212', 
+            colormap='OrRd'
+        ).generate(' '.join(negative_keywords))
+        # Save word cloud to buffer
+        buf = io.BytesIO()
+        wordcloud_negative.to_image().save(buf, 'png')
+        buf.seek(0)
+        wordcloud_negative_data = base64.b64encode(buf.read()).decode('utf-8')
+        buf.close()
+    else:
+        wordcloud_negative_data = None
 
-    # Save word cloud to buffer
-    buf = io.BytesIO()
-    wordcloud_negative.to_image().save(buf, 'png')
-    buf.seek(0)
-    wordcloud_negative_data = base64.b64encode(buf.read()).decode('utf-8')
-    buf.close()
-
-    return render_template('dashboard/profile.html', plot_url=plot_data, positive_wordcloud_url=wordcloud_positive_data, negative_wordcloud_url=wordcloud_negative_data, thematics=thematics,user_id=str(target_user_id))
+    return render_template('dashboard/profile.html', plot_url=plot_data, chime_plot_url=chime_plot_data, positive_wordcloud_url=wordcloud_positive_data, negative_wordcloud_url=wordcloud_negative_data, thematics=thematics,user_id=str(target_user_id))
 
 @bp.route('/clusters/<user_id>')
 @login_required

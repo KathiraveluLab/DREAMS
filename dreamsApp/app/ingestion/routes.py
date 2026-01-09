@@ -6,7 +6,7 @@ from flask import current_app
 from .  import bp
 
 
-from ..utils.sentiment import get_image_caption_and_sentiment
+from ..utils.sentiment import get_image_caption_and_sentiment, get_chime_category
 from ..utils.keywords import extract_keywords_and_vectors
 from ..utils.clustering import cluster_keywords_for_all_users
 
@@ -32,6 +32,12 @@ def upload_post():
     
     sentiment = result["sentiment"]
     generated_caption = result["imgcaption"]
+
+    # IMPROVED: Analyze for CHIME Framework
+    # Use user caption if available, otherwise fallback to the auto-generated BLIP caption
+    text_for_chime = caption if (caption and caption.strip()) else generated_caption
+    chime_result = get_chime_category(text_for_chime)
+    
     # keyword generation from the caption
     
     # Extract keyword + vector pairs
@@ -73,6 +79,7 @@ def upload_post():
         'image_path': image_path,
         'generated_caption': generated_caption,
         'sentiment' : sentiment,
+        'chime_analysis': chime_result  # Store the new object
     }
 
     mongo = current_app.mongo
