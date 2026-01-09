@@ -142,7 +142,7 @@ def get_chime_category(text: str):
 
     if _chime_classifier is None:
         try:
-            print(f"Loading CHIME model from Hugging Face: {HF_MODEL_ID}...")
+            logging.info(f"Loading CHIME model from Hugging Face: {HF_MODEL_ID}...")
             # This line automatically downloads the model from the Hub 
             # and caches it in ~/.cache/huggingface
             _chime_classifier = pipeline(
