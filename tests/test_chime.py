@@ -1,8 +1,12 @@
 import unittest
 from unittest.mock import patch, MagicMock
-from dreamsApp.app.utils.sentiment import get_chime_category
+from dreamsApp.app.utils.sentiment import SentimentAnalyzer
 
 class TestChimeAnalysis(unittest.TestCase):
+
+    def setUp(self):
+        # Create a fresh analyzer for each test to avoid cross-test contamination
+        self.analyzer = SentimentAnalyzer()
 
     @patch('dreamsApp.app.utils.sentiment.pipeline')
     def test_get_chime_category_success(self, mock_pipeline):
@@ -18,14 +22,14 @@ class TestChimeAnalysis(unittest.TestCase):
         mock_pipeline.return_value = mock_classifier
         
         text = "I feel hopeful about the future."
-        result = get_chime_category(text)
+        result = self.analyzer.analyze_chime(text)
         
         self.assertEqual(result['label'], 'Hope')
         self.assertEqual(result['score'], 0.95)
     
     @patch('dreamsApp.app.utils.sentiment.pipeline')
     def test_get_chime_category_empty(self, mock_pipeline):
-        result = get_chime_category("")
+        result = self.analyzer.analyze_chime("")
         self.assertEqual(result['label'], 'Uncategorized')
         self.assertEqual(result['score'], 0.0)
 
@@ -34,13 +38,8 @@ class TestChimeAnalysis(unittest.TestCase):
         # Simulate import error or download fail
         mock_pipeline.side_effect = Exception("Model not found")
         
-        # We need to reset the global _chime_classifier to None for this test to trigger the exception block
-        # However, it's global. We can patch the module level variable if needed, 
-        # but since 'get_chime_category' interacts with it, we rely on it being None initially or reset it.
-        import dreamsApp.app.utils.sentiment as sentiment_module
-        sentiment_module._chime_classifier = None
+        result = self.analyzer.analyze_chime("some text")
         
-        result = get_chime_category("some text")
-        
-        self.assertEqual(result['label'], 'Hope') # Fallback behavior
+        self.assertEqual(result['label'], 'Uncategorized')
         self.assertEqual(result['score'], 0.0)
+

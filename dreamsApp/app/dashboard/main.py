@@ -11,15 +11,30 @@ from wordcloud import WordCloud
 from ..utils.llms import generate
 from flask import jsonify
 
+def generate_wordcloud_b64(keywords, colormap):
+    """Refactor: Helper to generate base64 encoded word cloud image."""
+    if not keywords:
+        return None
+    wordcloud = WordCloud(
+        width=800, 
+        height=400, 
+        background_color='#121212', 
+        colormap=colormap
+    ).generate(' '.join(keywords))
+    
+    buf = io.BytesIO()
+    wordcloud.to_image().save(buf, 'png')
+    buf.seek(0)
+    data = base64.b64encode(buf.read()).decode('utf-8')
+    buf.close()
+    return data
+
 @bp.route('/', methods =['GET'])
 @login_required
 def main():
     mongo = current_app.mongo['posts']
     unique_users = mongo.distinct('user_id')
     return render_template('dashboard/main.html', users=unique_users)
-
-        
-import matplotlib.pyplot as plt
 
 @bp.route('/user/<string:target>', methods =['GET'])
 @login_required
@@ -51,7 +66,7 @@ def profile(target):
     df["rolling_avg"] = df["score"].rolling(window=5, min_periods=1).mean()
     df["ema_score"] = df["score"].ewm(span=5, adjust=False).mean()
 
-    # 📈 Create user-friendly visual
+    # Create user-friendly visual
     plt.style.use('dark_background')
     plt.figure(figsize=(12, 6), facecolor='#121212')
     ax = plt.gca()
@@ -94,12 +109,15 @@ def profile(target):
         "Meaning": 0, "Empowerment": 0
     }
     
+    # Optimize lookup for case-insensitivity
+    chime_lookup = {k.lower(): k for k in chime_counts}
+
     for post in user_posts:
-        if 'chime_analysis' in post and post['chime_analysis']:
-            label = post['chime_analysis'].get('label', '')
-            for key in chime_counts:
-                if key.lower() == label.lower():
-                    chime_counts[key] += 1
+        if post.get('chime_analysis'):
+            label = post['chime_analysis'].get('label', '').lower()
+            original_key = chime_lookup.get(label)
+            if original_key:
+                chime_counts[original_key] += 1
     
     categories = list(chime_counts.keys())
     values = list(chime_counts.values())
@@ -155,39 +173,9 @@ def profile(target):
     else:
         thematics = thematics_data["data"]
 
-    # Generate word cloud for positive keywords
-    if positive_keywords:
-        wordcloud_positive = WordCloud(
-            width=800, 
-            height=400, 
-            background_color='#121212', 
-            colormap='GnBu'
-        ).generate(' '.join(positive_keywords))
-        # Save word cloud to buffer
-        buf = io.BytesIO()
-        wordcloud_positive.to_image().save(buf, 'png')
-        buf.seek(0)
-        wordcloud_positive_data = base64.b64encode(buf.read()).decode('utf-8')
-        buf.close()
-    else:
-        wordcloud_positive_data = None
-
-    # Generate word cloud for negative keywords
-    if negative_keywords:
-        wordcloud_negative = WordCloud(
-            width=800, 
-            height=400, 
-            background_color='#121212', 
-            colormap='OrRd'
-        ).generate(' '.join(negative_keywords))
-        # Save word cloud to buffer
-        buf = io.BytesIO()
-        wordcloud_negative.to_image().save(buf, 'png')
-        buf.seek(0)
-        wordcloud_negative_data = base64.b64encode(buf.read()).decode('utf-8')
-        buf.close()
-    else:
-        wordcloud_negative_data = None
+    # Generate word clouds using helper function
+    wordcloud_positive_data = generate_wordcloud_b64(positive_keywords, 'GnBu')
+    wordcloud_negative_data = generate_wordcloud_b64(negative_keywords, 'OrRd')
 
     return render_template('dashboard/profile.html', plot_url=plot_data, chime_plot_url=chime_plot_data, positive_wordcloud_url=wordcloud_positive_data, negative_wordcloud_url=wordcloud_negative_data, thematics=thematics,user_id=str(target_user_id))
 

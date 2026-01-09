@@ -6,7 +6,7 @@ from flask import current_app
 from .  import bp
 
 
-from ..utils.sentiment import get_image_caption_and_sentiment, get_chime_category
+from ..utils.sentiment import get_image_caption_and_sentiment, get_chime_category, select_text_for_analysis
 from ..utils.keywords import extract_keywords_and_vectors
 from ..utils.clustering import cluster_keywords_for_all_users
 
@@ -33,10 +33,9 @@ def upload_post():
     sentiment = result["sentiment"]
     generated_caption = result["imgcaption"]
 
-    # IMPROVED: Analyze for CHIME Framework
-    # Use user caption if available, otherwise fallback to the auto-generated BLIP caption
-    text_for_chime = caption if (caption and caption.strip()) else generated_caption
-    chime_result = get_chime_category(text_for_chime)
+    # Refactor: Use shared selection logic to determine which text to analyze for recovery
+    text_for_analysis = select_text_for_analysis(caption, generated_caption)
+    chime_result = get_chime_category(text_for_analysis)
     
     # keyword generation from the caption
     
