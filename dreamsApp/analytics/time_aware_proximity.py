@@ -1,16 +1,8 @@
 # dreamsApp/analytics/time_aware_proximity.py
 
 """
-Time-Aware Proximity and Comparison Layer
-
-Provides deterministic, structure-only comparison utilities for aligning
-and comparing EmotionTimeline objects over time windows.
-
-This module is PURELY STRUCTURAL and does NOT perform:
-- Machine learning or clustering
-- Statistical analysis or inference
-- Emotion semantics or interpretation
-- Data interpolation or gap filling
+Time-aware proximity and comparison for EmotionTimeline objects.
+Purely structural - no ML, statistics, or interpretation.
 """
 
 from datetime import datetime, timedelta
@@ -26,27 +18,8 @@ def align_timelines_by_window(
     anchor_time: Optional[datetime] = None
 ) -> Dict[int, Tuple[Optional[EmotionEvent], ...]]:
     """
-    Align multiple timelines into fixed-size time windows.
-    
-    Rules:
-    - Fixed-size time windows
-    - Deterministic anchoring
-    - At most one event per timeline per window
-    - Missing data represented as None
-    - No interpolation or inference
-    
-    Args:
-        timelines: Tuple of EmotionTimeline objects to align
-        window: Fixed window size as timedelta
-        anchor: Anchoring strategy - "start", "end", or "explicit"
-        anchor_time: Required when anchor="explicit"
-    
-    Returns:
-        Dict mapping window index to tuple of events (one per timeline, None if missing)
-    
-    Raises:
-        ValueError: If anchor="explicit" but anchor_time is None
-        ValueError: If window is not positive
+    Align timelines into fixed windows. At most one event per timeline per window.
+    Returns dict mapping window index to tuple of events (None if missing).
     """
     if window <= timedelta(0):
         raise ValueError("Window must be a positive timedelta")
@@ -125,23 +98,8 @@ def temporal_distance(
     anchor_time: Optional[datetime] = None
 ) -> float:
     """
-    Compute temporal distance between two timelines based on presence/absence.
-    
-    Rules:
-    - Uses window alignment internally
-    - Distance based only on presence/absence across windows
-    - Symmetric, deterministic
-    - Zero only for perfect alignment
-    
-    Args:
-        a: First EmotionTimeline
-        b: Second EmotionTimeline
-        window: Window size for alignment
-        anchor: Anchoring strategy for alignment
-        anchor_time: Anchor time for explicit anchoring
-    
-    Returns:
-        Float distance value (0.0 for perfect alignment, higher for more mismatch)
+    Distance between timelines based on presence/absence in windows.
+    Symmetric, deterministic. Zero only for perfect alignment.
     """
     # Empty timelines are treated as perfectly aligned by definition
     if a.is_empty() and b.is_empty():
@@ -185,19 +143,7 @@ def proximity_matrix(
     window: timedelta
 ) -> List[List[float]]:
     """
-    Compute pairwise temporal distance matrix for multiple timelines.
-    
-    Rules:
-    - Square, symmetric matrix
-    - Diagonal = 0
-    - Uses temporal_distance
-    
-    Args:
-        timelines: Tuple of EmotionTimeline objects
-        window: Window size for alignment
-    
-    Returns:
-        Square symmetric matrix of pairwise temporal distances
+    Pairwise distance matrix. Square, symmetric, diagonal = 0.
     """
     n = len(timelines)
     
