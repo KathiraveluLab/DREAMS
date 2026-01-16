@@ -110,7 +110,8 @@ def classify_episode_proximity(
     if overlap > 0.0:
         return ProximityRelation.OVERLAPPING
     
-    if are_episodes_adjacent(episode_a, episode_b, adjacency_threshold):
+    gap_seconds = compute_temporal_gap(episode_a, episode_b)
+    if gap_seconds <= adjacency_threshold.total_seconds():
         return ProximityRelation.ADJACENT
     
     return ProximityRelation.DISJOINT
