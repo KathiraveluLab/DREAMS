@@ -48,9 +48,8 @@
     .img-section img {
         border-radius: 0.75rem;
         box-shadow: 0 0.5rem 1rem rgba(255, 255, 255, 0.05);
-        max-height: 350px;
+        max-height: 500px;
         object-fit: contain;
-        background-color: #222;
     }
 
     .btn-outline-primary {
@@ -90,6 +89,24 @@
         </p>
         <div class="img-section">
             <img src="data:image/png;base64,{{ plot_url }}" alt="Sentiment Trend Over Time" class="img-fluid">
+        </div>
+    </section>
+
+    <!-- CHIME Recovery Framework -->
+    <section class="section text-center">
+        <h2 class="section-title">Recovery Dimensions (CHIME)</h2>
+        <p class="section-description">
+            This chart visualizes alignment with the five key processes of personal recovery: Connectedness, Hope, Identity, Meaning, and Empowerment.
+        </p>
+        <div class="img-section">
+            <img src="data:image/png;base64,{{ chime_plot_url }}" alt="CHIME Radar Chart" class="img-fluid" style="max-height: 500px;">
+        </div>
+        <div class="row mt-4 justify-content-center">
+            <div class="col-auto px-3"><small style="color: #90caf9;"><strong>C</strong>onnectedness</small></div>
+            <div class="col-auto px-3"><small style="color: #90caf9;"><strong>H</strong>ope</small></div>
+            <div class="col-auto px-3"><small style="color: #90caf9;"><strong>I</strong>dentity</small></div>
+            <div class="col-auto px-3"><small style="color: #90caf9;"><strong>M</strong>eaning</small></div>
+            <div class="col-auto px-3"><small style="color: #90caf9;"><strong>E</strong>mpowerment</small></div>
         </div>
     </section>
 
