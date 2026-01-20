@@ -9,6 +9,7 @@ from .  import bp
 from app.utils.sentiment import get_image_caption_and_sentiment
 from app.utils.keywords import extract_keywords_and_vectors
 from app.utils.clustering import cluster_keywords_for_all_users
+from app.utils.exif import get_gps_coordinates
 
 from sentence_transformers import SentenceTransformer
 model = SentenceTransformer("all-MiniLM-L6-V2")
@@ -73,6 +74,7 @@ def upload_post():
         'image_path': image_path,
         'generated_caption': generated_caption,
         'sentiment' : sentiment,
+        'gps_coordinates': get_gps_coordinates(image_path),
     }
 
     mongo = current_app.mongo
