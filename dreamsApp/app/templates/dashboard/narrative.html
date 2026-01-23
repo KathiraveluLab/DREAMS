@@ -1,0 +1,372 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<style>
+    body {
+        background-color: #121212;
+        color: #e0e0e0;
+    }
+
+    h2.section-title {
+        font-weight: 600;
+        margin-bottom: 1rem;
+        color: #ffffff;
+    }
+
+    p.section-description {
+        font-size: 1rem;
+        color: #cccccc;
+        margin-bottom: 2rem;
+    }
+
+    .section {
+        padding: 2rem 0;
+        border-top: 1px solid #333;
+    }
+
+    .card {
+        background-color: #1e1e1e;
+        border: 1px solid #333;
+        border-radius: 1rem;
+        transition: transform 0.2s;
+        color: #e0e0e0;
+    }
+
+    .card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 0.5rem 1rem rgba(255, 255, 255, 0.05);
+    }
+
+    .episode-node {
+        background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);
+        border: 2px solid #4a90d9;
+        border-radius: 12px;
+        padding: 1rem;
+        margin: 0.5rem;
+        min-width: 180px;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+
+    .episode-node:hover {
+        transform: scale(1.05);
+        box-shadow: 0 0 20px rgba(74, 144, 217, 0.4);
+    }
+
+    .episode-node.positive {
+        background: linear-gradient(135deg, #1e5f3a 0%, #2d8757 100%);
+        border-color: #4ad974;
+    }
+
+    .episode-node.negative {
+        background: linear-gradient(135deg, #5f1e1e 0%, #872d2d 100%);
+        border-color: #d94a4a;
+    }
+
+    .episode-id {
+        font-family: monospace;
+        font-size: 0.7rem;
+        color: #888;
+        margin-top: 0.5rem;
+    }
+
+    .graph-container {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: flex-start;
+        gap: 1rem;
+        padding: 2rem;
+        background: #0a0a0a;
+        border-radius: 1rem;
+        min-height: 300px;
+    }
+
+    .edge-info {
+        background: #2a2a2a;
+        padding: 0.5rem 1rem;
+        border-radius: 0.5rem;
+        margin: 0.25rem;
+        display: inline-block;
+    }
+
+    .edge-info.adjacent {
+        border-left: 4px solid #4ad974;
+    }
+
+    .edge-info.overlapping {
+        border-left: 4px solid #d9a74a;
+    }
+
+    .edge-info.disjoint {
+        border-left: 4px solid #d94a4a;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .stat-card {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        padding: 1.5rem;
+        border-radius: 1rem;
+        text-align: center;
+    }
+
+    .stat-value {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #4a90d9;
+    }
+
+    .stat-label {
+        font-size: 0.9rem;
+        color: #888;
+    }
+
+    .fingerprint {
+        font-family: monospace;
+        font-size: 0.8rem;
+        color: #4a90d9;
+        background: #1a1a2e;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+    }
+
+    .timeline-bar {
+        height: 60px;
+        background: #1a1a2e;
+        border-radius: 0.5rem;
+        position: relative;
+        overflow: hidden;
+        margin: 1rem 0;
+    }
+
+    .timeline-event {
+        position: absolute;
+        height: 100%;
+        min-width: 4px;
+        border-radius: 2px;
+    }
+
+    .timeline-event.positive { background: #4ad974; }
+    .timeline-event.neutral { background: #4a90d9; }
+    .timeline-event.negative { background: #d94a4a; }
+
+    .btn-refresh {
+        background: linear-gradient(135deg, #4a90d9 0%, #357abd 100%);
+        border: none;
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.5rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .btn-refresh:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(74, 144, 217, 0.4);
+    }
+</style>
+
+<div class="container">
+
+    <!-- Header -->
+    <section class="section text-center">
+        <h2 class="section-title">📊 Temporal Narrative Analysis</h2>
+        <p class="section-description">
+            Explore emotional episodes and their relationships over time for user: <strong>{{ user_id }}</strong>
+        </p>
+    </section>
+
+    <!-- Stats Overview -->
+    <section class="section">
+        <h3 class="mb-4">Overview</h3>
+        <div class="stats-grid" id="stats-container">
+            <div class="stat-card">
+                <div class="stat-value" id="stat-events">-</div>
+                <div class="stat-label">Total Events</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-episodes">-</div>
+                <div class="stat-label">Episodes</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-edges">-</div>
+                <div class="stat-label">Connections</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-cached">-</div>
+                <div class="stat-label">Cached</div>
+            </div>
+        </div>
+        <div class="text-center">
+            <span class="fingerprint" id="graph-fingerprint">Loading...</span>
+        </div>
+    </section>
+
+    <!-- Timeline Visualization -->
+    <section class="section">
+        <h3 class="mb-4">Emotion Timeline</h3>
+        <p class="section-description">Visual representation of emotional events over time</p>
+        <div class="timeline-bar" id="timeline-bar"></div>
+        <div class="d-flex justify-content-between text-muted small">
+            <span id="timeline-start">-</span>
+            <span id="timeline-end">-</span>
+        </div>
+    </section>
+
+    <!-- Narrative Graph -->
+    <section class="section">
+        <h3 class="mb-4">Episode Network</h3>
+        <p class="section-description">Episodes and their temporal relationships</p>
+        <div class="graph-container" id="graph-container">
+            <div class="text-center text-muted">Loading graph...</div>
+        </div>
+    </section>
+
+    <!-- Edge Details -->
+    <section class="section">
+        <h3 class="mb-4">Episode Connections</h3>
+        <div id="edges-container" class="text-center">
+            <span class="text-muted">Loading connections...</span>
+        </div>
+    </section>
+
+    <!-- Controls -->
+    <section class="section text-center">
+        <button class="btn-refresh" onclick="refreshData()">🔄 Refresh Analysis</button>
+        <button class="btn-refresh" onclick="invalidateCache()" style="background: linear-gradient(135deg, #d94a4a 0%, #bd3535 100%);">🗑️ Clear Cache</button>
+    </section>
+
+</div>
+
+<script>
+    const userId = "{{ user_id }}";
+
+    async function loadData() {
+        try {
+            // Load timeline
+            const timelineRes = await fetch(`/dashboard/api/timeline/${userId}`);
+            const timeline = await timelineRes.json();
+            
+            if (timeline.error) {
+                document.getElementById('graph-container').innerHTML = `<div class="text-danger">${timeline.error}</div>`;
+                return;
+            }
+
+            document.getElementById('stat-events').textContent = timeline.event_count;
+            document.getElementById('graph-fingerprint').textContent = `Fingerprint: ${timeline.fingerprint}`;
+            
+            // Render timeline bar
+            renderTimeline(timeline);
+
+            // Load frontend payload
+            const payloadRes = await fetch(`/dashboard/api/frontend-payload/${userId}`);
+            const payload = await payloadRes.json();
+
+            document.getElementById('stat-episodes').textContent = payload.node_count;
+            document.getElementById('stat-edges').textContent = payload.edge_count;
+            document.getElementById('stat-cached').textContent = '✓';
+            document.getElementById('graph-fingerprint').textContent = `Graph ID: ${payload.graph_id}`;
+
+            // Render graph
+            renderGraph(payload);
+            renderEdges(payload);
+
+        } catch (error) {
+            console.error('Error loading data:', error);
+            document.getElementById('graph-container').innerHTML = `<div class="text-danger">Error: ${error.message}</div>`;
+        }
+    }
+
+    function renderTimeline(timeline) {
+        const container = document.getElementById('timeline-bar');
+        container.innerHTML = '';
+
+        if (!timeline.events || timeline.events.length === 0) return;
+
+        const startTime = new Date(timeline.temporal_bounds.start).getTime();
+        const endTime = new Date(timeline.temporal_bounds.end).getTime();
+        const duration = endTime - startTime || 1;
+
+        document.getElementById('timeline-start').textContent = new Date(startTime).toLocaleDateString();
+        document.getElementById('timeline-end').textContent = new Date(endTime).toLocaleDateString();
+
+        timeline.events.forEach(event => {
+            const eventTime = new Date(event.timestamp).getTime();
+            const position = ((eventTime - startTime) / duration) * 100;
+
+            const div = document.createElement('div');
+            div.className = `timeline-event ${event.emotion_label}`;
+            div.style.left = `${position}%`;
+            div.style.width = `${Math.max(1, 100 / timeline.events.length)}%`;
+            div.title = `${event.emotion_label} (${event.score || 'N/A'}) - ${new Date(event.timestamp).toLocaleString()}`;
+            container.appendChild(div);
+        });
+    }
+
+    function renderGraph(payload) {
+        const container = document.getElementById('graph-container');
+        container.innerHTML = '';
+
+        if (!payload.nodes || payload.nodes.length === 0) {
+            container.innerHTML = '<div class="text-muted">No episodes found</div>';
+            return;
+        }
+
+        payload.nodes.forEach(node => {
+            const div = document.createElement('div');
+            div.className = 'episode-node';
+            div.innerHTML = `
+                <div><strong>Episode ${node.index + 1}</strong></div>
+                <div>${new Date(node.start_time_iso).toLocaleDateString()}</div>
+                <div class="small">${node.event_count} events</div>
+                <div class="small">${Math.round(node.duration_seconds / 60)} min</div>
+                <div class="episode-id">${node.id.substring(0, 8)}...</div>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    function renderEdges(payload) {
+        const container = document.getElementById('edges-container');
+        container.innerHTML = '';
+
+        if (!payload.edges || payload.edges.length === 0) {
+            container.innerHTML = '<span class="text-muted">No connections between episodes</span>';
+            return;
+        }
+
+        payload.edges.forEach(edge => {
+            const div = document.createElement('div');
+            div.className = `edge-info ${edge.relation}`;
+            div.innerHTML = `Episode ${edge.source_index + 1} → Episode ${edge.target_index + 1}: <strong>${edge.relation}</strong>`;
+            container.appendChild(div);
+        });
+    }
+
+    async function refreshData() {
+        document.getElementById('graph-container').innerHTML = '<div class="text-muted">Refreshing...</div>';
+        await loadData();
+    }
+
+    async function invalidateCache() {
+        try {
+            const res = await fetch(`/dashboard/api/invalidate-cache/${userId}`, { method: 'POST' });
+            const data = await res.json();
+            alert(`Cache cleared: ${data.invalidated_count} items removed`);
+            await loadData();
+        } catch (error) {
+            alert(`Error: ${error.message}`);
+        }
+    }
+
+    // Load data on page load
+    document.addEventListener('DOMContentLoaded', loadData);
+</script>
+
+{% endblock %}

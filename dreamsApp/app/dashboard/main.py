@@ -8,7 +8,7 @@ import io
 import base64
 from flask_login import login_required
 from wordcloud import WordCloud
-from app.utils.llms import generate
+from ..utils.llms import generate
 from flask import jsonify
 
 @bp.route('/', methods =['GET'])
