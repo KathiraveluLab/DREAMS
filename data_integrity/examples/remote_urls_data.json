@@ -1,0 +1,29 @@
+{
+  "person_id": "p03",
+  "metadata": {
+    "collection_date": "2024-12-01",
+    "storage": "cloud"
+  },
+  "samples": [
+    {
+      "sample_id": "s01",
+      "timestamp": "2024-12-01T09:00:00Z",
+      "description": "Remote storage test",
+      "image": "https://storage.example.com/images/frame_001.jpg",
+      "audio": "s3://my-bucket/audio/recording_001.wav"
+    },
+    {
+      "sample_id": "s02",
+      "timestamp": "2024-12-01T10:00:00Z",
+      "description": "Mixed local and remote",
+      "image": "data_integrity/README.md",
+      "video": "ftp://server.example.com/videos/clip_002.mp4"
+    },
+    {
+      "sample_id": "s03",
+      "timestamp": "2024-12-01T11:00:00Z",
+      "description": "HTTP URL",
+      "media": "http://cdn.example.com/media/sample.mp3"
+    }
+  ]
+}

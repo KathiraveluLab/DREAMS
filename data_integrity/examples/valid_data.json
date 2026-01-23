@@ -1,0 +1,22 @@
+{
+  "person_id": "p02",
+  "metadata": {
+    "collection_date": "2024-11-15",
+    "researcher": "Dr. Jones"
+  },
+  "samples": [
+    {
+      "sample_id": "s01",
+      "timestamp": "2024-11-15T09:00:00Z",
+      "description": "First session",
+      "image": "data_integrity/examples/sample_data.json",
+      "audio": "data_integrity/README.md"
+    },
+    {
+      "sample_id": "s02",
+      "timestamp": "2024-11-15T11:00:00Z",
+      "description": "Second session",
+      "image": "data_integrity/examples/sample_schema.json"
+    }
+  ]
+}

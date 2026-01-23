@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DREAMS Data Sample",
+  "description": "Minimal schema for validating DREAMS multimodal time-series data",
+  "type": "object",
+  "required": ["person_id", "samples"],
+  "properties": {
+    "person_id": {
+      "type": "string",
+      "description": "Unique identifier for the person/subject"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Optional metadata about the collection"
+    },
+    "samples": {
+      "type": "array",
+      "description": "Time-ordered sequence of samples/events",
+      "items": {
+        "type": "object",
+        "required": ["sample_id", "timestamp"],
+        "properties": {
+          "sample_id": {
+            "type": "string",
+            "description": "Unique identifier for this sample"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp of when this sample was captured"
+          },
+          "description": {
+            "type": "string",
+            "description": "Human-readable description"
+          },
+          "image": {
+            "type": "string",
+            "description": "Path to image file"
+          },
+          "audio": {
+            "type": "string",
+            "description": "Path to audio file"
+          },
+          "video": {
+            "type": "string",
+            "description": "Path to video file"
+          }
+        }
+      },
+      "minItems": 1
+    }
+  }
+}

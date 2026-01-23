@@ -6,9 +6,9 @@ from flask import current_app
 from .  import bp
 
 
-from app.utils.sentiment import get_image_caption_and_sentiment
-from app.utils.keywords import extract_keywords_and_vectors
-from app.utils.clustering import cluster_keywords_for_all_users
+from ..utils.sentiment import get_image_caption_and_sentiment, get_chime_category, select_text_for_analysis
+from ..utils.keywords import extract_keywords_and_vectors
+from ..utils.clustering import cluster_keywords_for_all_users
 
 from sentence_transformers import SentenceTransformer
 model = SentenceTransformer("all-MiniLM-L6-V2")
@@ -32,6 +32,11 @@ def upload_post():
     
     sentiment = result["sentiment"]
     generated_caption = result["imgcaption"]
+
+    # Refactor: Use shared selection logic to determine which text to analyze for recovery
+    text_for_analysis = select_text_for_analysis(caption, generated_caption)
+    chime_result = get_chime_category(text_for_analysis)
+    
     # keyword generation from the caption
     
     # Extract keyword + vector pairs
@@ -73,6 +78,7 @@ def upload_post():
         'image_path': image_path,
         'generated_caption': generated_caption,
         'sentiment' : sentiment,
+        'chime_analysis': chime_result  # Store the new object
     }
 
     mongo = current_app.mongo

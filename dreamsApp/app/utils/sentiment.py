@@ -1,27 +1,16 @@
 import os
 import torch
+import logging
 from PIL import Image
 from transformers import BlipProcessor, BlipForConditionalGeneration
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, AutoConfig
 import numpy as np
 from scipy.special import softmax
 import requests
-from setfit import AbsaModel
 from flask import Blueprint, request, jsonify
+from transformers import pipeline
 
-
-# Load models once
-blip_processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-large")
-blip_model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-large")
-
-sentiment_model_name = "cardiffnlp/twitter-roberta-base-sentiment-latest"
-sentiment_tokenizer = AutoTokenizer.from_pretrained(sentiment_model_name)
-sentiment_config = AutoConfig.from_pretrained(sentiment_model_name)
-sentiment_model = AutoModelForSequenceClassification.from_pretrained(sentiment_model_name)
-
-ASPECT_MODEL_ID = "tomaarsen/setfit-absa-paraphrase-mpnet-base-v2-restaurants-aspect"
-POLARITY_MODEL_ID = "tomaarsen/setfit-absa-paraphrase-mpnet-base-v2-restaurants-polarity"
-
+HF_MODEL_ID = "ashh007/dreams-chime-bert"
 
 # Utility: load image from URL or path
 def load_image(path_or_url):
@@ -41,38 +30,141 @@ def preprocess(text):
         new_text.append(t)
     return " ".join(new_text)
 
-def get_image_caption_and_sentiment(image_path_or_url: str, caption: str,  prompt: str = "a photography of"):
-    raw_image = load_image(image_path_or_url)
+def select_text_for_analysis(caption: str, generated_caption: str) -> str:
+    """DRY: Utility to prioritize user caption over auto-generated one."""
+    return caption if (caption and caption.strip()) else generated_caption
 
-    # # Captioning
-    # inputs = blip_processor(raw_image, prompt, return_tensors="pt")
-    # with torch.no_grad():
-    #     out = blip_model.generate(**inputs)
-    # conditional_img_caption = blip_processor.decode(out[0], skip_special_tokens=True)
+class SentimentAnalyzer:
+    def __init__(self):
+        self._blip_processor = None
+        self._blip_model = None
+        self._sentiment_tokenizer = None
+        self._sentiment_config = None
+        self._sentiment_model = None
+        self._absa_model = None
+        self._chime_classifier = None
 
-    inputs = blip_processor(raw_image, return_tensors="pt")
-    with torch.no_grad():
-        out = blip_model.generate(**inputs)
-    img_caption = blip_processor.decode(out[0], skip_special_tokens=True)
+    def get_blip_models(self):
+        if self._blip_processor is None or self._blip_model is None:
+            print("Loading Blip models...")
+            self._blip_processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-large")
+            self._blip_model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-large")
+        return self._blip_processor, self._blip_model
 
-    # Sentiment Analysis
-    combined_text = f"{caption}"
-    processed_text = preprocess(combined_text)
-    encoded_input = sentiment_tokenizer(processed_text, return_tensors="pt")
-    with torch.no_grad():
-        output = sentiment_model(**encoded_input)
+    def get_sentiment_models(self):
+        if self._sentiment_model is None:
+            print("Loading Sentiment models...")
+            sentiment_model_name = "cardiffnlp/twitter-roberta-base-sentiment-latest"
+            self._sentiment_tokenizer = AutoTokenizer.from_pretrained(sentiment_model_name)
+            self._sentiment_config = AutoConfig.from_pretrained(sentiment_model_name)
+            self._sentiment_model = AutoModelForSequenceClassification.from_pretrained(sentiment_model_name)
+        return self._sentiment_tokenizer, self._sentiment_config, self._sentiment_model
 
-    scores = softmax(output.logits[0].detach().numpy())
-    top_idx = np.argmax(scores)
-    top_sentiment = {
-        "label": sentiment_config.id2label[top_idx],
-        "score": float(np.round(scores[top_idx], 4))
-    }
+    def get_absa_model(self):
+        if self._absa_model is None:
+            try:
+                from setfit import AbsaModel
+                print("Loading ABSA models...")
+                ASPECT_MODEL_ID = "tomaarsen/setfit-absa-paraphrase-mpnet-base-v2-restaurants-aspect"
+                POLARITY_MODEL_ID = "tomaarsen/setfit-absa-paraphrase-mpnet-base-v2-restaurants-polarity"
+                self._absa_model = AbsaModel.from_pretrained(ASPECT_MODEL_ID, POLARITY_MODEL_ID)
+            except ImportError:
+                logging.warning("SetFit not installed. ABSA functionality will be disabled.")
+                return None
+            except Exception as e:
+                logging.error(f"Error loading ABSA model: {e}")
+                return None
+        return self._absa_model
 
-    return {
-        "imgcaption": img_caption,
-        "sentiment": top_sentiment  
-    }
+    def get_chime_classifier(self):
+        if self._chime_classifier is None:
+            try:
+                logging.info(f"Loading CHIME model from Hugging Face: {HF_MODEL_ID}...")
+                self._chime_classifier = pipeline(
+                    "text-classification", 
+                    model=HF_MODEL_ID, 
+                    tokenizer=HF_MODEL_ID,
+                    return_all_scores=True
+                )
+                print("CHIME model loaded successfully.")
+            except Exception as e:
+                print(f"Error loading CHIME model: {e}")
+                return None
+        return self._chime_classifier
+
+    def analyze_chime(self, text: str):
+        if text is None or not text.strip():
+            return {"label": "Uncategorized", "score": 0.0}
+
+        classifier = self.get_chime_classifier()
+        if classifier is None:
+            return {"label": "Uncategorized", "score": 0.0}
+
+        try:
+            results = classifier(text)
+            top_result = max(results[0], key=lambda x: x['score'])
+            return top_result
+        except Exception as e:
+            print(f"Inference error: {e}")
+            return {"label": "Uncategorized", "score": 0.0}
+
+    def analyze_aspect_sentiment(self, text: str) -> list:
+        if not text:
+            return []
+        
+        model = self.get_absa_model()
+        if model is None:
+            return []
+
+        try:
+            return model.predict(text)
+        except Exception as e:
+            logging.error(f"ABSA Error: {e}")
+            return []
+
+    def get_image_caption_and_sentiment(self, image_path_or_url: str, caption: str, prompt: str = "a photography of"):
+        raw_image = load_image(image_path_or_url)
+        
+        blip_proc, blip_mod = self.get_blip_models()
+        sent_tok, sent_conf, sent_mod = self.get_sentiment_models()
+
+        # Note: prompt argument currently unused in current implementation 
+        # but kept for API consistency
+        inputs = blip_proc(raw_image, return_tensors="pt")
+        with torch.no_grad():
+            out = blip_mod.generate(**inputs)
+        img_caption = blip_proc.decode(out[0], skip_special_tokens=True)
+
+        processed_text = preprocess(caption) if caption else ""
+        encoded_input = sent_tok(processed_text, return_tensors="pt")
+        with torch.no_grad():
+            output = sent_mod(**encoded_input)
+
+        scores = softmax(output.logits[0].detach().numpy())
+        top_idx = np.argmax(scores)
+        top_sentiment = {
+            "label": sent_conf.id2label[top_idx],
+            "score": float(np.round(scores[top_idx], 4))
+        }
+
+        return {
+            "imgcaption": img_caption,
+            "sentiment": top_sentiment  
+        }
+
+# Singleton instance for general use
+analyzer = SentimentAnalyzer()
+
+# Maintaining functional interface for backward compatibility
+def get_chime_category(text: str):
+    return analyzer.analyze_chime(text)
+
+def get_aspect_sentiment(text: str):
+    return analyzer.analyze_aspect_sentiment(text)
+
+def get_image_caption_and_sentiment(image_path_or_url: str, caption: str, prompt: str = "a photography of"):
+    return analyzer.get_image_caption_and_sentiment(image_path_or_url, caption, prompt)
+
 
 bp = Blueprint("sentiment", __name__, url_prefix="/sentiment")
 
@@ -98,5 +190,9 @@ def analyze_sentiment():
         image_path_or_url=image_path_or_url,
         caption=caption,
     )
+    # Refactor: Use shared selection logic
+    text_to_analyze = select_text_for_analysis(caption, result["imgcaption"])
+    result["aspect_sentiment"] = get_aspect_sentiment(text_to_analyze)
+    result["chime_analysis"] = get_chime_category(text_to_analyze)
 
     return jsonify(result), 200
