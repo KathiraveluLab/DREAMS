@@ -33,6 +33,19 @@ cache_dir = Path(tempfile.gettempdir()) / "dreams_analytics_cache"
 store = ContentAddressedStore(cache_dir)
 cache = StructuralCache(store)
 
+# Check for optional dependencies at startup (for perceptual emotion analysis)
+_PERCEPTUAL_DEPS_AVAILABLE = True
+_PERCEPTUAL_DEPS_ERROR = None
+try:
+    from PIL import Image
+    import numpy as np
+    from ml.latest_emotion_model import estimate_emotion_from_image, compare_image_estimates
+except ImportError as e:
+    _PERCEPTUAL_DEPS_AVAILABLE = False
+    _PERCEPTUAL_DEPS_ERROR = str(e)
+    print(f"⚠️  WARNING: Perceptual emotion analysis dependencies not available: {e}")
+    print("   The /api/perceptual-emotion and /api/compare-images endpoints will return fallback data.")
+
 # Simulated users with emotion data
 SAMPLE_USERS = {
     "user_001": "Alice Johnson",
@@ -597,9 +610,23 @@ def api_narrative_graph(user_id: str):
 
 @app.route('/static/images/<path:filename>')
 def serve_image(filename: str):
-    """Serve images from the images directory."""
+    """
+    Serve images from the images directory.
+    
+    WARNING: This uses Flask's send_from_directory which is suitable for development only.
+    In production, use a dedicated static file server (Nginx, Apache) or CDN.
+    Configure your reverse proxy to serve /static/images/ directly from the images directory.
+    """
     from flask import send_from_directory
     images_dir = Path(__file__).parent / "images"
+    
+    # Validate filename to prevent path traversal
+    try:
+        safe_path = (images_dir / filename).resolve()
+        safe_path.relative_to(images_dir.resolve())
+    except ValueError:
+        return jsonify({'error': 'Invalid path'}), 400
+    
     return send_from_directory(images_dir, filename)
 
 @app.route('/api/frontend-payload/<user_id>')
@@ -651,36 +678,10 @@ def api_perceptual_emotion(image_path: str):
     Uses the fer2013_mini_XCEPTION model for facial emotion detection.
     This endpoint demonstrates real-world perceptual uncertainty.
     """
-    try:
-        from PIL import Image
-        import numpy as np
-        from ml.latest_emotion_model import estimate_emotion_from_image
-        
-        # Decode URL-encoded path
-        from urllib.parse import unquote
-        image_path = unquote(image_path)
-        
-        # Load image from images directory
-        images_dir = Path(__file__).parent / "images"
-        full_path = images_dir / image_path
-        
-        if not full_path.exists():
-            return jsonify({'error': f'Image not found: {image_path}'}), 404
-        
-        # Load and convert image to numpy array
-        img = Image.open(full_path).convert('RGB')
-        img_array = np.array(img).astype(np.float32) / 255.0
-        
-        # Get emotion estimate using latest model
-        estimate = estimate_emotion_from_image(img_array)
-        estimate['image_path'] = image_path
-        
-        return jsonify(estimate)
-        
-    except ImportError as e:
+    if not _PERCEPTUAL_DEPS_AVAILABLE:
         return jsonify({
             'error': 'Required dependencies not installed',
-            'message': str(e),
+            'message': _PERCEPTUAL_DEPS_ERROR,
             'fallback': {
                 'positive': 0.20,
                 'neutral': 0.70,
@@ -689,6 +690,31 @@ def api_perceptual_emotion(image_path: str):
                 'disclaimer': 'This is a perceptual estimate, not emotional truth.',
             }
         }), 200
+    
+    try:
+        from urllib.parse import unquote
+        image_path = unquote(image_path)
+        
+        images_dir = Path(__file__).parent / "images"
+        
+        # Validate path to prevent directory traversal attacks
+        try:
+            full_path = (images_dir / image_path).resolve()
+            full_path.relative_to(images_dir.resolve())
+        except ValueError:
+            return jsonify({'error': 'Invalid path: access denied'}), 400
+        
+        if not full_path.exists():
+            return jsonify({'error': f'Image not found: {image_path}'}), 404
+        
+        img = Image.open(full_path).convert('RGB')
+        img_array = np.array(img).astype(np.float32) / 255.0
+        
+        estimate = estimate_emotion_from_image(img_array)
+        estimate['image_path'] = image_path
+        
+        return jsonify(estimate)
+        
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -701,14 +727,15 @@ def api_compare_images():
     Uses the fer2013_mini_XCEPTION model for facial emotion detection.
     Demonstrates that different images produce different probability distributions.
     """
+    if not _PERCEPTUAL_DEPS_AVAILABLE:
+        return jsonify({
+            'error': 'Dependencies not installed',
+            'message': _PERCEPTUAL_DEPS_ERROR
+        }), 500
+    
     try:
-        from PIL import Image
-        import numpy as np
-        from ml.latest_emotion_model import compare_image_estimates
-        
         images_dir = Path(__file__).parent / "images"
         
-        # Load both images
         img_a = Image.open(images_dir / "download.jpeg").convert('RGB')
         img_b = Image.open(images_dir / "download (1).jpeg").convert('RGB')
         
@@ -721,8 +748,6 @@ def api_compare_images():
         
         return jsonify(comparison)
         
-    except ImportError as e:
-        return jsonify({'error': 'Dependencies not installed', 'message': str(e)}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
