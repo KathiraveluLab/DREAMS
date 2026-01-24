@@ -395,10 +395,14 @@ NARRATIVE_TEMPLATE = """
                 
                 let imageHTML = '';
                 if (node.images && node.images.length > 0) {
-                    const imgPath = node.images[0].replace('/static/images/', '');
-                    imageHTML = `<img src="${node.images[0]}" alt="Episode ${node.index + 1}" 
-                        style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 0.5rem;" 
-                        onclick="showPerceptualAnalysis('${imgPath}', '${node.images[0]}', ${idx})">`;
+                    // Display all images in the episode
+                    const imagesContainer = node.images.map((imgSrc, imgIdx) => {
+                        const imgPath = imgSrc.replace('/static/images/', '');
+                        return `<img src="${imgSrc}" alt="Episode ${node.index + 1} Image ${imgIdx + 1}" 
+                            style="width: ${node.images.length > 1 ? '48%' : '100%'}; height: ${node.images.length > 1 ? '80px' : '120px'}; object-fit: cover; border-radius: 8px; cursor: pointer;" 
+                            onclick="showPerceptualAnalysis('${imgPath}', '${imgSrc}', ${idx})">`;
+                    }).join('');
+                    imageHTML = `<div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 0.5rem;">${imagesContainer}</div>`;
                 }
                 
                 div.innerHTML = `

@@ -251,35 +251,6 @@ def segment_timeline_by_gaps(
         segments.append((window, segment_timeline))
     
     return segments
-        if gap >= gap_threshold:
-            # Gap exceeds threshold - finalize current segment
-            segment_end = prev_event.timestamp + timedelta(microseconds=1)
-            window = TimeWindow(
-                start_time=segment_start,
-                end_time=segment_end,
-                index=len(segments)
-            )
-            segment_timeline = EmotionTimeline(subject_id=timeline.subject_id, events=tuple(current_segment_events))
-            segments.append((window, segment_timeline))
-            
-            # Start new segment
-            current_segment_events = [curr_event]
-            segment_start = curr_event.timestamp
-        else:
-            # Continue current segment
-            current_segment_events.append(curr_event)
-    
-    # Finalize last segment
-    segment_end = timeline.events[-1].timestamp + timedelta(microseconds=1)
-    window = TimeWindow(
-        start_time=segment_start,
-        end_time=segment_end,
-        index=len(segments)
-    )
-    segment_timeline = EmotionTimeline(subject_id=timeline.subject_id, events=tuple(current_segment_events))
-    segments.append((window, segment_timeline))
-    
-    return segments
 
 
 def align_timelines_to_windows(
