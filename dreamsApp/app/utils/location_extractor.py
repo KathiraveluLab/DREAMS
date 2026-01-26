@@ -17,6 +17,8 @@ def extract_gps_from_image(image_path):
                     gps_info = {GPSTAGS.get(t, t): value[t] for t in value}
                 elif decoded == "DateTimeOriginal":
                     datetime_original = value
+                if gps_info is not None and datetime_original is not None:
+                    break
             
             if not gps_info:
                 return None
