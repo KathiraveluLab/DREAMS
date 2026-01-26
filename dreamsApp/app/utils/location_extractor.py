@@ -46,6 +46,6 @@ def extract_gps_from_image(image_path):
                 result["timestamp"] = gps_info["GPSDateStamp"]
             return result
         
-    except Exception as e:
+    except (AttributeError, KeyError, IndexError, TypeError, ValueError, IOError) as e:
         logging.error(f"Failed to extract GPS from '{image_path}': {e}")
         return None
