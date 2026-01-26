@@ -22,7 +22,7 @@ import numpy as np
 
 # Path to the inference script
 INFERENCE_SCRIPT = Path(__file__).parent / "keras_inference.py"
-PYTHON_311_PATH = "/opt/homebrew/bin/python3.11"
+PYTHON_311_PATH = __import__('os').environ.get("PYTHON_311_PATH", "python3.11")
 
 # Emotion labels from fer2013 dataset
 FER2013_LABELS = {
