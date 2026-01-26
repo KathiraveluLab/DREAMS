@@ -28,6 +28,8 @@ def extract_gps_from_image(image_path):
                 return None
             
             def to_degrees(val):
+                if not (isinstance(val, (tuple, list)) and len(val) == 3):
+                    raise ValueError("GPS coordinate value is not a valid 3-element tuple.")
                 d, m, s = val
                 return float(d) + float(m)/60.0 + float(s)/3600.0
             
