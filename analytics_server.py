@@ -107,12 +107,9 @@ def generate_sample_posts(user_id: str) -> list:
     
     # Add images to Alice's first 3 chronological posts
     if user_id == "user_001":
-        if len(posts) > 0:
-            posts[0]['image'] = ALICE_IMAGES[0]
-        if len(posts) > 1:
-            posts[1]['image'] = ALICE_IMAGES[1]
-        if len(posts) > 2:
-            posts[2]['image'] = ALICE_IMAGES[2]
+        for i, image_path in enumerate(ALICE_IMAGES):
+            if i < len(posts):
+                posts[i]['image'] = image_path
     
     return posts
 
