@@ -1,5 +1,6 @@
 from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
+import logging
 
 def extract_gps_from_image(image_path):
     try:
@@ -45,6 +46,6 @@ def extract_gps_from_image(image_path):
                 result["timestamp"] = gps_info["GPSDateStamp"]
             return result
         
-    except (FileNotFoundError, AttributeError, KeyError, IndexError, TypeError, ValueError) as e:
-        logging.error(f"Failed to extract GPS data from '{image_path}': {e}")
+    except Exception as e:
+        logging.error(f"Failed to extract GPS from '{image_path}': {e}")
         return None
