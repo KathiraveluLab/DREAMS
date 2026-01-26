@@ -29,10 +29,9 @@ def upload_post():
     upload_path = current_app.config['UPLOAD_FOLDER']
     image_path = os.path.join(upload_path, filename)
     image.save(image_path)
-    image.seek(0)
 
     # Extract GPS from EXIF if available
-    gps_data = extract_gps_from_image(image)
+    gps_data = extract_gps_from_image(image_path)
     
     result = get_image_caption_and_sentiment(image_path, caption)
     

@@ -1,5 +1,6 @@
 from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
+from datetime import datetime, timezone
 import logging
 
 def extract_gps_from_image(image_path):
@@ -42,10 +43,29 @@ def extract_gps_from_image(image_path):
                 lon = -lon
             
             result = {"lat": lat, "lon": lon}
+            
+            timestamp = None
             if datetime_original:
-                result["timestamp"] = datetime_original
-            elif "GPSDateStamp" in gps_info:
-                result["timestamp"] = gps_info["GPSDateStamp"]
+                try:
+                    # EXIF DateTimeOriginal has no timezone, parse as naive and convert to ISO format
+                    timestamp = datetime.strptime(datetime_original, '%Y:%m:%d %H:%M:%S').isoformat()
+                except (ValueError, TypeError):
+                    logging.warning(f"Could not parse EXIF DateTimeOriginal: '{datetime_original}'")
+            
+            if not timestamp and 'GPSDateStamp' in gps_info and 'GPSTimeStamp' in gps_info:
+                try:
+                    date_str = gps_info['GPSDateStamp']
+                    time_parts = gps_info['GPSTimeStamp']
+                    h, m, s = [float(x) for x in time_parts]
+                    # GPS time is specified in UTC
+                    ts_str = f"{date_str} {int(h):02}:{int(m):02}:{int(s):02}"
+                    dt_utc = datetime.strptime(ts_str, '%Y:%m:%d %H:%M:%S').replace(tzinfo=timezone.utc)
+                    timestamp = dt_utc.isoformat()
+                except (ValueError, TypeError, IndexError):
+                    logging.warning("Could not parse GPSDateStamp and GPSTimeStamp.")
+            
+            if timestamp:
+                result["timestamp"] = timestamp
             return result
         
     except (AttributeError, KeyError, IndexError, TypeError, ValueError, IOError) as e:
