@@ -85,7 +85,7 @@ def upload_post():
         'generated_caption': generated_caption,
         'sentiment' : sentiment,
         'chime_analysis': chime_result,
-        'gps': gps_data
+        'gps': gps_data,
     }
 
     mongo = current_app.mongo
