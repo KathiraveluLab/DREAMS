@@ -116,12 +116,14 @@
             <div class="col-md-6 mb-4" style="border-right: 3px solid #333;">
                 <h2 class="section-title">What Makes Them Smile?</h2>
                 <p class="section-description">These are the most common words in positive moments.</p>
-                <img src="data:image/png;base64,{{ positive_wordcloud_url }}" alt="Positive Word Cloud" class="img-fluid">
+                <img src="data:image/png;base64,{{ positive_wordcloud_url }}" alt="Positive Word Cloud"
+                    class="img-fluid">
             </div>
             <div class="col-md-6 mb-4">
                 <h2 class="section-title">What’s Been Difficult?</h2>
                 <p class="section-description">These are the words often found in negative or hard moments.</p>
-                <img src="data:image/png;base64,{{ negative_wordcloud_url }}" alt="Negative Word Cloud" class="img-fluid">
+                <img src="data:image/png;base64,{{ negative_wordcloud_url }}" alt="Negative Word Cloud"
+                    class="img-fluid">
             </div>
         </div>
     </section>
@@ -168,7 +170,10 @@
             </div>
             {% endfor %}
             <div class="text-end my-3">
-                <button class="btn btn-outline-primary" onclick="refreshThematic()">🔄 Refresh Thematic Analysis</button>
+                <button class="btn btn-outline-primary" onclick="refreshThematic()">🔄 Refresh Thematic
+                    Analysis</button>
+                <a href="{{ url_for('dashboard.narrative_view', user_id=user_id) }}" class="btn btn-outline-info">📊
+                    View Narrative Graph</a>
             </div>
         </div>
     </section>
@@ -182,18 +187,18 @@
         fetch(`/dashboard/refresh_thematic/${userId}`, {
             method: "POST"
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert("Refreshed successfully!");
-                location.reload();
-            } else {
-                alert("Failed to refresh: " + data.message);
-            }
-        })
-        .catch(error => {
-            alert("Failed to refresh: " + error.message);
-        });
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert("Refreshed successfully!");
+                    location.reload();
+                } else {
+                    alert("Failed to refresh: " + data.message);
+                }
+            })
+            .catch(error => {
+                alert("Failed to refresh: " + error.message);
+            });
     }
 </script>
 
