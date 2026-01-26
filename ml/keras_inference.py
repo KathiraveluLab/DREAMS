@@ -1,4 +1,4 @@
-#!/usr/bin/env /opt/homebrew/bin/python3.11
+#!/usr/bin/env python3.11
 """
 Standalone Keras Model Inference Script
 
