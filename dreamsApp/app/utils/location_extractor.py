@@ -45,14 +45,7 @@ def extract_gps_from_image(image_path):
             result = {"lat": lat, "lon": lon}
             
             timestamp = None
-            if datetime_original:
-                try:
-                    # EXIF DateTimeOriginal has no timezone, parse as naive and convert to ISO format
-                    timestamp = datetime.strptime(datetime_original, '%Y:%m:%d %H:%M:%S').isoformat()
-                except (ValueError, TypeError):
-                    logging.warning(f"Could not parse EXIF DateTimeOriginal: '{datetime_original}'")
-            
-            if not timestamp and 'GPSDateStamp' in gps_info and 'GPSTimeStamp' in gps_info:
+            if 'GPSDateStamp' in gps_info and 'GPSTimeStamp' in gps_info:
                 try:
                     date_str = gps_info['GPSDateStamp']
                     time_parts = gps_info['GPSTimeStamp']
@@ -63,6 +56,13 @@ def extract_gps_from_image(image_path):
                     timestamp = dt_utc.isoformat()
                 except (ValueError, TypeError, IndexError):
                     logging.warning("Could not parse GPSDateStamp and GPSTimeStamp.")
+            
+            if not timestamp and datetime_original:
+                try:
+                    # EXIF DateTimeOriginal has no timezone, parse as naive and convert to ISO format
+                    timestamp = datetime.strptime(datetime_original, '%Y:%m:%d %H:%M:%S').isoformat()
+                except (ValueError, TypeError):
+                    logging.warning(f"Could not parse EXIF DateTimeOriginal: '{datetime_original}'")
             
             if timestamp:
                 result["timestamp"] = timestamp
