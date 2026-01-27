@@ -48,10 +48,16 @@ def extract_gps_from_image(image_file):
                 try:
                     date_str = gps_info['GPSDateStamp']
                     time_parts = gps_info['GPSTimeStamp']
-                    h, m, s = [float(x) for x in time_parts]
+                    date_str = gps_info['GPSDateStamp']
+                    time_parts = gps_info['GPSTimeStamp']
+                    year, month, day = map(int, date_str.split(':'))
+                    h, m, s_val = [float(part) for part in time_parts]
+                    
+                    seconds = int(s_val)
+                    microseconds = int((s_val - seconds) * 1_000_000)
+
                     # GPS time is specified in UTC
-                    ts_str = f"{date_str} {int(h):02}:{int(m):02}:{int(s):02}"
-                    dt_utc = datetime.strptime(ts_str, '%Y:%m:%d %H:%M:%S').replace(tzinfo=timezone.utc)
+                    dt_utc = datetime(year, month, day, int(h), int(m), seconds, microseconds, tzinfo=timezone.utc)
                     timestamp = dt_utc.isoformat()
                 except (ValueError, TypeError, IndexError):
                     logging.warning("Could not parse GPSDateStamp and GPSTimeStamp.")
