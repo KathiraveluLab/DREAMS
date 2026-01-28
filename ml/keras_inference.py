@@ -21,27 +21,19 @@ SCRIPT_DIR = Path(__file__).parent
 MODEL_PATH = SCRIPT_DIR.parent / "latest-model" / "face_classification" / "trained_models" / "fer2013_mini_XCEPTION.119-0.65.hdf5"
 DETECTION_MODEL_PATH = SCRIPT_DIR.parent / "latest-model" / "face_classification" / "trained_models" / "detection_models" / "facial-expression.xml"
 
-# Emotion labels from fer2013 dataset
+# Emotion labels from fer2013 dataset (mapped to 6 basic emotions)
 FER2013_LABELS = {
-    0: 'angry', 
-    1: 'disgust', 
-    2: 'fear', 
-    3: 'happy',
-    4: 'sad', 
-    5: 'surprise', 
-    6: 'neutral'
+    0: 'Anger', 
+    1: 'Disgust', 
+    2: 'Fear', 
+    3: 'Happiness',
+    4: 'Sadness', 
+    5: 'Surprise', 
+    6: 'Surprise'  # neutral mapped to Surprise as closest match
 }
 
-# Mapping to three-class system for DREAMS
-EMOTION_CATEGORY_MAP = {
-    'angry': 'negative',
-    'disgust': 'negative',
-    'fear': 'negative',
-    'sad': 'negative',
-    'happy': 'positive',
-    'surprise': 'positive',
-    'neutral': 'neutral'
-}
+# 6 Basic Emotions for DREAMS
+BASIC_EMOTIONS = ['Happiness', 'Sadness', 'Fear', 'Anger', 'Disgust', 'Surprise']
 
 
 def preprocess_face(gray_face, target_size=(64, 64)):
@@ -101,25 +93,19 @@ def analyze_image(image_path):
     # Run inference
     emotion_predictions = emotion_classifier.predict(processed_face, verbose=0)[0]
     
-    # Build detailed emotions dict
-    detailed_emotions = {}
+    # Build detailed emotions dict for 6 basic emotions
+    detailed_emotions = {emotion: 0.0 for emotion in BASIC_EMOTIONS}
+    
+    # Map model output to 6 basic emotions
     for idx, prob in enumerate(emotion_predictions):
         label = FER2013_LABELS[idx]
-        detailed_emotions[label] = float(prob)
+        if label in detailed_emotions:
+            detailed_emotions[label] += float(prob)
     
-    # Aggregate to three-class system
-    positive_prob = 0.0
-    neutral_prob = 0.0
-    negative_prob = 0.0
-    
-    for label, prob in detailed_emotions.items():
-        category = EMOTION_CATEGORY_MAP[label]
-        if category == 'positive':
-            positive_prob += prob
-        elif category == 'neutral':
-            neutral_prob += prob
-        else:
-            negative_prob += prob
+    # Normalize to ensure probabilities sum to 1
+    total_prob = sum(detailed_emotions.values())
+    if total_prob > 0:
+        detailed_emotions = {k: v / total_prob for k, v in detailed_emotions.items()}
     
     # Get dominant emotion
     dominant_idx = np.argmax(emotion_predictions)
@@ -139,9 +125,12 @@ def analyze_image(image_path):
         notes = f"Weak facial expression. {dominant_emotion} is most likely ({dominant_confidence:.1%}){face_note}."
     
     return {
-        "positive": float(round(positive_prob, 4)),
-        "neutral": float(round(neutral_prob, 4)),
-        "negative": float(round(negative_prob, 4)),
+        "Happiness": float(round(detailed_emotions.get('Happiness', 0.0), 4)),
+        "Sadness": float(round(detailed_emotions.get('Sadness', 0.0), 4)),
+        "Fear": float(round(detailed_emotions.get('Fear', 0.0), 4)),
+        "Anger": float(round(detailed_emotions.get('Anger', 0.0), 4)),
+        "Disgust": float(round(detailed_emotions.get('Disgust', 0.0), 4)),
+        "Surprise": float(round(detailed_emotions.get('Surprise', 0.0), 4)),
         "uncertainty_margin": float(round(uncertainty, 4)),
         "detailed_emotions": detailed_emotions,
         "dominant_emotion": dominant_emotion,

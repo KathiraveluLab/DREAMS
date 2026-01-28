@@ -31,12 +31,12 @@ class EmotionEvent:
     Immutable structural container for one data point in an emotion timeline.
     All validation is assumed to occur upstream.
     
-    Expected emotion_label values: 'positive', 'negative', 'neutral'
+    Expected emotion_label values: 'Happiness', 'Sadness', 'Fear', 'Anger', 'Disgust', 'Surprise'
     (any string accepted; interpretation happens elsewhere)
     
     Attributes:
         timestamp: When the emotion was observed
-        emotion_label: Emotion category (e.g., 'positive', 'negative', 'neutral')
+        emotion_label: Emotion category (e.g., 'Happiness', 'Sadness', 'Fear', 'Anger', 'Disgust', 'Surprise')
         score: Optional intensity/confidence value
         source_id: Optional identifier for data origin (e.g., 'video_analysis')
         metadata: Optional additional context

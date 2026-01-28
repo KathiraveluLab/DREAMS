@@ -66,7 +66,7 @@ def generate_sample_posts(user_id: str) -> list:
     random.seed(hash(user_id))  # Deterministic per user
     base_time = datetime(2024, 1, 1, 9, 0, 0)
     
-    emotions = ["positive", "neutral", "negative"]
+    emotions = ["Happiness", "Sadness", "Fear", "Anger", "Disgust", "Surprise"]
     posts = []
     
     # Generate 20-40 posts over 30 days
@@ -79,13 +79,13 @@ def generate_sample_posts(user_id: str) -> list:
         
         timestamp = base_time + timedelta(days=day_offset, hours=hour_offset, minutes=minute_offset)
         
-        # Bias towards positive for some users, negative for others
+        # Bias towards different emotions for different users
         if "001" in user_id:
-            weights = [0.6, 0.3, 0.1]  # More positive
+            weights = [0.4, 0.1, 0.05, 0.05, 0.05, 0.35]  # More Happiness and Surprise
         elif "002" in user_id:
-            weights = [0.2, 0.5, 0.3]  # More neutral
+            weights = [0.2, 0.15, 0.15, 0.15, 0.15, 0.2]  # Balanced
         else:
-            weights = [0.3, 0.3, 0.4]  # More negative
+            weights = [0.1, 0.3, 0.15, 0.2, 0.15, 0.1]  # More Sadness and Anger
         
         emotion = random.choices(emotions, weights=weights)[0]
         
@@ -121,7 +121,7 @@ def build_timeline_from_posts(user_posts: list, user_id: str) -> EmotionTimeline
         sentiment = post.get('sentiment', {})
         events.append(EmotionEvent(
             timestamp=post['timestamp'],
-            emotion_label=sentiment.get('label', 'neutral'),
+            emotion_label=sentiment.get('label', 'Surprise'),
             score=sentiment.get('score'),
             source_id=str(post.get('_id', '')),
         ))
@@ -205,9 +205,12 @@ NARRATIVE_TEMPLATE = """
         .edge-info.overlapping { border-left: 4px solid #d9a74a; }
         .timeline-bar { height: 60px; background: #1a1a2e; border-radius: 0.5rem; position: relative; overflow: hidden; margin: 1rem 0; }
         .timeline-event { position: absolute; height: 100%; min-width: 4px; border-radius: 2px; }
-        .timeline-event.positive { background: #4ad974; }
-        .timeline-event.neutral { background: #4a90d9; }
-        .timeline-event.negative { background: #d94a4a; }
+        .timeline-event.Happiness { background: #4ad974; }
+        .timeline-event.Sadness { background: #4a90d9; }
+        .timeline-event.Fear { background: #9b59b6; }
+        .timeline-event.Anger { background: #d94a4a; }
+        .timeline-event.Disgust { background: #27ae60; }
+        .timeline-event.Surprise { background: #f39c12; }
         .fingerprint { font-family: monospace; font-size: 0.8rem; color: #4a90d9; background: #1a1a2e; padding: 0.25rem 0.5rem; border-radius: 0.25rem; }
         .btn-back { background: #333; border: none; }
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); }
@@ -224,9 +227,12 @@ NARRATIVE_TEMPLATE = """
         .prob-label { width: 80px; font-weight: bold; }
         .prob-bar-container { flex: 1; margin: 0 1rem; }
         .prob-bar { height: 24px; border-radius: 12px; transition: width 0.5s ease; display: flex; align-items: center; justify-content: flex-end; padding-right: 0.5rem; font-size: 0.8rem; color: white; }
-        .prob-positive { background: linear-gradient(90deg, #2e7d32 0%, #4ad974 100%); }
-        .prob-neutral { background: linear-gradient(90deg, #357abd 0%, #4a90d9 100%); }
-        .prob-negative { background: linear-gradient(90deg, #bd3535 0%, #d94a4a 100%); }
+        .prob-Happiness { background: linear-gradient(90deg, #2e7d32 0%, #4ad974 100%); }
+        .prob-Sadness { background: linear-gradient(90deg, #357abd 0%, #4a90d9 100%); }
+        .prob-Fear { background: linear-gradient(90deg, #8e44ad 0%, #9b59b6 100%); }
+        .prob-Anger { background: linear-gradient(90deg, #bd3535 0%, #d94a4a 100%); }
+        .prob-Disgust { background: linear-gradient(90deg, #1e8449 0%, #27ae60 100%); }
+        .prob-Surprise { background: linear-gradient(90deg, #d68910 0%, #f39c12 100%); }
         .image-preview { max-width: 150px; max-height: 150px; border-radius: 0.5rem; object-fit: cover; margin-right: 1.5rem; }
         .modal-flex { display: flex; align-items: flex-start; }
     </style>
@@ -279,21 +285,39 @@ NARRATIVE_TEMPLATE = """
                 <div style="flex: 1;">
                     <div id="prob-display">
                         <div class="prob-row">
-                            <span class="prob-label" style="color: #4ad974;">Positive</span>
+                            <span class="prob-label" style="color: #4ad974;">Happiness</span>
                             <div class="prob-bar-container">
-                                <div id="prob-bar-positive" class="prob-bar prob-positive" style="width: 0%;">0%</div>
+                                <div id="prob-bar-Happiness" class="prob-bar prob-Happiness" style="width: 0%;">0%</div>
                             </div>
                         </div>
                         <div class="prob-row">
-                            <span class="prob-label" style="color: #4a90d9;">Neutral</span>
+                            <span class="prob-label" style="color: #4a90d9;">Sadness</span>
                             <div class="prob-bar-container">
-                                <div id="prob-bar-neutral" class="prob-bar prob-neutral" style="width: 0%;">0%</div>
+                                <div id="prob-bar-Sadness" class="prob-bar prob-Sadness" style="width: 0%;">0%</div>
                             </div>
                         </div>
                         <div class="prob-row">
-                            <span class="prob-label" style="color: #d94a4a;">Negative</span>
+                            <span class="prob-label" style="color: #9b59b6;">Fear</span>
                             <div class="prob-bar-container">
-                                <div id="prob-bar-negative" class="prob-bar prob-negative" style="width: 0%;">0%</div>
+                                <div id="prob-bar-Fear" class="prob-bar prob-Fear" style="width: 0%;">0%</div>
+                            </div>
+                        </div>
+                        <div class="prob-row">
+                            <span class="prob-label" style="color: #d94a4a;">Anger</span>
+                            <div class="prob-bar-container">
+                                <div id="prob-bar-Anger" class="prob-bar prob-Anger" style="width: 0%;">0%</div>
+                            </div>
+                        </div>
+                        <div class="prob-row">
+                            <span class="prob-label" style="color: #27ae60;">Disgust</span>
+                            <div class="prob-bar-container">
+                                <div id="prob-bar-Disgust" class="prob-bar prob-Disgust" style="width: 0%;">0%</div>
+                            </div>
+                        </div>
+                        <div class="prob-row">
+                            <span class="prob-label" style="color: #f39c12;">Surprise</span>
+                            <div class="prob-bar-container">
+                                <div id="prob-bar-Surprise" class="prob-bar prob-Surprise" style="width: 0%;">0%</div>
                             </div>
                         </div>
                     </div>
@@ -434,10 +458,25 @@ NARRATIVE_TEMPLATE = """
             document.getElementById('modal-image').src = imageSrc;
             document.getElementById('emotionModal').classList.add('show');
             
+            // Destroy previous chart immediately
+            if (currentChart) {
+                currentChart.destroy();
+                currentChart = null;
+            }
+            
             // Reset displays
-            document.getElementById('prob-bar-positive').style.width = '0%';
-            document.getElementById('prob-bar-neutral').style.width = '0%';
-            document.getElementById('prob-bar-negative').style.width = '0%';
+            document.getElementById('prob-bar-Happiness').style.width = '0%';
+            document.getElementById('prob-bar-Happiness').textContent = '0%';
+            document.getElementById('prob-bar-Sadness').style.width = '0%';
+            document.getElementById('prob-bar-Sadness').textContent = '0%';
+            document.getElementById('prob-bar-Fear').style.width = '0%';
+            document.getElementById('prob-bar-Fear').textContent = '0%';
+            document.getElementById('prob-bar-Anger').style.width = '0%';
+            document.getElementById('prob-bar-Anger').textContent = '0%';
+            document.getElementById('prob-bar-Disgust').style.width = '0%';
+            document.getElementById('prob-bar-Disgust').textContent = '0%';
+            document.getElementById('prob-bar-Surprise').style.width = '0%';
+            document.getElementById('prob-bar-Surprise').textContent = '0%';
             document.getElementById('uncertainty-fill').style.width = '0%';
             document.getElementById('notes-text').textContent = 'Analyzing...';
             
@@ -450,60 +489,56 @@ NARRATIVE_TEMPLATE = """
                     return;
                 }
                 
-                // Animate probability bars - use direct properties
-                setTimeout(() => {
-                    document.getElementById('prob-bar-positive').style.width = `${data.positive * 100}%`;
-                    document.getElementById('prob-bar-positive').textContent = `${(data.positive * 100).toFixed(1)}%`;
-                }, 100);
-                setTimeout(() => {
-                    document.getElementById('prob-bar-neutral').style.width = `${data.neutral * 100}%`;
-                    document.getElementById('prob-bar-neutral').textContent = `${(data.neutral * 100).toFixed(1)}%`;
-                }, 200);
-                setTimeout(() => {
-                    document.getElementById('prob-bar-negative').style.width = `${data.negative * 100}%`;
-                    document.getElementById('prob-bar-negative').textContent = `${(data.negative * 100).toFixed(1)}%`;
-                }, 300);
+                // Animate probability bars - use 6 basic emotions
+                const emotions = ['Happiness', 'Sadness', 'Fear', 'Anger', 'Disgust', 'Surprise'];
+                emotions.forEach((emotion, idx) => {
+                    setTimeout(() => {
+                        const value = data[emotion] || 0;
+                        document.getElementById(`prob-bar-${emotion}`).style.width = `${value * 100}%`;
+                        document.getElementById(`prob-bar-${emotion}`).textContent = `${(value * 100).toFixed(1)}%`;
+                    }, 100 * (idx + 1));
+                });
                 
                 // Uncertainty bar
                 setTimeout(() => {
                     const uncertainty = data.uncertainty_margin * 100;
                     document.getElementById('uncertainty-fill').style.width = `${uncertainty * 5}%`;
                     document.getElementById('uncertainty-text').textContent = `±${uncertainty.toFixed(1)}%`;
-                }, 400);
+                }, 700);
                 
                 document.getElementById('notes-text').textContent = data.notes;
                 
-                // Create chart
-                if (currentChart) currentChart.destroy();
-                
-                const ctx = document.getElementById('emotionChart').getContext('2d');
-                currentChart = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['Positive', 'Neutral', 'Negative'],
-                        datasets: [{
-                            data: [data.positive, data.neutral, data.negative],
-                            backgroundColor: ['#4ad974', '#4a90d9', '#d94a4a'],
-                            borderColor: ['#2e7d32', '#357abd', '#bd3535'],
-                            borderWidth: 2
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: true,
-                        plugins: {
-                            legend: { labels: { color: '#e0e0e0', font: { size: 12 } } },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        const percentage = (context.parsed * 100).toFixed(1);
-                                        return `${context.label}: ${percentage}%`;
+                // Create chart with 6 basic emotions - wait a bit for animations to start
+                setTimeout(() => {
+                    const ctx = document.getElementById('emotionChart').getContext('2d');
+                    currentChart = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Happiness', 'Sadness', 'Fear', 'Anger', 'Disgust', 'Surprise'],
+                            datasets: [{
+                                data: [data.Happiness || 0, data.Sadness || 0, data.Fear || 0, data.Anger || 0, data.Disgust || 0, data.Surprise || 0],
+                                backgroundColor: ['#4ad974', '#4a90d9', '#9b59b6', '#d94a4a', '#27ae60', '#f39c12'],
+                                borderColor: ['#2e7d32', '#357abd', '#8e44ad', '#bd3535', '#1e8449', '#d68910'],
+                                borderWidth: 2
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            plugins: {
+                                legend: { labels: { color: '#e0e0e0', font: { size: 12 } } },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            const percentage = (context.parsed * 100).toFixed(1);
+                                            return `${context.label}: ${percentage}%`;
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                });
+                    });
+                }, 100);
                 
             } catch (error) {
                 document.getElementById('notes-text').textContent = 'Error: ' + error.message;
@@ -677,6 +712,7 @@ def api_perceptual_emotion(image_path: str):
     Analyze an image for perceptual emotion estimation using the latest CNN model.
     
     Uses the fer2013_mini_XCEPTION model for facial emotion detection.
+    Returns 6 basic emotions: Happiness, Sadness, Fear, Anger, Disgust, Surprise.
     This endpoint demonstrates real-world perceptual uncertainty.
     """
     if not _PERCEPTUAL_DEPS_AVAILABLE:
@@ -684,11 +720,14 @@ def api_perceptual_emotion(image_path: str):
             'error': 'Required dependencies not installed',
             'message': _PERCEPTUAL_DEPS_ERROR,
             'fallback': {
-                'positive': 0.20,
-                'neutral': 0.70,
-                'negative': 0.10,
+                'Happiness': 0.20,
+                'Sadness': 0.15,
+                'Fear': 0.10,
+                'Anger': 0.15,
+                'Disgust': 0.10,
+                'Surprise': 0.30,
                 'uncertainty_margin': 0.15,
-                'disclaimer': 'This is a perceptual estimate, not emotional truth.',
+                'disclaimer': 'This is a perceptual estimate using 6 basic emotions.',
             }
         }), 200
     
@@ -726,6 +765,7 @@ def api_compare_images():
     Compare emotion estimates between the two sample images using latest model.
     
     Uses the fer2013_mini_XCEPTION model for facial emotion detection.
+    Returns 6 basic emotions: Happiness, Sadness, Fear, Anger, Disgust, Surprise.
     Demonstrates that different images produce different probability distributions.
     """
     if not _PERCEPTUAL_DEPS_AVAILABLE:

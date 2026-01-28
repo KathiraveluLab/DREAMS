@@ -7,10 +7,10 @@ to provide emotion detection capabilities integrated with the DREAMS analytics s
 The fer2013_mini_XCEPTION Keras model requires TensorFlow which doesn't support
 Python 3.14. This module uses a subprocess call to Python 3.11 to run inference.
 
-EMOTION LABELS (fer2013):
-- angry, disgust, fear, happy, sad, surprise, neutral
+EMOTION LABELS (6 Basic Emotions):
+- Happiness, Sadness, Fear, Anger, Disgust, Surprise
 
-This maps to the three-class system (positive/neutral/negative) for DREAMS.
+This uses the 6 basic emotions model (Ekman's model) for DREAMS.
 """
 
 import json
@@ -24,27 +24,19 @@ import numpy as np
 INFERENCE_SCRIPT = Path(__file__).parent / "keras_inference.py"
 PYTHON_311_PATH = __import__('os').environ.get("PYTHON_311_PATH", "python3.11")
 
-# Emotion labels from fer2013 dataset
+# Emotion labels from fer2013 dataset (mapped to 6 basic emotions)
 FER2013_LABELS = {
-    0: 'angry', 
-    1: 'disgust', 
-    2: 'fear', 
-    3: 'happy',
-    4: 'sad', 
-    5: 'surprise', 
-    6: 'neutral'
+    0: 'Anger', 
+    1: 'Disgust', 
+    2: 'Fear', 
+    3: 'Happiness',
+    4: 'Sadness', 
+    5: 'Surprise', 
+    6: 'Surprise'  # neutral mapped to Surprise as closest match
 }
 
-# Mapping to three-class system for DREAMS
-EMOTION_CATEGORY_MAP = {
-    'angry': 'negative',
-    'disgust': 'negative',
-    'fear': 'negative',
-    'sad': 'negative',
-    'happy': 'positive',
-    'surprise': 'positive',
-    'neutral': 'neutral'
-}
+# 6 Basic Emotions for DREAMS
+BASIC_EMOTIONS = ['Happiness', 'Sadness', 'Fear', 'Anger', 'Disgust', 'Surprise']
 
 
 def _run_inference_subprocess(image_path: str) -> Dict:
@@ -65,11 +57,14 @@ def _run_inference_subprocess(image_path: str) -> Dict:
             error_msg = result.stderr.strip() if result.stderr else "Unknown error"
             return {
                 "error": f"Inference failed: {error_msg}",
-                "positive": 0.0,
-                "neutral": 1.0,
-                "negative": 0.0,
+                "Happiness": 0.0,
+                "Sadness": 0.0,
+                "Fear": 0.0,
+                "Anger": 0.0,
+                "Disgust": 0.0,
+                "Surprise": 0.0,
                 "uncertainty_margin": 0.25,
-                "notes": "Model inference failed. Defaulting to neutral.",
+                "notes": "Model inference failed.",
             }
         
         return json.loads(result.stdout)
@@ -77,29 +72,38 @@ def _run_inference_subprocess(image_path: str) -> Dict:
     except subprocess.TimeoutExpired:
         return {
             "error": "Inference timeout",
-            "positive": 0.0,
-            "neutral": 1.0,
-            "negative": 0.0,
+            "Happiness": 0.0,
+            "Sadness": 0.0,
+            "Fear": 0.0,
+            "Anger": 0.0,
+            "Disgust": 0.0,
+            "Surprise": 0.0,
             "uncertainty_margin": 0.25,
-            "notes": "Model inference timed out. Defaulting to neutral.",
+            "notes": "Model inference timed out.",
         }
     except json.JSONDecodeError as e:
         return {
             "error": f"Invalid JSON response: {e}",
-            "positive": 0.0,
-            "neutral": 1.0,
-            "negative": 0.0,
+            "Happiness": 0.0,
+            "Sadness": 0.0,
+            "Fear": 0.0,
+            "Anger": 0.0,
+            "Disgust": 0.0,
+            "Surprise": 0.0,
             "uncertainty_margin": 0.25,
-            "notes": "Model returned invalid response. Defaulting to neutral.",
+            "notes": "Model returned invalid response.",
         }
     except Exception as e:
         return {
             "error": str(e),
-            "positive": 0.0,
-            "neutral": 1.0,
-            "negative": 0.0,
+            "Happiness": 0.0,
+            "Sadness": 0.0,
+            "Fear": 0.0,
+            "Anger": 0.0,
+            "Disgust": 0.0,
+            "Surprise": 0.0,
             "uncertainty_margin": 0.25,
-            "notes": f"Error: {e}. Defaulting to neutral.",
+            "notes": f"Error: {e}.",
         }
 
 
@@ -144,14 +148,17 @@ def detect_and_classify_emotion(image: np.ndarray) -> Dict:
     except Exception as e:
         return {
             "error": str(e),
-            "positive": 0.0,
-            "neutral": 1.0,
-            "negative": 0.0,
+            "Happiness": 0.0,
+            "Sadness": 0.0,
+            "Fear": 0.0,
+            "Anger": 0.0,
+            "Disgust": 0.0,
+            "Surprise": 0.0,
             "uncertainty_margin": 0.25,
             "detected_facial_cues": [],
             "cue_confidence": 0.0,
-            "notes": f"Error processing image: {e}. Defaulting to neutral.",
-            "disclaimer": "Emotion estimated from facial cues only. Neutral is a valid state.",
+            "notes": f"Error processing image: {e}.",
+            "disclaimer": "Emotion estimated from facial cues only using 6 basic emotions.",
         }
 
 
@@ -166,9 +173,12 @@ def compare_image_estimates(image_a: np.ndarray, image_b: np.ndarray) -> Dict:
     estimate_b = estimate_emotion_from_image(image_b)
     
     prob_diff = {
-        "positive": abs(estimate_a.get("positive", 0) - estimate_b.get("positive", 0)),
-        "neutral": abs(estimate_a.get("neutral", 0) - estimate_b.get("neutral", 0)),
-        "negative": abs(estimate_a.get("negative", 0) - estimate_b.get("negative", 0)),
+        "Happiness": abs(estimate_a.get("Happiness", 0) - estimate_b.get("Happiness", 0)),
+        "Sadness": abs(estimate_a.get("Sadness", 0) - estimate_b.get("Sadness", 0)),
+        "Fear": abs(estimate_a.get("Fear", 0) - estimate_b.get("Fear", 0)),
+        "Anger": abs(estimate_a.get("Anger", 0) - estimate_b.get("Anger", 0)),
+        "Disgust": abs(estimate_a.get("Disgust", 0) - estimate_b.get("Disgust", 0)),
+        "Surprise": abs(estimate_a.get("Surprise", 0) - estimate_b.get("Surprise", 0)),
     }
     
     return {
@@ -176,5 +186,5 @@ def compare_image_estimates(image_a: np.ndarray, image_b: np.ndarray) -> Dict:
         "image_b": estimate_b,
         "probability_differences": prob_diff,
         "different_distributions": any(d > 0.01 for d in prob_diff.values()),
-        "note": "Emotions derived using fer2013_mini_XCEPTION CNN model from latest-model directory.",
+        "note": "Emotions derived using fer2013_mini_XCEPTION CNN model with 6 basic emotions.",
     }

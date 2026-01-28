@@ -55,13 +55,17 @@ __all__ = [
 ]
 
 
-# Simple ordinal mapping for emotion labels
+# Simple ordinal mapping for emotion labels (6 basic emotions)
 # This is a structural convention, NOT a semantic interpretation
 # The numeric values are ordinal only; distances between them are not meaningful
+# Using valence mapping: positive emotions > 0, negative emotions < 0
 EMOTION_LABEL_MAP: Dict[str, float] = {
-    'positive': 1.0,
-    'neutral': 0.0,
-    'negative': -1.0,
+    'happiness': 1.0,
+    'surprise': 0.5,
+    'sadness': -0.5,
+    'fear': -0.75,
+    'anger': -0.8,
+    'disgust': -1.0,
 }
 
 
@@ -71,23 +75,25 @@ def map_emotion_label(label: str) -> float:
     
     This mapping is purely structural for distance computation.
     It does NOT imply semantic meaning, intensity, or psychological interpretation.
+    Uses 6 basic emotions: Happiness, Sadness, Fear, Anger, Disgust, Surprise.
     
     Args:
         label: Emotion label string (case-insensitive). Must be a non-empty string.
     
     Returns:
-        Numeric value: 1.0 (positive), 0.0 (neutral), -1.0 (negative)
-        Returns 0.0 for unrecognized labels (treated as neutral structurally)
+        Numeric value based on emotional valence:
+        Happiness=1.0, Surprise=0.5, Sadness=-0.5, Fear=-0.75, Anger=-0.8, Disgust=-1.0
+        Returns 0.0 for unrecognized labels
     
     Raises:
         TypeError: If label is not a string
         ValueError: If label is an empty string
     
     Example:
-        >>> map_emotion_label('positive')
+        >>> map_emotion_label('Happiness')
         1.0
-        >>> map_emotion_label('NEGATIVE')
-        -1.0
+        >>> map_emotion_label('ANGER')
+        -0.8
         >>> map_emotion_label('unknown')
         0.0
     """
@@ -207,9 +213,9 @@ def aggregate_window_scores(
         TypeError: If windowed_events is not a dict
     
     Example:
-        >>> # Window 0 has ['positive', 'neutral'] → mean([1.0, 0.0]) = 0.5
-        >>> # Window 1 has ['negative'] → mean([-1.0]) = -1.0
-        >>> # Result: {0: 0.5, 1: -1.0}
+        >>> # Window 0 has ['Happiness', 'Surprise'] → mean([1.0, 0.5]) = 0.75
+        >>> # Window 1 has ['Anger'] → mean([-0.8]) = -0.8
+        >>> # Result: {0: 0.75, 1: -0.8}
     """
     if not isinstance(windowed_events, dict):
         raise TypeError(f"windowed_events must be a dict, got {type(windowed_events).__name__}")
