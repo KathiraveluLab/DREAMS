@@ -61,7 +61,7 @@ def validate_model(model, tokenizer, training_samples, label2id):
                 logger.debug(f"[Anchor Fail] Text: '{example['text'][:30]}...' Expected: {target_str}, Got: {pred_str}")
 
     logger.info(f"[Safety Check] Anchor Accuracy: {correct_anchors}/{len(ANCHOR_EXAMPLES)}")
-    if correct_anchors < 3: # Relaxed slightly for small batch variance
+    if correct_anchors < 4: # Stricter check for catastrophic forgetting
         logger.error("FAIL: Model has forgotten basic concepts (Catastrophic Forgetting).")
         return False
 
