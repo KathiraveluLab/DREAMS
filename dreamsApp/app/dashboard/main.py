@@ -260,7 +260,7 @@ def correct_chime():
     
     # Update the post using $set to add correction data
     result = mongo.update_one(
-        {'_id': ObjectId(post_id)},
+        {'_id': ObjectId(post_id), 'user_id': data.get('user_id')},
         {
             '$set': {
                 'corrected_label': corrected_label,
@@ -268,6 +268,7 @@ def correct_chime():
                 'correction_timestamp': datetime.datetime.now()
             }
         }
+    )
     )
     
     if result.modified_count > 0:
