@@ -10,8 +10,7 @@ from flask_login import login_required
 from wordcloud import WordCloud
 from ..utils.llms import generate
 from flask import jsonify
-from bson.objectid import ObjectId
-import datetime
+from flask import jsonify, request
 
 def generate_wordcloud_b64(keywords, colormap):
     """Refactor: Helper to generate base64 encoded word cloud image."""
