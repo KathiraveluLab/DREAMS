@@ -275,7 +275,7 @@ def correct_chime():
         # Check for FL Trigger
         pending_count = mongo.count_documents({'corrected_label': {'$exists': True}, 'is_fl_processed': False})
         
-        if pending_count >= 50:
+        if pending_count >= current_app.config.get('FL_BATCH_SIZE', 50):
             # Trigger FL training in background thread (user doesn't wait)
             import threading
             from dreamsApp.app.fl_worker import run_federated_round
