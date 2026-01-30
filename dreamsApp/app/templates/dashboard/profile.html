@@ -249,7 +249,7 @@
 
     function submitCorrection(postId) {
         const select = document.getElementById(`select-${postId}`);
-        const newValue = select.value.split(' ')[0]; // Extract just the word "Hope" or "None"
+        const newValue = select.value; // Value is now cleanly defined in HTML options
         submitCorrectionData(postId, newValue);
     }
 
