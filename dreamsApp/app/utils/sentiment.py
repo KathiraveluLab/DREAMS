@@ -79,11 +79,24 @@ class SentimentAnalyzer:
     def get_chime_classifier(self):
         if self._chime_classifier is None:
             try:
-                logging.info(f"Loading CHIME model from Hugging Face: {HF_MODEL_ID}...")
+                # Check for locally fine-tuned model (Self-Correcting Feature)
+                # sentiment.py is in dreamsApp/app/utils, so ../../models is the path
+                base_app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                local_model_path = os.path.join(base_app_dir, "models", "production_chime_model")
+                
+                model_path = HF_MODEL_ID
+                
+                if os.path.exists(local_model_path):
+                    print(f">>> SELF-CORRECTION: Learned model found at {local_model_path}. Loading...")
+                    logging.info(f"Loading Federated Learned model from {local_model_path}")
+                    model_path = local_model_path
+                else:
+                    logging.info(f"Loading Base CHIME model from Hugging Face: {HF_MODEL_ID}...")
+
                 self._chime_classifier = pipeline(
                     "text-classification", 
-                    model=HF_MODEL_ID, 
-                    tokenizer=HF_MODEL_ID,
+                    model=model_path, 
+                    tokenizer=model_path,
                     return_all_scores=True
                 )
                 print("CHIME model loaded successfully.")

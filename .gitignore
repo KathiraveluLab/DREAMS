@@ -184,3 +184,7 @@ cython_debug/
 # Virtual environments
 venv310/
 venv/
+
+# Federated Learning Models
+dreamsApp/app/models/production_chime_model/
+dreamsApp/app/models/temp_training_artifact/

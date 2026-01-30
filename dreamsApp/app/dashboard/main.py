@@ -10,6 +10,8 @@ from flask_login import login_required
 from wordcloud import WordCloud
 from ..utils.llms import generate
 from flask import jsonify
+from bson.objectid import ObjectId
+import datetime
 
 def generate_wordcloud_b64(keywords, colormap):
     """Refactor: Helper to generate base64 encoded word cloud image."""
@@ -113,9 +115,13 @@ def profile(target):
     chime_lookup = {k.lower(): k for k in chime_counts}
 
     for post in user_posts:
-        if post.get('chime_analysis'):
-            label = post['chime_analysis'].get('label', '').lower()
-            original_key = chime_lookup.get(label)
+        # Prioritize user correction if available
+        label_to_use = post.get('corrected_label')
+        if not label_to_use and post.get('chime_analysis'):
+            label_to_use = post['chime_analysis'].get('label', '')
+            
+        if label_to_use:
+            original_key = chime_lookup.get(label_to_use.lower())
             if original_key:
                 chime_counts[original_key] += 1
     
@@ -177,7 +183,20 @@ def profile(target):
     wordcloud_positive_data = generate_wordcloud_b64(positive_keywords, 'GnBu')
     wordcloud_negative_data = generate_wordcloud_b64(negative_keywords, 'OrRd')
 
-    return render_template('dashboard/profile.html', plot_url=plot_data, chime_plot_url=chime_plot_data, positive_wordcloud_url=wordcloud_positive_data, negative_wordcloud_url=wordcloud_negative_data, thematics=thematics,user_id=str(target_user_id))
+    # Sort posts to get the latest one
+    user_posts.sort(key=lambda x: x['timestamp'], reverse=True)
+    latest_post = user_posts[0] if user_posts else None
+
+    return render_template(
+        'dashboard/profile.html', 
+        plot_url=plot_data, 
+        chime_plot_url=chime_plot_data, 
+        positive_wordcloud_url=wordcloud_positive_data, 
+        negative_wordcloud_url=wordcloud_negative_data, 
+        thematics=thematics,
+        user_id=str(target_user_id),
+        latest_post=latest_post  # Pass only the latest post for feedback
+    )
 
 @bp.route('/clusters/<user_id>')
 @login_required
@@ -227,3 +246,42 @@ def thematic_refresh(user_id):
             "success": False,
             "message": str(e)
         }), 500
+
+@bp.route('/correct_chime', methods=['POST'])
+@login_required
+def correct_chime():
+    data = request.get_json()
+    post_id = data.get('post_id')
+    corrected_label = data.get('corrected_label')
+    
+    if not all([post_id, corrected_label]):
+        return jsonify({'success': False, 'error': 'Missing fields'}), 400
+        
+    mongo = current_app.mongo['posts']
+    
+    # Update the post using $set to add correction data
+    result = mongo.update_one(
+        {'_id': ObjectId(post_id)},
+        {
+            '$set': {
+                'corrected_label': corrected_label,
+                'is_fl_processed': False,
+                'correction_timestamp': datetime.datetime.now()
+            }
+        }
+    )
+    
+    if result.modified_count > 0:
+        # Check for FL Trigger
+        pending_count = mongo.count_documents({'corrected_label': {'$exists': True}, 'is_fl_processed': False})
+        
+        if pending_count >= 50:
+            # Trigger FL training in background thread (user doesn't wait)
+            import threading
+            from dreamsApp.app.fl_worker import run_federated_round
+            thread = threading.Thread(target=run_federated_round, daemon=True)
+            thread.start()
+             
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'error': 'Post not found or no change'}), 404

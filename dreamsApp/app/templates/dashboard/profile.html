@@ -173,10 +173,110 @@
         </div>
     </section>
 
+    <!-- Latest Analysis & Feedback -->
+    {% if latest_post %}
+    <section class="section">
+        <h2 class="section-title text-center">Latest Entry Analysis</h2>
+        
+        <div class="list-group">
+            <div class="list-group-item bg-dark text-white border-secondary mb-3 rounded p-4">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="mb-1 text-info">{{ latest_post.timestamp.strftime('%Y-%m-%d %H:%M') }}</h5>
+                    <small class="text-muted">Sentiment: {{ latest_post.sentiment.label }}</small>
+                </div>
+                <p class="mb-2 mt-3 fst-italic display-6" style="font-size: 1.25em;">"{{ latest_post.caption }}"</p>
+                
+                <div class="mt-4 p-3 border rounded border-secondary bg-secondary bg-opacity-10">
+                    <div class="d-flex align-items-center mb-3">
+                        <span class="text-light me-2">AI Classification:</span>
+                        {% set current_label = latest_post.corrected_label if latest_post.corrected_label else latest_post.chime_analysis.label %}
+                        <span class="badge bg-info text-dark fs-5">
+                            {{ current_label }}
+                        </span>
+                        {% if latest_post.corrected_label %}
+                            <span class="badge bg-success text-white ms-2">Verified ✓</span>
+                        {% endif %}
+                    </div>
+
+                    {% if not latest_post.corrected_label %}
+                    <div class="d-flex gap-2" id="action-buttons-{{ latest_post._id }}">
+                        <button class="btn btn-success" onclick="acceptPrediction('{{ latest_post._id }}', '{{ latest_post.chime_analysis.label }}')">
+                            Accept Prediction
+                        </button>
+                        <button class="btn btn-outline-light" onclick="toggleEdit('{{ latest_post._id }}')">
+                            Edit Prediction
+                        </button>
+                    </div>
+
+                    <!-- Hidden Edit Form -->
+                    <div id="edit-form-{{ latest_post._id }}" class="mt-3 p-3 border border-info rounded" style="display: none;">
+                        <label class="form-label text-info small">Select the correct recovery dimension:</label>
+                        <div class="input-group">
+                            <select class="form-select bg-dark text-white border-secondary" id="select-{{ latest_post._id }}">
+                                <option value="Connectedness">Connectedness - Support, relationships, community</option>
+                                <option value="Hope">Hope - Optimism, belief in recovery</option>
+                                <option value="Identity">Identity - Rebuilding self, overcoming stigma</option>
+                                <option value="Meaning">Meaning - Purpose, goals, spirituality</option>
+                                <option value="Empowerment">Empowerment - Control, responsibility, strengths</option>
+                                <option value="None">None - Does not fit CHIME dimensions</option>
+                            </select>
+                            <button class="btn btn-info" onclick="submitCorrection('{{ latest_post._id }}')">Save Correction</button>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
 </div>
 
 <script>
-    const userId = "{{ user_id }}";  // make sure this is being passed in the Flask route
+    const userId = "{{ user_id }}";
+
+    function toggleEdit(postId) {
+        const axButtons = document.getElementById(`action-buttons-${postId}`);
+        if(axButtons) axButtons.style.display = 'none';
+        
+        const form = document.getElementById(`edit-form-${postId}`);
+        form.style.display = 'block';
+    }
+
+    function acceptPrediction(postId, label) {
+        submitCorrectionData(postId, label);
+    }
+
+    function submitCorrection(postId) {
+        const select = document.getElementById(`select-${postId}`);
+        const newValue = select.value.split(' ')[0]; // Extract just the word "Hope" or "None"
+        submitCorrectionData(postId, newValue);
+    }
+
+    function submitCorrectionData(postId, label) {
+        fetch('/dashboard/correct_chime', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                post_id: postId,
+                user_id: userId,
+                corrected_label: label
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Determine if it was an accept or an edit for the alert
+                // But generally just thanking is fine
+                alert('Input recorded! The model will learn from this.');
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        });
+    }
 
     function refreshThematic() {
         fetch(`/dashboard/refresh_thematic/${userId}`, {
