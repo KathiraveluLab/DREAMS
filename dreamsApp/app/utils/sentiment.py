@@ -87,8 +87,7 @@ class SentimentAnalyzer:
                 model_path = HF_MODEL_ID
                 
                 if os.path.exists(local_model_path):
-                    print(f">>> SELF-CORRECTION: Learned model found at {local_model_path}. Loading...")
-                    logging.info(f"Loading Federated Learned model from {local_model_path}")
+                    logging.info(f">>> SELF-CORRECTION: Learned model found at {local_model_path}. Loading...")
                     model_path = local_model_path
                 else:
                     logging.info(f"Loading Base CHIME model from Hugging Face: {HF_MODEL_ID}...")
