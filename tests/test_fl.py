@@ -18,8 +18,7 @@ def test_fl_loop():
         print(">>> TEST: setting up mock data...")
         
         # 1. Create Mock Data
-        # We need at least 10 entries to trigger the worker logic (assuming BATCH_SIZE=10 in fl_worker.py)
-        # We'll create 5 "Hope" and 5 "Meaning" corrections, plus 1 "None" to test skipping.
+        # We need at least BATCH_SIZE entries to trigger the worker logic (from fl_worker.py)
         
         test_ids = []
         
