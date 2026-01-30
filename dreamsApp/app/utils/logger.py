@@ -20,7 +20,7 @@ def setup_logger(name, log_dir='logs'):
     os.makedirs(log_path, exist_ok=True)
     
     # Create log file with date suffix
-    log_file = os.path.join(log_path, f'{name}.log')
+    log_file = os.path.join(log_path, f'{name}_{datetime.now().strftime("%Y-%m-%d")}.log')
     
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
