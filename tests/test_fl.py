@@ -35,7 +35,7 @@ def test_fl_loop():
                 'is_fl_processed': False
             })
             
-        for i in range(4): # Reduced to 4 to make total batch size matches worker limit (10)
+        for i in range(49): # Ensure total batch size meets worker limit (50)
             mock_posts.append({
                 'user_id': 'test_user_automated',
                 'caption': f'This is a test caption related to meaning {i}',
