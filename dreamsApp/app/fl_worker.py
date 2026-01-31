@@ -78,7 +78,7 @@ def validate_model(model, tokenizer, training_samples, label2id):
     
     logger.info(f"[Improvement Check] Training Set Accuracy: {correct_new}/{total_new}")
     
-    if correct_new / total_new < 0.5:
+    if total_new > 0 and correct_new / total_new < 0.5:
         logger.error("FAIL: Model failed to learn the new corrections.")
         return False
 
