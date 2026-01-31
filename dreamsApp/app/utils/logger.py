@@ -23,7 +23,7 @@ def setup_logger(name, log_dir='logs'):
     log_file = os.path.join(log_path, f'{name}_{datetime.now().strftime("%Y-%m-%d")}.log')
     
     logger = logging.getLogger(name)
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
     
     # Prevent duplicate handlers on multiple calls
     if logger.handlers:
