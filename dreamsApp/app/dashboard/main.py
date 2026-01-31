@@ -10,7 +10,7 @@ from flask_login import login_required
 from wordcloud import WordCloud
 from ..utils.llms import generate
 from flask import jsonify
-from flask import jsonify, request
+from flask import request
 import datetime
 from bson.objectid import ObjectId
 
