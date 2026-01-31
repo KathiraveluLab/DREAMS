@@ -262,7 +262,7 @@ def correct_chime():
     
     # Update the post using $set to add correction data
     result = mongo.update_one(
-        {'_id': ObjectId(post_id), 'user_id': data.get('user_id')},
+        {'_id': ObjectId(post_id), 'user_id': current_user.get_id()},
         {
             '$set': {
                 'corrected_label': corrected_label,
