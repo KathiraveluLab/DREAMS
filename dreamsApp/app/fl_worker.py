@@ -110,6 +110,7 @@ def run_federated_round():
                 'is_fl_processed': False  # Only unclaimed documents
             }
             
+            BATCH_SIZE = app.config.get('FL_BATCH_SIZE', 50)
             candidate_ids = [doc['_id'] for doc in mongo['posts'].find(query, {'_id': 1}).limit(BATCH_SIZE)]
             
             if len(candidate_ids) < BATCH_SIZE:
