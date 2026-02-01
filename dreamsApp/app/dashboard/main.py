@@ -288,19 +288,20 @@ def correct_chime():
         return jsonify({'success': False, 'error': 'Rate limit exceeded. Try again later.'}), 429
     
     # Step 1: ALWAYS save the correction to the queue first
+    now = datetime.datetime.now()
     result = mongo.update_one(
         {'_id': post_object_id, 'user_id': current_user.get_id()},
         {
             '$set': {
                 'corrected_label': corrected_label,  # Current correction
                 'is_fl_processed': False,  # Added to queue
-                'correction_timestamp': datetime.datetime.now()
+                'correction_timestamp': now
             },
             '$push': {
                 # AUDIT TRAIL: Keep history of all corrections for auditing
                 'correction_history': {
                     'label': corrected_label,
-                    'timestamp': datetime.datetime.now(),
+                    'timestamp': now,
                     'user_id': current_user.get_id()
                 }
             }
