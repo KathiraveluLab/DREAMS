@@ -278,7 +278,7 @@ def correct_chime():
     mongo = current_app.mongo['posts']
     
     # SECURITY: Rate limiting - max corrections per user per hour
-    one_hour_ago = datetime.datetime.now() - datetime.timedelta(hours=1)
+    one_hour_ago = datetime.datetime.utcnow() - datetime.timedelta(hours=1)
     recent_corrections = mongo.count_documents({
         'user_id': current_user.get_id(),
         'correction_timestamp': {'$gte': one_hour_ago}
