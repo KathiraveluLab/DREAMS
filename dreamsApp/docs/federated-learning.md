@@ -27,8 +27,10 @@ The DREAMS application includes a **Federated Learning (FL)** feature that enabl
 │                           WEB SERVER (Flask)                             │
 ├─────────────────────────────────────────────────────────────────────────┤
 │   /correct_chime endpoint:                                               │
-│   1. Saves correction to MongoDB                                         │
-│   2. Checks counter: if >= 50, spawns background training thread         │
+│   1. Saves correction to MongoDB (adds to the FL queue).                 │
+│   2. Counts unprocessed records; if >= 50 and the FL lock is free,       │
+│      claims it and starts a single training thread. Otherwise the        │
+│      correction waits in the queue for the next round.                   │
 └─────────────────────────────────────────────────────────────────────────┘
                                     │
                     ┌───────────────┴───────────────┐
@@ -92,9 +94,7 @@ Each correction is stored in the `posts` collection with:
 
 ### Step 3: Training Trigger
 
-When the 50th unprocessed correction is submitted:
-1. A background thread spawns automatically.
-2. Training runs silently in the background.
+After each correction is saved, the route counts how many documents still have `is_fl_processed: False`. When the queue reaches 50 and the `fl_training_lock` document is free, the handler atomically flips the lock, launches the worker in a daemon thread, and immediately returns to the browser. If another training round is already running, the lock acquisition fails and the correction simply remains in the queue until the next round.
 
 ### Step 4: Model Training
 
@@ -288,7 +288,6 @@ Submit a correction for a post's CHIME classification.
 ```json
 {
   "post_id": "ObjectId string",
-  "user_id": "user identifier",
   "corrected_label": "Hope|Connectedness|Identity|Meaning|Empowerment|None"
 }
 ```
@@ -303,6 +302,9 @@ Submit a correction for a post's CHIME classification.
 **Side Effects:**
 - Stores correction in database.
 - Triggers FL training if 50+ corrections pending.
+
+**Notes:**
+- The backend relies on `current_user`/session identity, so no `user_id` value is required in the payload.
 
 ---
 

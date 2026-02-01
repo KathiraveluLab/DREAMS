@@ -6,13 +6,20 @@ import pandas as pd
 import numpy as np
 import io
 import base64
-from flask_login import login_required
+import threading
+from flask_login import login_required, current_user
 from wordcloud import WordCloud
 from ..utils.llms import generate
 from flask import jsonify
-from flask import request
 import datetime
 from bson.objectid import ObjectId
+from bson.errors import InvalidId
+
+# Security: Whitelist of valid CHIME labels
+VALID_CHIME_LABELS = {'Connectedness', 'Hope', 'Identity', 'Meaning', 'Empowerment', 'None'}
+
+# Security: Rate limiting configuration
+MAX_CORRECTIONS_PER_HOUR = 10
 
 def generate_wordcloud_b64(keywords, colormap):
     """Refactor: Helper to generate base64 encoded word cloud image."""
@@ -257,33 +264,127 @@ def correct_chime():
     
     if not all([post_id, corrected_label]):
         return jsonify({'success': False, 'error': 'Missing fields'}), 400
-        
+    
+    # SECURITY: Validate ObjectId format
+    try:
+        post_object_id = ObjectId(post_id)
+    except (InvalidId, TypeError):
+        return jsonify({'success': False, 'error': 'Invalid post ID format'}), 400
+    
+    # SECURITY: Validate label is in allowed set
+    if corrected_label not in VALID_CHIME_LABELS:
+        return jsonify({'success': False, 'error': 'Invalid label value'}), 400
+    
     mongo = current_app.mongo['posts']
     
-    # Update the post using $set to add correction data
+    # SECURITY: Rate limiting - max corrections per user per hour
+    one_hour_ago = datetime.datetime.now() - datetime.timedelta(hours=1)
+    recent_corrections = mongo.count_documents({
+        'user_id': current_user.get_id(),
+        'correction_timestamp': {'$gte': one_hour_ago}
+    })
+    
+    if recent_corrections >= MAX_CORRECTIONS_PER_HOUR:
+        return jsonify({'success': False, 'error': 'Rate limit exceeded. Try again later.'}), 429
+    
+    # Step 1: ALWAYS save the correction to the queue first
     result = mongo.update_one(
-        {'_id': ObjectId(post_id), 'user_id': current_user.get_id()},
+        {'_id': post_object_id, 'user_id': current_user.get_id()},
         {
             '$set': {
-                'corrected_label': corrected_label,
-                'is_fl_processed': False,
+                'corrected_label': corrected_label,  # Current correction
+                'is_fl_processed': False,  # Added to queue
                 'correction_timestamp': datetime.datetime.now()
+            },
+            '$push': {
+                # AUDIT TRAIL: Keep history of all corrections for auditing
+                'correction_history': {
+                    'label': corrected_label,
+                    'timestamp': datetime.datetime.now(),
+                    'user_id': current_user.get_id()
+                }
             }
         }
     )
     
-    
     if result.modified_count > 0:
-        # Check for FL Trigger
-        pending_count = mongo.count_documents({'corrected_label': {'$exists': True}, 'is_fl_processed': False})
-        
-        if pending_count >= current_app.config.get('FL_BATCH_SIZE', 50):
-            # Trigger FL training in background thread (user doesn't wait)
-            import threading
-            from dreamsApp.app.fl_worker import run_federated_round
-            thread = threading.Thread(target=run_federated_round, daemon=True)
-            thread.start()
-             
+        # Step 2: Check if we should trigger training (non-blocking)
+        _maybe_trigger_fl_training(current_app._get_current_object())
         return jsonify({'success': True})
     else:
         return jsonify({'success': False, 'error': 'Post not found or no change'}), 404
+
+
+def _maybe_trigger_fl_training(app):
+    """
+    Check queue size and trigger training if threshold is met.
+    Uses atomic database lock to ensure only ONE training runs at a time.
+    If lock is busy, the correction is already saved - it will be processed next round.
+    """
+    import threading
+    FL_BATCH_SIZE = app.config.get('FL_BATCH_SIZE', 50)
+    LOCK_TIMEOUT_HOURS = 2  # If lock is older than this, assume it's stale
+    
+    with app.app_context():
+        mongo = app.mongo
+        
+        # Quick count check
+        pending_count = mongo['posts'].count_documents({
+            'corrected_label': {'$exists': True},
+            'is_fl_processed': False
+        })
+        
+        if pending_count < FL_BATCH_SIZE:
+            return  # Not enough corrections yet, exit quickly
+        
+        # Try to acquire atomic lock
+        # Only ONE request can successfully flip is_running from False to True
+        lock_collection = mongo['fl_training_lock']
+        
+        # Ensure lock document exists (first-time setup)
+        lock_collection.update_one(
+            {'_id': 'singleton'},
+            {'$setOnInsert': {'is_running': False}},
+            upsert=True
+        )
+        
+        # SECURITY: Check for stale lock (stuck for more than LOCK_TIMEOUT_HOURS)
+        stale_threshold = datetime.datetime.now() - datetime.timedelta(hours=LOCK_TIMEOUT_HOURS)
+        lock_collection.update_one(
+            {'_id': 'singleton', 'is_running': True, 'started_at': {'$lt': stale_threshold}},
+            {'$set': {'is_running': False, 'stale_reset_at': datetime.datetime.now()}}
+        )
+        
+        # Atomically try to acquire lock
+        lock_result = lock_collection.find_one_and_update(
+            {'_id': 'singleton', 'is_running': False},
+            {'$set': {'is_running': True, 'started_at': datetime.datetime.now()}},
+            return_document=False  # Return the OLD document
+        )
+        
+        if lock_result is None or lock_result.get('is_running', True):
+            # Lock is busy - another training is running
+            # Our correction is already saved in queue, it will be processed next round
+            return
+        
+        # We got the lock! Start training in background thread
+        def run_training_with_lock():
+            # Wrap entire function in app_context since this runs in a separate thread
+            with app.app_context():
+                try:
+                    # Import here to avoid circular dependency (fl_worker imports create_app)
+                    from dreamsApp.app.fl_worker import run_federated_round
+                    run_federated_round()
+                except Exception as e:
+                    # Log the error since daemon threads fail silently
+                    import logging
+                    logging.error(f"FL Training failed in background thread: {str(e)}", exc_info=True)
+                finally:
+                    # Always release lock when done (success or failure)
+                    mongo['fl_training_lock'].update_one(
+                        {'_id': 'singleton'},
+                        {'$set': {'is_running': False, 'finished_at': datetime.datetime.now()}}
+                    )
+        
+        thread = threading.Thread(target=run_training_with_lock, daemon=True)
+        thread.start()

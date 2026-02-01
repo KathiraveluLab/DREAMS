@@ -58,6 +58,7 @@ def validate_model(model, tokenizer, training_samples, label2id):
                 # Get the string label for the prediction
                 id2label = {v: k for k, v in label2id.items()}
                 pred_str = id2label.get(pred_id, "Unknown")
+                # SECURITY NOTE: Only logging hardcoded anchor examples, not user data
                 logger.debug(f"[Anchor Fail] Text: '{example['text'][:30]}...' Expected: {target_str}, Got: {pred_str}")
 
     logger.info(f"[Safety Check] Anchor Accuracy: {correct_anchors}/{len(ANCHOR_EXAMPLES)}")
@@ -91,19 +92,52 @@ def run_federated_round():
         logger.info("FL WORKER: Waking up...")
         
         try:
-            # 1. Fetch Pending Data
+            # CLEANUP: Reset any stale 'processing' documents (older than 1 hour)
+            one_hour_ago = datetime.datetime.now() - datetime.timedelta(hours=1)
+            stale_reset = mongo['posts'].update_many(
+                {
+                    'is_fl_processed': 'processing',
+                    'processing_started_at': {'$lt': one_hour_ago}
+                },
+                {'$set': {'is_fl_processed': False}, '$unset': {'processing_started_at': ''}}
+            )
+            if stale_reset.modified_count > 0:
+                logger.warning(f"Reset {stale_reset.modified_count} stale 'processing' documents.")
+            
+            # 1. Atomically CLAIM Pending Data (Prevents Race Condition)
+            # Step 1a: Find IDs of documents to claim
             query = {
                 'corrected_label': {'$exists': True},
-                'is_fl_processed': False
+                'is_fl_processed': False  # Only unclaimed documents
             }
             
-            # Limit to batch size
-            cursor = mongo['posts'].find(query).limit(BATCH_SIZE)
-            pending_posts = list(cursor)
-
-            if len(pending_posts) < BATCH_SIZE:
-                logger.info(f"Only {len(pending_posts)} corrections available. Waiting for {BATCH_SIZE}.")
+            candidate_ids = [doc['_id'] for doc in mongo['posts'].find(query, {'_id': 1}).limit(BATCH_SIZE)]
+            
+            if len(candidate_ids) < BATCH_SIZE:
+                logger.info(f"Only {len(candidate_ids)} corrections available. Waiting for {BATCH_SIZE}.")
                 return
+            
+            # Step 1b: Atomically claim these documents by setting status to 'processing'
+            claim_result = mongo['posts'].update_many(
+                {'_id': {'$in': candidate_ids}, 'is_fl_processed': False},  # Re-check status!
+                {'$set': {
+                    'is_fl_processed': 'processing',
+                    'processing_started_at': datetime.datetime.now()
+                }}
+            )
+            
+            if claim_result.modified_count < BATCH_SIZE:
+                logger.warning(f"Race condition detected: Only claimed {claim_result.modified_count}/{BATCH_SIZE} documents. Another worker may be running. Aborting.")
+                # Release any documents we did claim back to 'False'
+                mongo['posts'].update_many(
+                    {'_id': {'$in': candidate_ids}, 'is_fl_processed': 'processing'},
+                    {'$set': {'is_fl_processed': False}, '$unset': {'processing_started_at': ''}}
+                )
+                return
+            
+            # Step 1c: Now fetch the full documents we successfully claimed
+            pending_posts = list(mongo['posts'].find({'_id': {'$in': candidate_ids}, 'is_fl_processed': 'processing'}))
+            logger.info(f"Successfully claimed {len(pending_posts)} documents for training.")
 
             # Prepare Data
             # We need to fetch the configuration to know the label map
@@ -118,6 +152,7 @@ def run_federated_round():
             training_data = [] # List of (text, label_idx)
             valid_ids = []
 
+            # SECURITY: Do not log the caption/text content to avoid exposing user data
             for p in pending_posts:
                 lbl = p.get('corrected_label')
                 if lbl in label2id:
@@ -126,12 +161,14 @@ def run_federated_round():
                 elif lbl == 'None':
                     # Mark 'None' as processed but don't train
                     mongo['posts'].update_one({'_id': p['_id']}, {'$set': {'is_fl_processed': True, 'fl_status': 'skipped'}})
+                    # Log only the document ID, not the content
                     logger.debug(f"Skipped 'None' label for post {p['_id']}")
 
             if not training_data:
                 logger.info("No valid labels found (mostly 'None'). Marking processed and exiting.")
                 return
 
+            # SECURITY: Only log counts/statistics, never actual user text
             logger.info(f"Starting Training Round with {len(training_data)} samples.")
 
             # 2. Load Model (CONTINUOUS LEARNING)
@@ -204,10 +241,13 @@ def run_federated_round():
             logger.info("Updating database records...")
             mongo['posts'].update_many(
                 {'_id': {'$in': valid_ids}},
-                {'$set': {
-                    'is_fl_processed': True, 
-                    'fl_round_date': datetime.datetime.now()
-                }}
+                {
+                    '$set': {
+                        'is_fl_processed': True,  # Mark as fully processed (was 'processing')
+                        'fl_round_date': datetime.datetime.now()
+                    },
+                    '$unset': {'processing_started_at': ''}  # Clean up temp field
+                }
             )
             logger.info(f"Round Successfully Completed. Processed {len(valid_ids)} items.")
             
@@ -216,7 +256,17 @@ def run_federated_round():
             # Cleanup temp if it exists after a failure
             if os.path.exists(TEMP_MODEL_DIR):
                 shutil.rmtree(TEMP_MODEL_DIR)
-            raise  # Re-raise so caller knows it failed
+            # Release any documents we claimed back to the queue
+            try:
+                mongo['posts'].update_many(
+                    {'is_fl_processed': 'processing'},
+                    {'$set': {'is_fl_processed': False}, '$unset': {'processing_started_at': ''}}
+                )
+                logger.info("Released claimed documents back to queue after failure.")
+            except:
+                pass  # Best effort release
 
+
+# Allow running as standalone script for manual testing
 if __name__ == "__main__":
     run_federated_round()
