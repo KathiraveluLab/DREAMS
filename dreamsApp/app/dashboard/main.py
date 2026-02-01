@@ -288,7 +288,7 @@ def correct_chime():
         return jsonify({'success': False, 'error': 'Rate limit exceeded. Try again later.'}), 429
     
     # Step 1: ALWAYS save the correction to the queue first
-    now = datetime.datetime.now()
+    now = datetime.datetime.utcnow()
     result = mongo.update_one(
         {'_id': post_object_id, 'user_id': current_user.get_id()},
         {
