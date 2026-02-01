@@ -283,8 +283,8 @@ def run_federated_round():
                     {'$set': {'is_fl_processed': False}, '$unset': {'processing_started_at': ''}}
                 )
                 logger.info("Released claimed documents back to queue after failure.")
-            except:
-                pass  # Best effort release
+            except Exception as release_error:
+                logger.warning(f"Failed to release claimed documents back to queue: {release_error}")
 
 
 # Allow running as standalone script for manual testing
