@@ -81,8 +81,8 @@ class SentimentAnalyzer:
             try:
                 # Check for locally fine-tuned model (Self-Correcting Feature)
                 # sentiment.py is in dreamsApp/app/utils, so ../../models is the path
-                base_app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                local_model_path = os.path.join(base_app_dir, "models", "production_chime_model")
+                from flask import current_app
+                local_model_path = os.path.join(current_app.root_path, "models", "production_chime_model")
                 
                 model_path = HF_MODEL_ID
                 
