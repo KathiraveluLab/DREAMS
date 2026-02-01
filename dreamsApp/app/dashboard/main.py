@@ -192,8 +192,8 @@ def profile(target):
     wordcloud_negative_data = generate_wordcloud_b64(negative_keywords, 'OrRd')
 
     # Sort posts to get the latest one
-    user_posts.sort(key=lambda x: x['timestamp'], reverse=True)
-    latest_post = user_posts[0] if user_posts else None
+    # The user_posts list is already sorted by timestamp ascending. The latest post is the last one.
+    latest_post = user_posts[-1] if user_posts else None
 
     return render_template(
         'dashboard/profile.html', 
