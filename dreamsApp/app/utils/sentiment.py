@@ -100,7 +100,7 @@ class SentimentAnalyzer:
                 )
                 logging.info("CHIME model loaded successfully.")
             except Exception as e:
-                print(f"Error loading CHIME model: {e}")
+                logging.error(f"Error loading CHIME model: {e}")
                 return None
         return self._chime_classifier
 
