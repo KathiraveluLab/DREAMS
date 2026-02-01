@@ -247,7 +247,7 @@ A low learning rate (1e-5) ensures the model nudges toward new data without forg
 | Expand Anchor Set | Medium | Add 50+ examples for stronger safety checks |
 | Model Versioning | Low | Backup old models before overwriting |
 | Admin Dashboard | Low | UI to view training history and logs |
-| File Locking | Low | Prevent concurrent training (needed at scale) |
+| Lock Monitoring | Low | Track `fl_training_lock` contention/latency to keep single-thread guarantee at scale |
 | Outlier Detection | Low | Reject statistically anomalous corrections |
 
 ---

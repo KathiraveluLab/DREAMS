@@ -1,6 +1,19 @@
 import logging
 import os
 from datetime import datetime
+from pathlib import Path
+
+
+def _find_project_root() -> str:
+    """Return repo root by looking for well-known marker files."""
+    markers = ('.git', 'pyproject.toml', 'requirements.txt', 'dreamsApp')
+    current = Path(__file__).resolve().parent
+    search_chain = (current,) + tuple(current.parents)
+    for directory in search_chain:
+        if any((directory / marker).exists() for marker in markers):
+            return str(directory)
+    return str(current)
+
 
 def setup_logger(name, log_dir='logs'):
     """
@@ -15,7 +28,7 @@ def setup_logger(name, log_dir='logs'):
     """
     
     # Ensure logs directory exists at project root
-    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    base_dir = _find_project_root()
     log_path = os.path.join(base_dir, log_dir)
     os.makedirs(log_path, exist_ok=True)
     

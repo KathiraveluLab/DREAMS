@@ -1,7 +1,6 @@
 import torch
 import shutil
 import os
-import json
 import datetime
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, AutoConfig
 from dreamsApp.app import create_app

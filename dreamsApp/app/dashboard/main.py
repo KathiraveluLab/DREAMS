@@ -322,7 +322,6 @@ def _maybe_trigger_fl_training(app):
     Uses atomic database lock to ensure only ONE training runs at a time.
     If lock is busy, the correction is already saved - it will be processed next round.
     """
-    import threading
     FL_BATCH_SIZE = app.config.get('FL_BATCH_SIZE', 50)
     LOCK_TIMEOUT_HOURS = 2  # If lock is older than this, assume it's stale
     
