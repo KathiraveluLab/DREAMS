@@ -183,12 +183,13 @@ def run_federated_round():
             model = AutoModelForSequenceClassification.from_pretrained(load_path, num_labels=len(label2id))
 
             # Freeze BERT Base, Train Head
-            if hasattr(model, 'bert'):
-                for param in model.bert.parameters():
+            base_model_prefix = model.base_model_prefix
+            if hasattr(model, base_model_prefix):
+                base_model = getattr(model, base_model_prefix)
+                for param in base_model.parameters():
                     param.requires_grad = False
-            elif hasattr(model, 'base_model'):
-                for param in model.base_model.parameters():
-                    param.requires_grad = False
+            else:
+                logger.warning(f"Could not find base model with prefix '{base_model_prefix}'. Training all layers, which may be unintended.")
             
             logger.debug("Base layers frozen. Training classifier head only.")
             
