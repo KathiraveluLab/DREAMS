@@ -349,7 +349,7 @@ def _maybe_trigger_fl_training(app):
         )
         
         # SECURITY: Check for stale lock (stuck for more than LOCK_TIMEOUT_HOURS)
-        stale_threshold = datetime.datetime.now() - datetime.timedelta(hours=LOCK_TIMEOUT_HOURS)
+        stale_threshold = datetime.datetime.utcnow() - datetime.timedelta(hours=LOCK_TIMEOUT_HOURS)
         lock_collection.update_one(
             {'_id': 'singleton', 'is_running': True, 'started_at': {'$lt': stale_threshold}},
             {'$set': {'is_running': False, 'stale_reset_at': datetime.datetime.now()}}
