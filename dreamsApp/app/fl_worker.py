@@ -220,15 +220,34 @@ def run_federated_round():
 
             if passed:
                 logger.info("Update Accepted! Promoting to Production...")
-                # ATOMIC SWAP: Overwrite production folder
-                if os.path.exists(PRODUCTION_MODEL_DIR):
-                    shutil.rmtree(PRODUCTION_MODEL_DIR)
+                # ATOMIC SWAP using os.rename (instant on same filesystem)
+                backup_dir = PRODUCTION_MODEL_DIR + "_backup"
                 
-                # Ensure parent dict exists
+                # Ensure parent directory exists
                 os.makedirs(os.path.dirname(PRODUCTION_MODEL_DIR), exist_ok=True)
                 
-                shutil.copytree(TEMP_MODEL_DIR, PRODUCTION_MODEL_DIR)
-                logger.info(f"SUCCESS: Central Model updated at {PRODUCTION_MODEL_DIR}")
+                try:
+                    # Step 1: Move current production to backup (atomic)
+                    if os.path.exists(PRODUCTION_MODEL_DIR):
+                        if os.path.exists(backup_dir):
+                            shutil.rmtree(backup_dir)  # Clear old backup
+                        os.rename(PRODUCTION_MODEL_DIR, backup_dir)
+                    
+                    # Step 2: Move temp to production (atomic)
+                    os.rename(TEMP_MODEL_DIR, PRODUCTION_MODEL_DIR)
+                    
+                    # Step 3: Remove backup (safe, production already updated)
+                    if os.path.exists(backup_dir):
+                        shutil.rmtree(backup_dir)
+                    
+                    logger.info(f"SUCCESS: Central Model updated at {PRODUCTION_MODEL_DIR}")
+                except OSError as e:
+                    # Rollback: restore backup if swap failed
+                    logger.error(f"Atomic swap failed: {e}")
+                    if os.path.exists(backup_dir) and not os.path.exists(PRODUCTION_MODEL_DIR):
+                        os.rename(backup_dir, PRODUCTION_MODEL_DIR)
+                        logger.info("Restored previous production model from backup.")
+                    raise
             else:
                 logger.warning("Update Rejected. Discarding changes.")
             
