@@ -29,9 +29,18 @@ def extract_gps_from_image(image_file):
                 return None
             
             def to_degrees(val):
-                if not (isinstance(val, (tuple, list)) and len(val) == 3):
-            def to_degrees(val):
-                return sum((c[0]/c[1] if isinstance(c, tuple) else float(c)) / 60**i for i, c in enumerate(val))
+                """Converts GPS coordinates from DMS to decimal degrees."""
+                if not isinstance(val, (tuple, list)) or len(val) != 3:
+                    raise ValueError(f"Invalid GPS coordinate format: {val}")
+                total_degrees = 0.0
+                for i, c in enumerate(val):
+                    if isinstance(c, tuple):
+                        if c[1] == 0:
+                            raise ValueError(f"Invalid GPS coordinate component with zero denominator: {c}")
+                        total_degrees += (c[0] / c[1]) / (60**i)
+                    else:
+                        total_degrees += float(c) / (60**i)
+                return total_degrees
             
             lat = to_degrees(gps_info["GPSLatitude"])
             if gps_info.get("GPSLatitudeRef") == "S":
