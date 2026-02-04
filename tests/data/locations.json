@@ -1,0 +1,280 @@
+{
+  "locations": [
+    {
+      "id": "park_001",
+      "name": "Delaney Park Strip",
+      "type": "park",
+      "coordinates": {
+        "lat": 61.2181,
+        "lon": -149.9003
+      },
+      "language": "english",
+      "cultural_tags": ["recreational", "community", "outdoor"],
+      "description": "Large urban park in downtown Anchorage"
+    },
+    {
+      "id": "park_002", 
+      "name": "Chugach State Park",
+      "type": "park",
+      "coordinates": {
+        "lat": 61.1508,
+        "lon": -149.1647
+      },
+      "language": "english",
+      "cultural_tags": ["wilderness", "hiking", "nature"],
+      "description": "Mountain wilderness park"
+    },
+    {
+      "id": "park_003",
+      "name": "Westchester Lagoon",
+      "type": "park", 
+      "coordinates": {
+        "lat": 61.2056,
+        "lon": -149.9342
+      },
+      "language": "english",
+      "cultural_tags": ["water", "wildlife", "peaceful"],
+      "description": "Lagoon park with walking trails"
+    },
+    {
+      "id": "hospital_001",
+      "name": "Alaska Native Medical Center",
+      "type": "hospital",
+      "coordinates": {
+        "lat": 61.2094,
+        "lon": -149.8331
+      },
+      "language": "english",
+      "cultural_tags": ["healthcare", "native", "medical"],
+      "description": "Major medical facility serving Alaska Native population"
+    },
+    {
+      "id": "hospital_002",
+      "name": "Providence Alaska Medical Center", 
+      "type": "hospital",
+      "coordinates": {
+        "lat": 61.1944,
+        "lon": -149.8706
+      },
+      "language": "english",
+      "cultural_tags": ["healthcare", "catholic", "emergency"],
+      "description": "Large hospital with emergency services"
+    },
+    {
+      "id": "hospital_003",
+      "name": "Alaska Regional Hospital",
+      "type": "hospital",
+      "coordinates": {
+        "lat": 61.1736,
+        "lon": -149.7847
+      },
+      "language": "english", 
+      "cultural_tags": ["healthcare", "private", "specialty"],
+      "description": "Private hospital with specialized care"
+    },
+    {
+      "id": "church_001",
+      "name": "St. Mary's Catholic Church",
+      "type": "church",
+      "coordinates": {
+        "lat": 61.2167,
+        "lon": -149.8944
+      },
+      "language": "english",
+      "cultural_tags": ["catholic", "christian", "traditional"],
+      "description": "Historic Catholic church in downtown"
+    },
+    {
+      "id": "church_002",
+      "name": "Holy Trinity Orthodox Cathedral",
+      "type": "church", 
+      "coordinates": {
+        "lat": 61.2189,
+        "lon": -149.8889
+      },
+      "language": "english",
+      "cultural_tags": ["orthodox", "christian", "historic"],
+      "description": "Russian Orthodox cathedral"
+    },
+    {
+      "id": "church_003",
+      "name": "First Baptist Church",
+      "type": "church",
+      "coordinates": {
+        "lat": 61.2203,
+        "lon": -149.8778
+      },
+      "language": "english",
+      "cultural_tags": ["baptist", "christian", "community"],
+      "description": "Baptist church with community programs"
+    },
+    {
+      "id": "restaurant_001",
+      "name": "Moose's Tooth Pub",
+      "type": "restaurant",
+      "coordinates": {
+        "lat": 61.2172,
+        "lon": -149.8947
+      },
+      "language": "english",
+      "cultural_tags": ["american", "pub", "craft_beer"],
+      "description": "Popular pub with local brews"
+    },
+    {
+      "id": "restaurant_002",
+      "name": "Casa Nova Italian Restaurant",
+      "type": "restaurant",
+      "coordinates": {
+        "lat": 61.2156,
+        "lon": -149.8911
+      },
+      "language": "english",
+      "cultural_tags": ["italian", "family", "traditional"],
+      "description": "Italian restaurant with family recipes"
+    },
+    {
+      "id": "restaurant_003",
+      "name": "Tokyo Steakhouse",
+      "type": "restaurant",
+      "coordinates": {
+        "lat": 61.2139,
+        "lon": -149.8875
+      },
+      "language": "english",
+      "cultural_tags": ["japanese", "steakhouse", "fusion"],
+      "description": "Japanese steakhouse with teppanyaki"
+    },
+    {
+      "id": "school_001",
+      "name": "West High School",
+      "type": "school",
+      "coordinates": {
+        "lat": 61.2017,
+        "lon": -149.9264
+      },
+      "language": "english",
+      "cultural_tags": ["education", "public", "youth"],
+      "description": "Public high school"
+    },
+    {
+      "id": "school_002",
+      "name": "University of Alaska Anchorage",
+      "type": "school",
+      "coordinates": {
+        "lat": 61.1897,
+        "lon": -149.8264
+      },
+      "language": "english",
+      "cultural_tags": ["higher_education", "research", "diverse"],
+      "description": "Major university campus"
+    },
+    {
+      "id": "museum_001",
+      "name": "Anchorage Museum",
+      "type": "museum",
+      "coordinates": {
+        "lat": 61.2183,
+        "lon": -149.8772
+      },
+      "language": "english",
+      "cultural_tags": ["history", "art", "alaska"],
+      "description": "Museum of history and art"
+    },
+    {
+      "id": "museum_002",
+      "name": "Alaska Native Heritage Center",
+      "type": "museum",
+      "coordinates": {
+        "lat": 61.2178,
+        "lon": -149.7672
+      },
+      "language": "english",
+      "cultural_tags": ["native", "cultural", "heritage"],
+      "description": "Center preserving Alaska Native cultures"
+    },
+    {
+      "id": "cafe_001",
+      "name": "Kaladi Brothers Coffee",
+      "type": "cafe",
+      "coordinates": {
+        "lat": 61.2194,
+        "lon": -149.8939
+      },
+      "language": "english",
+      "cultural_tags": ["coffee", "casual", "community"],
+      "description": "Local coffee shop"
+    },
+    {
+      "id": "cafe_002",
+      "name": "Fire Island Rustic Bakeshop",
+      "type": "cafe",
+      "coordinates": {
+        "lat": 61.2167,
+        "lon": -149.8906
+      },
+      "language": "english",
+      "cultural_tags": ["bakery", "artisan", "local"],
+      "description": "Artisan bakery and cafe"
+    },
+    {
+      "id": "library_001",
+      "name": "Z.J. Loussac Public Library",
+      "type": "library",
+      "coordinates": {
+        "lat": 61.2189,
+        "lon": -149.8917
+      },
+      "language": "english",
+      "cultural_tags": ["education", "public", "knowledge"],
+      "description": "Main public library"
+    },
+    {
+      "id": "theater_001",
+      "name": "Alaska Center for the Performing Arts",
+      "type": "theater",
+      "coordinates": {
+        "lat": 61.2197,
+        "lon": -149.8856
+      },
+      "language": "english",
+      "cultural_tags": ["performing_arts", "cultural", "entertainment"],
+      "description": "Performing arts venue"
+    },
+    {
+      "id": "gym_001",
+      "name": "Alaska Club Fitness",
+      "type": "gym",
+      "coordinates": {
+        "lat": 61.2125,
+        "lon": -149.8833
+      },
+      "language": "english",
+      "cultural_tags": ["fitness", "health", "recreation"],
+      "description": "Fitness and wellness center"
+    },
+    {
+      "id": "pharmacy_001",
+      "name": "Walgreens Pharmacy",
+      "type": "pharmacy",
+      "coordinates": {
+        "lat": 61.2142,
+        "lon": -149.8894
+      },
+      "language": "english",
+      "cultural_tags": ["healthcare", "convenience", "retail"],
+      "description": "Retail pharmacy"
+    },
+    {
+      "id": "bank_001",
+      "name": "Wells Fargo Bank",
+      "type": "bank",
+      "coordinates": {
+        "lat": 61.2178,
+        "lon": -149.8928
+      },
+      "language": "english",
+      "cultural_tags": ["financial", "services", "community"],
+      "description": "Banking services"
+    }
+  ]
+}"" 

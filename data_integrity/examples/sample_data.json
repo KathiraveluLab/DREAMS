@@ -1,0 +1,43 @@
+{
+  "person_id": "p01",
+  "metadata": {
+    "collection_date": "2024-12-01",
+    "researcher": "Dr. Smith"
+  },
+  "samples": [
+    {
+      "sample_id": "s01",
+      "timestamp": "2024-12-01T08:00:00Z",
+      "description": "Morning recording session",
+      "image": "data/person-01/sample-01/frame_001.jpg",
+      "audio": "data/person-01/sample-01/audio_001.wav"
+    },
+    {
+      "sample_id": "s02",
+      "timestamp": "2024-12-01T10:30:00Z",
+      "description": "Mid-morning follow-up",
+      "image": "data/person-01/sample-02/frame_002.jpg",
+      "audio": "data/person-01/sample-02/audio_002.wav"
+    },
+    {
+      "sample_id": "s03",
+      "timestamp": "2024-12-01T14:15:00Z",
+      "description": "Afternoon session",
+      "image": "data/person-01/sample-03/frame_003.jpg",
+      "audio": "data/person-01/sample-03/audio_003.wav"
+    },
+    {
+      "sample_id": "s04",
+      "timestamp": "2024-12-01T14:10:00Z",
+      "description": "Out-of-order timestamp (should trigger error)",
+      "image": "data/person-01/sample-04/frame_004.jpg",
+      "audio": "data/person-01/sample-04/nonexistent.wav"
+    },
+    {
+      "sample_id": "s05",
+      "timestamp": "2025-12-15T18:00:00Z",
+      "description": "Future timestamp (should trigger error)",
+      "image": "data/person-01/sample-05/missing_image.jpg"
+    }
+  ]
+}
