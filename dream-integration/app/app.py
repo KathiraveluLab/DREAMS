@@ -119,16 +119,6 @@ def analyze():
     transcript_path = _find_first_file(sample_dir, ["transcript*.txt", "clip-*.txt"])
     description_path = _find_first_file(sample_dir, ["description*.txt"])
 
-    transcript_path = None
-    for pattern in ("transcript*.txt", "clip-*.txt"):
-        matches = glob.glob(os.path.join(sample_dir, pattern))
-        if matches:
-            transcript_path = matches[0]
-            break
-
-    description_matches = glob.glob(os.path.join(sample_dir, "description*.txt"))
-    description_path = description_matches[0] if description_matches else None
-
 
     out_dir = os.path.join(sample_dir, "analysis")
     os.makedirs(out_dir, exist_ok=True)
