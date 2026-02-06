@@ -1,5 +1,4 @@
 # DREAMS
-
 Digitization for Recovery: Exploring Arts with Mining for Societal well-being.
 
 DREAMS is an extension of the Beehive project, focused on exploring time and ordering across photo memories to better understand personal recovery journeys. The goal is to build tools that help track and analyze visual narratives over time using data mining and intelligent processing.
@@ -21,16 +20,40 @@ DREAMS is an extension of the Beehive project, focused on exploring time and ord
 
 ## Repository Structure
 
-    DREAMS/
-    ├── dreamsApp/
-    │   ├── __init__.py                #        App factory
-    │   ├── captionSentiments.py       # API logic and model loading
-    |   ├── README.md
-    ├──tests/
-    |  ├──test_sentiment.py
-    ├──pytest.ini
-    ├──README.md
-    ├──requirements.txt
+```text
+DREAMS/
+├── dreamsApp/                  # Main application package
+│   ├── app/                    # Flask app package (app factory + blueprints)
+│   │   ├── __init__.py         # create_app() factory
+│   │   ├── config.py           # App configuration
+│   │   ├── models.py           # Database models
+│   │   ├── auth.py             # Authentication routes
+│   │   │
+│   │   ├── ingestion/          # Image ingestion & processing
+│   │   │   ├── __init__.py
+│   │   │   └── routes.py
+│   │   │
+│   │   ├── dashboard/          # Dashboard & analytics views
+│   │   │   ├── __init__.py
+│   │   │   └── main.py
+│   │   │
+│   │   └── utils/              # Core ML / NLP utilities
+│   │       ├── sentiment.py    # Caption sentiment analysis
+│   │       ├── keywords.py     # Keyword extraction
+│   │       ├── clustering.py   # Keyword clustering (HDBSCAN)
+│   │       └── llms.py         # LLM (Gemini) integration
+│   │
+│   └── docs/                   # Project documentation
+│
+├── data_integrity/             # Data validation utilities
+├── location_proximity/         # Location-based analysis (future)
+├── dream-integration/          # Integration & experimental code
+├── tests/                      # Unit and integration tests
+│
+├── requirements.txt            # Python dependencies
+├── pytest.ini                  # Pytest configuration
+└── README.md                   # Project documentation
+```
  
 ## Installation and Setup
 
@@ -52,5 +75,3 @@ pytest
 # 5. Start the Flask server in debug mode
 flask --app "dreamsApp.app:create_app()" run --debug
 ```
-
-More coming soon!
