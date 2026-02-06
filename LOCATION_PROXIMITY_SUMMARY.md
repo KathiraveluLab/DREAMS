@@ -6,6 +6,11 @@ A new module for DREAMS that analyzes **multi-dimensional location proximity** t
 
 **Key Innovation**: Goes beyond GPS coordinates to consider categorical, linguistic, and cultural dimensions of location similarity.
 
+**Building Upon Existing Work**:
+- **PR #77** (kunal-595): EXIF GPS extraction - we use `dreamsApp/exif_extractor.py` for location data
+- **PR #70** (AnvayKharb): Time-aware emotion proximity - we integrate with `analytics/emotion_proximity.py`
+- **Our Contribution**: Multi-dimensional spatial proximity analysis (geographic + categorical + linguistic + cultural)
+
 ---
 
 ## Module Location
@@ -41,8 +46,8 @@ DEMO 1: Multi-Dimensional Proximity Calculation
 St. Mary's Church ↔ Holy Trinity Church : 0.850
 Alaska Native Medical Center ↔ Providence Hospital : 0.725
 
-✓ Notice: Two churches have high proximity despite different locations
-✓ Notice: Two hospitals cluster together semantically
+Notice: Two churches have high proximity despite different locations
+Notice: Two hospitals cluster together semantically
 ```
 
 ---
@@ -255,6 +260,6 @@ Same as DREAMS project (see [LICENSE](LICENSE))
 
 ---
 
-**Status**: ✅ Ready for integration and testing  
+**Status**: Ready for integration and testing  
 **Version**: 0.1.0  
 **Last Updated**: 2024

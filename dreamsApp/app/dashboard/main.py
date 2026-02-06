@@ -51,7 +51,7 @@ def profile(target):
     df["rolling_avg"] = df["score"].rolling(window=5, min_periods=1).mean()
     df["ema_score"] = df["score"].ewm(span=5, adjust=False).mean()
 
-    # 📈 Create user-friendly visual
+    # Create user-friendly visual
     plt.figure(figsize=(12, 6))
 
     plt.plot(df["timestamp"], df["cumulative_score"],

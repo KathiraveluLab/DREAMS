@@ -249,7 +249,253 @@ Comprehensive testing strategy for the location-proximity analysis module, cover
 **Input**: Antipodal points (opposite sides of Earth)
 **Expected Output**: Geographic proximity ≈ 0.0
 **Priority**: Low
+#### Test Case: PC-EC-003
+**Description**: Missing dimensions (no cultural tags)
+**Input**: Places without cultural_tags field
+**Expected Output**: Cultural similarity defaults to 0.0, weights redistributed
+**Priority**: Medium
 
+#### Test Case: PC-EC-004
+**Description**: Zero weight dimension
+**Input**: Composite proximity with one dimension weight = 0
+**Expected Output**: Excluded dimension ignored, other weights sum to 1.0
+**Priority**: Medium
+
+---
+
+## Clustering Test Cases
+
+### Unit Tests - DBSCAN Clustering
+
+#### Test Case: CL-UT-001
+**Description**: Cluster homogeneous place types
+**Input**: 9 locations (3 parks, 3 hospitals, 3 churches) from `tests/data/locations.json`
+**Expected Output**: 3 clusters, each containing same place type
+**Validation**:
+- Cluster 0: [park_001, park_002, park_003]
+- Cluster 1: [hospital_001, hospital_002, hospital_003]
+- Cluster 2: [church_001, church_002, church_003]
+**Priority**: Critical
+
+#### Test Case: CL-UT-002
+**Description**: DBSCAN parameter sensitivity
+**Input**: Same 9 locations with varying eps (0.2, 0.4, 0.6)
+**Expected Output**: 
+- eps=0.2: More clusters (over-segmentation)
+- eps=0.4: 3 clean clusters (optimal)
+- eps=0.6: Fewer clusters (under-segmentation)
+**Priority**: High
+
+#### Test Case: CL-UT-003
+**Description**: Noise point detection
+**Input**: 9 locations + 2 outliers with unique attributes
+**Expected Output**: Outliers labeled as noise (cluster_id = -1)
+**Priority**: Medium
+
+#### Test Case: CL-UT-004
+**Description**: Minimum cluster size enforcement
+**Input**: min_samples=3, locations with 2 similar + 1 outlier
+**Expected Output**: Group of 2 not forming cluster (below threshold)
+**Priority**: Medium
+
+### Integration Tests - Clustering with Emotions
+
+#### Test Case: CL-IT-001
+**Description**: Cluster emotion profile aggregation
+**Input**: 
+- 9 locations clustered into 3 groups
+- Sentiment data from `tests/data/sentiments.json`
+**Expected Output**:
+- Church cluster: 80%+ positive emotions
+- Hospital cluster: 60%+ negative emotions
+- Park cluster: 70%+ positive emotions
+**Priority**: Critical
+
+#### Test Case: CL-IT-002
+**Description**: Temporal emotion evolution within cluster
+**Input**: Cluster with visits across 2 months
+**Expected Output**: Timeline showing emotion trend over time
+**Priority**: Medium
+
+### Quality Metrics Tests
+
+#### Test Case: CL-QM-001
+**Description**: Silhouette score calculation
+**Input**: Clustered locations with proximity matrix
+**Expected Output**: Silhouette score > 0.5 (good separation)
+**Priority**: High
+
+#### Test Case: CL-QM-002
+**Description**: Davies-Bouldin index
+**Input**: Clustered locations
+**Expected Output**: DB index < 1.0 (tight, well-separated clusters)
+**Priority**: Medium
+
+#### Test Case: CL-QM-003
+**Description**: Clustering purity
+**Input**: Predicted clusters vs. ground truth (place types)
+**Expected Output**: Purity > 0.80 (accurate grouping)
+**Priority**: High
+
+---
+
+## Emotion-Location Pattern Detection
+
+### Hotspot Detection Tests
+
+#### Test Case: HS-UT-001
+**Description**: Positive emotional hotspot identification
+**Input**: Location with 5 visits, 4 positive (80%), 1 neutral
+**Expected Output**: Identified as positive hotspot (confidence=0.80)
+**Min Visits**: 3
+**Min Confidence**: 0.60
+**Priority**: Critical
+
+#### Test Case: HS-UT-002
+**Description**: Negative emotional hotspot identification
+**Input**: Hospital with 6 visits, 5 negative (83%), 1 neutral
+**Expected Output**: Identified as negative hotspot (confidence=0.83)
+**Priority**: Critical
+
+#### Test Case: HS-UT-003
+**Description**: Insufficient visits - no hotspot
+**Input**: Location with 2 visits (below min_visits=3)
+**Expected Output**: Not classified as hotspot
+**Priority**: Medium
+
+#### Test Case: HS-UT-004
+**Description**: Mixed emotions - no dominant sentiment
+**Input**: Location with balanced emotions (33% each)
+**Expected Output**: No hotspot (confidence < 0.60 threshold)
+**Priority**: Medium
+
+### Place-Type Emotion Comparison
+
+#### Test Case: PT-UT-001
+**Description**: Aggregate emotions by place type
+**Input**: All church visits from `tests/data/sentiments.json`
+**Expected Output**: 
+- Mean positive score: 0.82
+- Dominant sentiment: positive (>75%)
+**Priority**: High
+
+#### Test Case: PT-UT-002
+**Description**: Statistical significance test
+**Input**: Church emotions vs. Hospital emotions
+**Expected Output**: t-test p-value < 0.05 (significantly different)
+**Priority**: Medium
+
+### Temporal Emotion Trends
+
+#### Test Case: TE-UT-001
+**Description**: Weekly emotion aggregation
+**Input**: Location with 8 visits across 4 weeks
+**Expected Output**: 
+- Week 1-4 emotion distribution per week
+- Trend direction (improving/declining/stable)
+**Priority**: Medium
+
+#### Test Case: TE-UT-002
+**Description**: Seasonal pattern detection
+**Input**: Year-long visit history at location
+**Expected Output**: Identify seasonal variations (e.g., positive in summer)
+**Priority**: Low (future enhancement)
+
+---
+
+## End-to-End Integration Tests
+
+### Test Case: E2E-001
+**Description**: Complete photo upload to dashboard pipeline
+**Steps**:
+1. Upload photo with GPS EXIF data
+2. Extract location and sentiment
+3. Store in MongoDB
+4. Compute proximity to existing locations
+5. Update location_analysis collection
+6. Trigger clustering if threshold met
+7. Display on dashboard
+
+**Expected Results**:
+- Photo processed < 3 seconds
+- Location extracted correctly
+- Proximity scores computed for nearby locations
+- Dashboard shows updated analysis within 5 seconds
+
+**Priority**: Critical
+
+### Test Case: E2E-002
+**Description**: No GPS fallback to manual location
+**Steps**:
+1. Upload photo without GPS data
+2. System prompts for manual location
+3. User provides coordinates
+4. Pipeline continues normally
+
+**Expected Results**:
+- Graceful handling of missing GPS
+- Manual location stored with accuracy='manual'
+- All analysis proceeds as normal
+
+**Priority**: High
+
+### Test Case: E2E-003
+**Description**: Real-time dashboard updates
+**Steps**:
+1. User has existing location analysis dashboard open
+2. Upload new photo at new location
+3. Dashboard refreshes automatically or shows update notification
+
+**Expected Results**:
+- New location appears on map
+- Cluster assignments updated if applicable
+- Hotspots recalculated
+
+**Priority**: Medium
+
+---
+
+## Performance & Load Testing
+
+### Test Case: PERF-001
+**Description**: Upload processing time benchmark
+**Input**: Single photo upload with location
+**Expected**: Complete processing < 3 seconds
+**Measurement**: Average over 100 uploads
+**Priority**: Critical
+
+### Test Case: PERF-002
+**Description**: Proximity calculation latency
+**Input**: Compute proximity between 2 locations
+**Expected**: < 100 milliseconds
+**Measurement**: Average over 1000 calculations
+**Priority**: High
+
+### Test Case: PERF-003
+**Description**: Clustering performance scaling
+**Input**: Varying number of locations (10, 50, 100, 500)
+**Expected**: 
+- 100 locations: < 2 seconds
+- 500 locations: < 10 seconds
+**Priority**: High
+
+### Test Case: PERF-004
+**Description**: Dashboard load time
+**Input**: Request location analysis dashboard
+**Expected**: Initial load < 1 second (excluding map tiles)
+**Priority**: Medium
+
+### Test Case: LOAD-001
+**Description**: Concurrent upload handling
+**Input**: 100 simultaneous photo uploads
+**Expected**: All complete successfully, average time < 5 seconds
+**Priority**: High
+
+### Test Case: LOAD-002
+**Description**: Database query performance under load
+**Input**: 50 concurrent dashboard requests
+**Expected**: All respond < 2 seconds
+**Priority**: Medium
 #### Test Case: PC-EC-003
 **Description**: Missing attribute handling
 **Input**: Location with missing 'type' field

@@ -1,6 +1,11 @@
-"""Location proximity analysis module for photo clustering."""
+"""Location proximity analysis module for photo clustering.
+
+Builds upon existing EXIF extraction (PR #77) and emotion proximity (PR #70)
+to add multi-dimensional location-based clustering and analysis.
+"""
 
 from typing import List, Dict, Optional, Tuple, TypedDict
+from dreamsApp.exif_extractor import EXIFExtractor
 
 
 class Location(TypedDict):
@@ -18,13 +23,15 @@ class ProximityResult(TypedDict):
 def extract_location(metadata: Dict) -> Optional[Location]:
     """Extract location data from photo metadata.
     
+    Integrates with existing EXIFExtractor from PR #77.
+    
     Args:
         metadata: Photo metadata dictionary containing location information
         
     Returns:
         Dictionary with lat/lon coordinates and accuracy, or None if no location data
     """
-    raise NotImplementedError
+    raise NotImplementedError  # TODO: Use EXIFExtractor for actual implementation
 
 
 def compute_proximity(location1: Location, location2: Location, threshold_meters: float) -> ProximityResult:

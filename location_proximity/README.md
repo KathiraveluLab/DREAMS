@@ -4,6 +4,11 @@
 
 This module extends DREAMS to analyze how semantically similar locations (not just geographically close ones) influence emotional patterns in recovery journeys.
 
+**Building Upon**:
+- **PR #77** (kunal-595): Uses existing `dreamsApp/exif_extractor.py` for GPS extraction
+- **PR #70** (AnvayKharb): Integrates with `analytics/emotion_proximity.py` for emotion timelines
+- **This Module**: Adds multi-dimensional spatial proximity (geographic + categorical + linguistic + cultural)
+
 ---
 
 ## Core Concept
@@ -157,8 +162,8 @@ St. Mary's Church ↔ Alaska Native Medical Center : 0.120
 Holy Trinity Church ↔ Providence Hospital : 0.115
 Alaska Native Medical Center ↔ Providence Hospital : 0.725
 
-✓ Notice: Two churches have high proximity despite different locations
-✓ Notice: Two hospitals cluster together semantically
+Notice: Two churches have high proximity despite different locations
+Notice: Two hospitals cluster together semantically
 ```
 
 ---
