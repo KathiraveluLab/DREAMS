@@ -154,9 +154,11 @@ class EXIFExtractor:
 
     def _parse_camera_pillow(self, exif):
         """Parse camera info from Pillow exif data."""
+        make_val = exif.get(271, "")
+        model_val = exif.get(272, "")
         return {
-            "make": exif.get(271, "").decode('utf-8') if isinstance(exif.get(271), bytes) else str(exif.get(271, "")),
-            "model": exif.get(272, "").decode('utf-8') if isinstance(exif.get(272), bytes) else str(exif.get(272, ""))
+            "make": make_val.decode('utf-8') if isinstance(make_val, bytes) else str(make_val),
+            "model": model_val.decode('utf-8') if isinstance(model_val, bytes) else str(model_val)
         }
 
     def _empty_metadata(self):
