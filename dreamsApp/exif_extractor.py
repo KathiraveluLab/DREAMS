@@ -67,26 +67,24 @@ class EXIFExtractor:
         if not coord or not ref:
             return None
         
-        coord_str = str(coord)
-        ref_str = str(ref)
-        
-        # Parse coordinate string format
-        parts = coord_str.replace('[', '').replace(']', '').split(', ')
-        if len(parts) != 3:
-            return None
-        
         try:
-            degrees = float(parts[0])
-            minutes = float(parts[1])
-            seconds = float(parts[2])
-            
+            # Directly access the 'values' attribute which contains a list of Ratio objects.
+            # This is more robust than parsing the string representation.
+            if not hasattr(coord, 'values') or len(coord.values) != 3:
+                return None
+
+            degrees = float(coord.values[0])
+            minutes = float(coord.values[1])
+            seconds = float(coord.values[2])
+
             decimal = degrees + (minutes / 60.0) + (seconds / 3600.0)
-            
-            if ref_str in ['S', 'W']:
+
+            if hasattr(ref, 'values') and str(ref.values) in ['S', 'W']:
                 decimal = -decimal
             
             return decimal
-        except (ValueError, IndexError):
+        except (ValueError, IndexError, TypeError) as e:
+            logger.warning(f"Could not parse GPS coordinate: {coord}. Error: {e}")
             return None
     
     def _parse_timestamp(self, tags):
