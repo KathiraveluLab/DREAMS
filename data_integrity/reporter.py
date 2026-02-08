@@ -78,7 +78,7 @@ class ValidationReport:
     def format_summary(self) -> str:
         """Generate human-readable summary."""
         if not self.issues:
-            return "✓ All validation checks passed."
+            return "All validation checks passed."
         
         counts = self.count_by_severity()
         lines = [
@@ -88,7 +88,7 @@ class ValidationReport:
         ]
         
         for issue in self.issues:
-            icon = "✗" if issue.severity == Severity.ERROR else "⚠" if issue.severity == Severity.WARNING else "ℹ"
+            icon = "X" if issue.severity == Severity.ERROR else "!" if issue.severity == Severity.WARNING else "i"
             location_str = f" [{issue.location}]" if issue.location else ""
             lines.append(f"\n{icon} {issue.severity.value} ({issue.category}){location_str}")
             lines.append(f"  {issue.message}")

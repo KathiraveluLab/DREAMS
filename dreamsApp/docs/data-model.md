@@ -93,10 +93,119 @@ Each theme entry includes:
 
 ---
 
+---
+
+## 5. Collection: `location_analysis`
+
+Stores location-proximity analysis results, clusters, and emotional hotspots per user.
+
+| Field        | Type           | Description                                  |
+|--------------|----------------|----------------------------------------------|
+| `_id`        | ObjectId       | Document ID                                  |
+| `user_id`    | string         | Associated user                              |
+| `locations`  | array<object>  | All locations with visit history and emotions|
+| `clusters`   | array<object>  | Semantic clusters of similar locations       |
+| `hotspots`   | array<object>  | Emotional hotspots (consistent emotions)     |
+| `updated_at` | datetime       | Last update timestamp                        |
+
+**Location Entry Example:**
+```json
+{
+  "id": "loc_001",
+  "name": "St. Mary's Church",
+  "coordinates": {"lat": 61.2167, "lon": -149.8944},
+  "place_type": "church",
+  "language": "english",
+  "cultural_tags": ["catholic", "christian", "traditional"],
+  "visits": [
+    {
+      "timestamp": "2024-01-21T10:00:00Z",
+      "post_id": "...",
+      "sentiment": "positive",
+      "score": 0.88
+    }
+  ],
+  "emotion_profile": {
+    "positive": 0.80,
+    "neutral": 0.15,
+    "negative": 0.05
+  }
+}
+```
+
+**Cluster Example:**
+```json
+{
+  "cluster_id": 0,
+  "label": "Religious Places",
+  "members": ["loc_001", "loc_002", "loc_003"],
+  "centroid": {"lat": 61.2186, "lon": -149.8870},
+  "emotion_distribution": {
+    "positive": 0.82,
+    "neutral": 0.12,
+    "negative": 0.06
+  },
+  "place_types": ["church", "church", "church"],
+  "created_at": "2024-02-01T00:00:00Z"
+}
+```
+
+**Hotspot Example:**
+```json
+{
+  "location_id": "loc_001",
+  "name": "St. Mary's Church",
+  "sentiment": "positive",
+  "confidence": 0.80,
+  "visit_count": 5,
+  "coordinates": {"lat": 61.2167, "lon": -149.8944}
+}
+```
+
+---
+
+## 6. Collection: `emotion_location_entries`
+
+Stores individual emotion-location mappings for fine-grained temporal analysis.
+
+| Field         | Type     | Description                              |
+|---------------|----------|------------------------------------------|
+| `_id`         | ObjectId | Document ID                              |
+| `user_id`     | string   | Associated user                          |
+| `location_id` | string   | Reference to location in location_analysis|
+| `post_id`     | ObjectId | Reference to post                        |
+| `sentiment`   | string   | Emotion label (positive/neutral/negative)|
+| `score`       | float    | Sentiment confidence (0-1)               |
+| `timestamp`   | datetime | When emotion was recorded                |
+| `place_type`  | string   | Type of place (church, hospital, park)   |
+| `coordinates` | object   | GPS coordinates                          |
+
+**Example:**
+```json
+{
+  "user_id": "user_001",
+  "location_id": "loc_001",
+  "post_id": ObjectId("..."),
+  "sentiment": "positive",
+  "score": 0.88,
+  "timestamp": "2024-01-21T10:00:00Z",
+  "place_type": "church",
+  "coordinates": {"lat": 61.2167, "lon": -149.8944}
+}
+```
+
+This collection enables:
+- Temporal emotion trend analysis at specific locations
+- Cross-location emotion pattern detection
+- Place-type emotion aggregation
+
+---
+
 ##  Access Control
 
 - Only the `users` collection is authenticated via Flask-Login.
 - All other collections are accessed programmatically by the backend and admin panel.
+- Location data is pseudonymized with user IDs to protect privacy.
 
 ---
 

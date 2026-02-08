@@ -40,14 +40,14 @@ Dreams
                                  │
                                  ▼
 ┌────────────────────────────────────────────────────────────────┐
-│                    LOCATION-PROXIMITY MODULE                   │
-│                      (Your Contribution)                       │
+│               LOCATION-PROXIMITY MODULE (GSoC 2026)            │
+│         Building upon PR #77 (EXIF) & PR #70 (Emotion)        │
 │                                                                │
 │  ┌──────────────────────────────────────────────────────────┐  │
-│  │  1. Location Extractor                                   │  │
+│  │  1. Location Extractor (uses existing EXIFExtractor)     │  │
 │  │     Input: Image file                                    │  │
 │  │     Output: {lat, lon, timestamp}                        │  │ 
-│  │     Tech: Pillow EXIF parsing                            │  │
+│  │     Tech: Pillow EXIF parsing (from PR #77)              │  │
 │  └──────────────────────────────────────────────────────────┘  │
 │                              │                                 │
 │                              ▼                                 │
