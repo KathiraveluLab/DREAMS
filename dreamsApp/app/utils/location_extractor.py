@@ -3,7 +3,7 @@ from PIL.ExifTags import TAGS, GPSTAGS
 from datetime import datetime, timezone
 import logging
 
-def extract_gps_from_image(image_file):
+def extract_gps_from_image(image_path):
     try:
         with Image.open(image_path) as image:
             info = image.getexif()

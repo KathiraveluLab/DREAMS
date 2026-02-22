@@ -33,10 +33,10 @@ def upload_post():
     # Extract GPS from EXIF if available
     gps_data = extract_gps_from_image(image_path)
     
-    result = get_image_caption_and_sentiment(image_path, caption)
+    analysis_result = get_image_caption_and_sentiment(image_path, caption)
     
-    sentiment = result["sentiment"]
-    generated_caption = result["imgcaption"]
+    sentiment = analysis_result["sentiment"]
+    generated_caption = analysis_result["imgcaption"]
 
     # Refactor: Use shared selection logic to determine which text to analyze for recovery
     text_for_analysis = select_text_for_analysis(caption, generated_caption)
@@ -57,24 +57,23 @@ def upload_post():
 
     if keywords_with_vectors:
         mongo = current_app.mongo
-        result = mongo['keywords'].update_one(
+        kw_update_result = mongo['keywords'].update_one(
             {'user_id': user_id},
             {'$push': {keyword_type: {'$each': keywords_with_vectors}}},
             upsert=True
         )
 
-    if result.upserted_id:
-        if keyword_type == 'negative_keywords':
-            mongo['keywords'].update_one(
-                {'_id': result.upserted_id},
-                {'$set': {'positive_keywords': []}}
-            )
-        elif keyword_type == 'positive_keywords':
-            mongo['keywords'].update_one(
-                {'_id': result.upserted_id},
-                {'$set': {'negative_keywords': []}}
-            )
-    
+        if kw_update_result.upserted_id:
+            if keyword_type == 'negative_keywords':
+                mongo['keywords'].update_one(
+                    {'_id': kw_update_result.upserted_id},
+                    {'$set': {'positive_keywords': []}}
+                )
+            elif keyword_type == 'positive_keywords':
+                mongo['keywords'].update_one(
+                    {'_id': kw_update_result.upserted_id},
+                    {'$set': {'negative_keywords': []}}
+                )
 
     post_doc = {
         'user_id': user_id,
@@ -88,11 +87,11 @@ def upload_post():
     }
 
     mongo = current_app.mongo
-    result = mongo['posts'].insert_one(post_doc)
+    insert_result = mongo['posts'].insert_one(post_doc)
 
-    if result.acknowledged:
+    if insert_result.acknowledged:
         return jsonify({'message': 'Post created successfully',
-                        'post_id': str(result.inserted_id),
+                        'post_id': str(insert_result.inserted_id),
                         'user_id': user_id,
                         'caption': caption,
                         'timestamp': datetime.fromisoformat(timestamp),
