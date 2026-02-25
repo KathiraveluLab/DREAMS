@@ -46,7 +46,7 @@ EMOTION_TO_CATEGORY = {
     'fear': 'negative',
     'joy': 'positive',
     'sadness': 'negative',
-    'surprise': 'neutral',   # surprise is ambiguous, not inherently positive
+    'surprise': 'positive',   # Align with perceptual model's mapping for consistency
     'neutral': 'neutral',
 }
 
