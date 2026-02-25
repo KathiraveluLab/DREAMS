@@ -84,8 +84,8 @@ try:
         BOB_SMITH_IMAGES.append(img_path)
         BOB_SMITH_CAPTIONS[img_path] = photo.get("description", "")
     print(f"✅ Loaded bob-smith sample data: {len(BOB_SMITH_IMAGES)} images")
-except Exception as e:
-    print(f"⚠️  Could not load bob-smith.json: {e}")
+except (FileNotFoundError, json.JSONDecodeError) as e:
+    print(f"⚠️  Could not load or parse bob-smith.json: {e}")
 
 def generate_sample_posts(user_id: str) -> list:
     """Generate sample posts with emotions for a user."""
