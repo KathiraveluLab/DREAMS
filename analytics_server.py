@@ -145,7 +145,7 @@ def generate_sample_posts(user_id: str) -> list:
         # Place image posts before all other posts, each 1 day apart
         for i, image_path in enumerate(BOB_SMITH_IMAGES):
             img_time = earliest - timedelta(days=len(BOB_SMITH_IMAGES) - i)
-            category = BOB_SMITH_DATA.get("photos", [{}])[i].get("category", "neutral")
+            category = BOB_SMITH_DATA['photos'][i].get("category", "neutral")
             sentiment_label = {"happy": "positive", "sad": "negative"}.get(category, "neutral")
             img_post = {
                 '_id': f"post_{user_id}_img_{i}",
