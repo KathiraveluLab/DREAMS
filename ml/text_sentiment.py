@@ -93,15 +93,7 @@ def _load_pipeline():
 def _keyword_fallback(text: str) -> Dict:
     """Simple keyword-based sentiment analysis fallback."""
     words = set(
-        text.lower()
-        .replace('#', ' ')
-        .replace('.', ' ')
-        .replace(',', ' ')
-        .replace('!', ' ')
-        .replace('?', ' ')
-        .replace("'", ' ')
-        .replace('"', ' ')
-        .split()
+        re.sub(r"[#.,!?'\"]", " ", text.lower()).split()
     )
 
     pos_count = len(words & POSITIVE_WORDS)
