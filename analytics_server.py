@@ -46,6 +46,16 @@ except ImportError as e:
     print(f"⚠️  WARNING: Perceptual emotion analysis dependencies not available: {e}")
     print("   The /api/perceptual-emotion and /api/compare-images endpoints will return fallback data.")
 
+# Check for text sentiment analysis dependencies
+_TEXT_SENTIMENT_AVAILABLE = True
+_TEXT_SENTIMENT_ERROR = None
+try:
+    from ml.text_sentiment import analyze_text_sentiment
+except ImportError as e:
+    _TEXT_SENTIMENT_AVAILABLE = False
+    _TEXT_SENTIMENT_ERROR = str(e)
+    print(f"⚠️  WARNING: Text sentiment analysis not available: {e}")
+
 # Simulated users with emotion data
 SAMPLE_USERS = {
     "user_001": "Alice Johnson",
@@ -60,6 +70,22 @@ ALICE_IMAGES = [
     "/static/images/download%20(1).jpeg",
     "/static/images/download%20(2).jpeg"
 ]
+
+# Bob Smith's sample data (user_002) — loaded from bob-smith.json
+BOB_SMITH_JSON_PATH = Path(__file__).parent / "sample-data" / "bob-smith" / "bob-smith.json"
+BOB_SMITH_DATA = {}
+BOB_SMITH_IMAGES = []
+BOB_SMITH_CAPTIONS = {}  # image_path -> description
+try:
+    with open(BOB_SMITH_JSON_PATH) as f:
+        BOB_SMITH_DATA = json.load(f)
+    for photo in BOB_SMITH_DATA.get("photos", []):
+        img_path = f"/static/sample-data/bob-smith/{photo['filename']}"
+        BOB_SMITH_IMAGES.append(img_path)
+        BOB_SMITH_CAPTIONS[img_path] = photo.get("description", "")
+    print(f"✅ Loaded bob-smith sample data: {len(BOB_SMITH_IMAGES)} images")
+except (FileNotFoundError, json.JSONDecodeError) as e:
+    print(f"⚠️  Could not load or parse bob-smith.json: {e}")
 
 def generate_sample_posts(user_id: str) -> list:
     """Generate sample posts with emotions for a user."""
@@ -110,7 +136,32 @@ def generate_sample_posts(user_id: str) -> list:
         for i, image_path in enumerate(ALICE_IMAGES):
             if i < len(posts):
                 posts[i]['image'] = image_path
-    
+
+    # Add images and captions from bob-smith.json to Bob Smith's posts.
+    # Insert dedicated posts at the very start of the timeline, each spaced
+    # >6 hours apart so they form Episode 1, Episode 2, Episode 3.
+    if user_id == "user_002" and BOB_SMITH_IMAGES:
+        earliest = posts[0]['timestamp'] if posts else base_time
+        # Place image posts before all other posts, each 1 day apart
+        for i, image_path in enumerate(BOB_SMITH_IMAGES):
+            img_time = earliest - timedelta(days=len(BOB_SMITH_IMAGES) - i)
+            category = BOB_SMITH_DATA['photos'][i].get("category", "neutral")
+            sentiment_label = {"happy": "positive", "sad": "negative"}.get(category, "neutral")
+            img_post = {
+                '_id': f"post_{user_id}_img_{i}",
+                'user_id': user_id,
+                'timestamp': img_time,
+                'caption': BOB_SMITH_CAPTIONS.get(image_path, ""),
+                'image': image_path,
+                'sentiment': {
+                    'label': sentiment_label,
+                    'score': 0.9
+                }
+            }
+            posts.insert(0, img_post)
+        # Re-sort to keep chronological order
+        posts = sorted(posts, key=lambda p: p['timestamp'])
+
     return posts
 
 
@@ -210,25 +261,38 @@ NARRATIVE_TEMPLATE = """
         .timeline-event.negative { background: #d94a4a; }
         .fingerprint { font-family: monospace; font-size: 0.8rem; color: #4a90d9; background: #1a1a2e; padding: 0.25rem 0.5rem; border-radius: 0.25rem; }
         .btn-back { background: #333; border: none; }
-        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); }
-        .modal.show { display: flex; align-items: center; justify-content: center; }
-        .modal-content { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: 2px solid #4a90d9; border-radius: 1rem; padding: 2rem; max-width: 700px; width: 90%; position: relative; }
-        .modal-close { position: absolute; top: 1rem; right: 1rem; font-size: 2rem; color: #e0e0e0; cursor: pointer; background: none; border: none; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.85); overflow-y: auto; }
+        .modal.show { display: flex; align-items: flex-start; justify-content: center; padding: 2rem 1rem; }
+        .modal-content { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: 2px solid #4a90d9; border-radius: 1rem; padding: 1.5rem; max-width: 480px; width: 95%; position: relative; margin: auto; }
+        .modal-close { position: absolute; top: 0.75rem; right: 0.75rem; font-size: 1.5rem; color: #e0e0e0; cursor: pointer; background: none; border: none; z-index: 10; }
         .modal-close:hover { color: #4a90d9; }
-        #emotionChart { max-height: 300px; }
-        .perceptual-badge { display: inline-block; background: linear-gradient(135deg, #ff6b6b 0%, #ffa502 100%); color: #000; padding: 0.25rem 0.75rem; border-radius: 1rem; font-size: 0.75rem; font-weight: bold; margin-bottom: 1rem; }
-        .disclaimer { font-size: 0.75rem; color: #888; font-style: italic; margin-top: 1rem; padding: 0.5rem; background: rgba(255,255,255,0.05); border-radius: 0.5rem; }
-        .uncertainty-bar { height: 8px; background: #333; border-radius: 4px; margin: 0.5rem 0; overflow: hidden; }
-        .uncertainty-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
-        .prob-row { display: flex; align-items: center; margin: 0.5rem 0; }
-        .prob-label { width: 80px; font-weight: bold; }
-        .prob-bar-container { flex: 1; margin: 0 1rem; }
-        .prob-bar { height: 24px; border-radius: 12px; transition: width 0.5s ease; display: flex; align-items: center; justify-content: flex-end; padding-right: 0.5rem; font-size: 0.8rem; color: white; }
+        .modal-episode-title { font-size: 1.1rem; font-weight: bold; color: #4a90d9; text-align: center; margin-bottom: 0.75rem; }
+        .modal-image-wrap { text-align: center; margin-bottom: 0.75rem; }
+        .modal-image-wrap img { max-width: 100%; max-height: 220px; border-radius: 0.75rem; object-fit: cover; }
+        .modal-caption { font-style: italic; color: #ccc; font-size: 0.85rem; background: rgba(255,255,255,0.05); padding: 0.6rem 0.75rem; border-radius: 0.5rem; border-left: 3px solid #4a90d9; margin-bottom: 0.75rem; display: none; line-height: 1.4; }
+        .prob-section-title { font-size: 0.8rem; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; }
+        .prob-row { display: flex; align-items: center; margin: 0.35rem 0; }
+        .prob-label { width: 70px; font-weight: bold; font-size: 0.85rem; }
+        .prob-bar-container { flex: 1; margin: 0 0.5rem; }
+        .prob-bar { height: 20px; border-radius: 10px; transition: width 0.5s ease; display: flex; align-items: center; justify-content: flex-end; padding-right: 0.4rem; font-size: 0.75rem; color: white; min-width: 2rem; }
         .prob-positive { background: linear-gradient(90deg, #2e7d32 0%, #4ad974 100%); }
         .prob-neutral { background: linear-gradient(90deg, #357abd 0%, #4a90d9 100%); }
         .prob-negative { background: linear-gradient(90deg, #bd3535 0%, #d94a4a 100%); }
-        .image-preview { max-width: 150px; max-height: 150px; border-radius: 0.5rem; object-fit: cover; margin-right: 1.5rem; }
-        .modal-flex { display: flex; align-items: flex-start; }
+        .perceptual-badge { display: inline-block; background: linear-gradient(135deg, #ff6b6b 0%, #ffa502 100%); color: #000; padding: 0.15rem 0.6rem; border-radius: 1rem; font-size: 0.7rem; font-weight: bold; }
+        .disclaimer { font-size: 0.7rem; color: #666; font-style: italic; margin-top: 0.5rem; padding: 0.4rem; background: rgba(255,255,255,0.03); border-radius: 0.4rem; }
+        .caption-text { font-style: italic; color: #aaa; margin: 0.25rem 0; font-size: 0.8rem; max-width: 180px; word-wrap: break-word; }
+        /* View Graph button */
+        .btn-view-graph { background: linear-gradient(135deg, #6c5ce7 0%, #a55eea 100%); border: none; color: #fff; padding: 0.35rem 1rem; border-radius: 0.6rem; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; display: none; vertical-align: middle; }
+        .btn-view-graph:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(108,92,231,0.4); color: #fff; }
+        /* Graph modal */
+        .graph-modal { display: none; position: fixed; z-index: 1100; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9); overflow-y: auto; }
+        .graph-modal.show { display: flex; align-items: flex-start; justify-content: center; padding: 2rem 1rem; }
+        .graph-modal-content { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: 2px solid #6c5ce7; border-radius: 1rem; padding: 2rem; max-width: 720px; width: 95%; position: relative; margin: auto; }
+        .graph-modal-close { position: absolute; top: 0.75rem; right: 0.75rem; font-size: 1.5rem; color: #e0e0e0; cursor: pointer; background: none; border: none; z-index: 10; }
+        .graph-modal-close:hover { color: #6c5ce7; }
+        .graph-modal-title { font-size: 1.3rem; font-weight: bold; color: #6c5ce7; text-align: center; margin-bottom: 0.25rem; }
+        .graph-modal-subtitle { font-size: 0.85rem; color: #888; text-align: center; margin-bottom: 1.5rem; }
+        .graph-chart-wrap { background: #0a0a1a; border-radius: 0.75rem; padding: 1.25rem; }
     </style>
 </head>
 <body>
@@ -256,7 +320,10 @@ NARRATIVE_TEMPLATE = """
         </div>
 
         <div class="section">
-            <h4>Episode Network <small class="text-muted">(click images for perceptual analysis)</small></h4>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="mb-0">Episode Network <small class="text-muted">(click images for perceptual analysis)</small></h4>
+                <button class="btn btn-view-graph" id="btn-view-graph" onclick="openGraphModal()">📋 View Client Report</button>
+            </div>
             <div class="graph-container" id="graph-container"><div class="text-muted">Loading...</div></div>
         </div>
 
@@ -264,59 +331,64 @@ NARRATIVE_TEMPLATE = """
             <h4>Connections</h4>
             <div id="edges-container" class="text-center"><span class="text-muted">Loading...</span></div>
         </div>
+
+    </div>
+
+    <!-- Episode Emotion Distribution Modal -->
+    <div id="graphModal" class="graph-modal">
+        <div class="graph-modal-content">
+            <button class="graph-modal-close" onclick="closeGraphModal()">&times;</button>
+            <div class="graph-modal-title">Episode Emotion Distribution</div>
+            <div class="graph-modal-subtitle">Emotion percentages per episode for Bob Smith</div>
+            <div class="graph-chart-wrap">
+                <canvas id="emotionBarChart"></canvas>
+            </div>
+        </div>
     </div>
     
     <div id="emotionModal" class="modal">
         <div class="modal-content">
             <button class="modal-close" onclick="closeModal()">&times;</button>
-            <div class="text-center">
-                <span class="perceptual-badge">🔬 PERCEPTUAL ESTIMATE</span>
-            </div>
-            <h4 id="modal-title" class="mb-4 text-center">Emotion Analysis</h4>
             
-            <div class="modal-flex">
-                <img id="modal-image" class="image-preview" src="" alt="Analyzed image">
-                <div style="flex: 1;">
-                    <div id="prob-display">
-                        <div class="prob-row">
-                            <span class="prob-label" style="color: #4ad974;">Positive</span>
-                            <div class="prob-bar-container">
-                                <div id="prob-bar-positive" class="prob-bar prob-positive" style="width: 0%;">0%</div>
-                            </div>
-                        </div>
-                        <div class="prob-row">
-                            <span class="prob-label" style="color: #4a90d9;">Neutral</span>
-                            <div class="prob-bar-container">
-                                <div id="prob-bar-neutral" class="prob-bar prob-neutral" style="width: 0%;">0%</div>
-                            </div>
-                        </div>
-                        <div class="prob-row">
-                            <span class="prob-label" style="color: #d94a4a;">Negative</span>
-                            <div class="prob-bar-container">
-                                <div id="prob-bar-negative" class="prob-bar prob-negative" style="width: 0%;">0%</div>
-                            </div>
-                        </div>
+            <!-- 1. User Name & Episode -->
+            <div id="modal-user" style="text-align:center; font-size:0.85rem; color:#888; margin-bottom:0.2rem;"></div>
+            <div class="modal-episode-title" id="modal-title">Episode 1</div>
+            
+            <!-- 2. Image -->
+            <div class="modal-image-wrap">
+                <img id="modal-image" src="" alt="Analyzed image">
+            </div>
+            
+            <!-- 3. Description / Caption -->
+            <div id="modal-caption" class="modal-caption"></div>
+            
+            <!-- 4. Emotion Percentages -->
+            <div class="prob-section-title">Emotion Analysis <span class="perceptual-badge" id="modal-badge">🔬 PERCEPTUAL</span></div>
+            <div id="prob-display">
+                <div class="prob-row">
+                    <span class="prob-label" style="color: #4ad974;">😊 Happy</span>
+                    <div class="prob-bar-container">
+                        <div id="prob-bar-positive" class="prob-bar prob-positive" style="width: 0%;">0%</div>
                     </div>
-                    
-                    <div class="mt-3">
-                        <strong>Uncertainty Margin:</strong>
-                        <div class="uncertainty-bar">
-                            <div id="uncertainty-fill" class="uncertainty-fill" style="width: 0%; background: #ffa502;"></div>
-                        </div>
-                        <span id="uncertainty-text" class="small text-muted">0%</span>
+                </div>
+                <div class="prob-row">
+                    <span class="prob-label" style="color: #4a90d9;">😐 Neutral</span>
+                    <div class="prob-bar-container">
+                        <div id="prob-bar-neutral" class="prob-bar prob-neutral" style="width: 0%;">0%</div>
                     </div>
-                    
-                    <div id="notes-text" class="small text-muted mt-2"></div>
+                </div>
+                <div class="prob-row">
+                    <span class="prob-label" style="color: #d94a4a;">😢 Sad</span>
+                    <div class="prob-bar-container">
+                        <div id="prob-bar-negative" class="prob-bar prob-negative" style="width: 0%;">0%</div>
+                    </div>
                 </div>
             </div>
             
-            <div class="mt-4">
-                <canvas id="emotionChart"></canvas>
-            </div>
+            <div id="notes-text" class="small text-muted mt-2"></div>
             
             <div class="disclaimer">
-                ⚠️ <strong>Not emotional truth.</strong> This is a probabilistic perceptual estimate demonstrating uncertainty. 
-                No confidence is ever 100%. This does not feed into DREAMS structural analytics.
+                ⚠️ This is a probabilistic estimate. No confidence is ever 100%.
             </div>
         </div>
     </div>
@@ -354,6 +426,11 @@ NARRATIVE_TEMPLATE = """
             
             renderGraph(payload);
             renderEdges(payload);
+
+            // For user_002, build emotion graph data from ML output
+            if (userId === 'user_002') {
+                buildEmotionGraphData();
+            }
         }
         
         function renderTimeline(timeline) {
@@ -394,12 +471,23 @@ NARRATIVE_TEMPLATE = """
                 if (node.images && node.images.length > 0) {
                     // Display all images in the episode
                     const imagesContainer = node.images.map((imgSrc, imgIdx) => {
-                        const imgPath = imgSrc.replace('/static/images/', '');
+                        const imgPath = imgSrc.replace('/static/images/', '').replace('/static/sample-data/', '');
                         return `<img src="${imgSrc}" alt="Episode ${node.index + 1} Image ${imgIdx + 1}" 
                             style="width: ${node.images.length > 1 ? '48%' : '100%'}; height: ${node.images.length > 1 ? '80px' : '120px'}; object-fit: cover; border-radius: 8px; cursor: pointer;" 
                             onclick="showPerceptualAnalysis('${imgPath}', '${imgSrc}', ${idx})">`;
                     }).join('');
                     imageHTML = `<div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 0.5rem;">${imagesContainer}</div>`;
+                    
+                    // Show captions from bob-smith.json if available
+                    if (node.captions) {
+                        node.images.forEach(imgSrc => {
+                            const caption = node.captions[imgSrc];
+                            if (caption) {
+                                const truncated = caption.length > 70 ? caption.substring(0, 70) + '...' : caption;
+                                imageHTML += `<div class="caption-text">"${truncated}"</div>`;
+                            }
+                        });
+                    }
                 }
                 
                 div.innerHTML = `
@@ -430,7 +518,6 @@ NARRATIVE_TEMPLATE = """
         }
         
         async function showPerceptualAnalysis(imagePath, imageSrc, episodeIndex) {
-            document.getElementById('modal-title').textContent = `Episode ${episodeIndex + 1} - Perceptual Analysis`;
             document.getElementById('modal-image').src = imageSrc;
             document.getElementById('emotionModal').classList.add('show');
             
@@ -438,80 +525,174 @@ NARRATIVE_TEMPLATE = """
             document.getElementById('prob-bar-positive').style.width = '0%';
             document.getElementById('prob-bar-neutral').style.width = '0%';
             document.getElementById('prob-bar-negative').style.width = '0%';
-            document.getElementById('uncertainty-fill').style.width = '0%';
             document.getElementById('notes-text').textContent = 'Analyzing...';
             
-            try {
-                const response = await fetch(`/api/perceptual-emotion/${encodeURIComponent(imagePath)}`);
-                const data = await response.json();
-                
-                if (data.error) {
-                    document.getElementById('notes-text').textContent = 'Error: ' + data.error;
+            // Check if text-based emotion data is available (user_002 / Bob Smith)
+            const episodeData = allEpisodeData[episodeIndex];
+            let textEmotionData = null;
+            let caption = null;
+            
+            if (episodeData && episodeData.text_emotions && episodeData.text_emotions[imageSrc]) {
+                textEmotionData = episodeData.text_emotions[imageSrc];
+            }
+            if (episodeData && episodeData.captions && episodeData.captions[imageSrc]) {
+                caption = episodeData.captions[imageSrc];
+            }
+            
+            // 1. User name & Episode title
+            const userName = userId in {"user_001":1,"user_002":1,"user_003":1} ? {"user_001":"Alice Johnson","user_002":"Bob Smith","user_003":"Carol Williams"}[userId] : userId;
+            document.getElementById('modal-user').textContent = userName;
+            document.getElementById('modal-title').textContent = `Episode ${episodeIndex + 1}`;
+            
+            // 3. Caption
+            const captionEl = document.getElementById('modal-caption');
+            if (caption) {
+                captionEl.textContent = caption;
+                captionEl.style.display = 'block';
+                document.getElementById('modal-badge').textContent = '📝 TEXT SENTIMENT';
+            } else {
+                captionEl.style.display = 'none';
+                document.getElementById('modal-badge').textContent = '🔬 PERCEPTUAL';
+            }
+            
+            // 4. Get emotion data
+            let data = null;
+            if (textEmotionData) {
+                data = textEmotionData;
+            } else {
+                try {
+                    const response = await fetch(`/api/perceptual-emotion/${encodeURIComponent(imagePath)}`);
+                    data = await response.json();
+                    if (data.error) {
+                        document.getElementById('notes-text').textContent = 'Error: ' + data.error;
+                        return;
+                    }
+                } catch (error) {
+                    document.getElementById('notes-text').textContent = 'Error: ' + error.message;
                     return;
                 }
-                
-                // Animate probability bars - use direct properties
-                setTimeout(() => {
-                    document.getElementById('prob-bar-positive').style.width = `${data.positive * 100}%`;
-                    document.getElementById('prob-bar-positive').textContent = `${(data.positive * 100).toFixed(1)}%`;
-                }, 100);
-                setTimeout(() => {
-                    document.getElementById('prob-bar-neutral').style.width = `${data.neutral * 100}%`;
-                    document.getElementById('prob-bar-neutral').textContent = `${(data.neutral * 100).toFixed(1)}%`;
-                }, 200);
-                setTimeout(() => {
-                    document.getElementById('prob-bar-negative').style.width = `${data.negative * 100}%`;
-                    document.getElementById('prob-bar-negative').textContent = `${(data.negative * 100).toFixed(1)}%`;
-                }, 300);
-                
-                // Uncertainty bar
-                setTimeout(() => {
-                    const uncertainty = data.uncertainty_margin * 100;
-                    document.getElementById('uncertainty-fill').style.width = `${uncertainty * 5}%`;
-                    document.getElementById('uncertainty-text').textContent = `±${uncertainty.toFixed(1)}%`;
-                }, 400);
-                
-                document.getElementById('notes-text').textContent = data.notes;
-                
-                // Create chart
-                if (currentChart) currentChart.destroy();
-                
-                const ctx = document.getElementById('emotionChart').getContext('2d');
-                currentChart = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['Positive', 'Neutral', 'Negative'],
-                        datasets: [{
-                            data: [data.positive, data.neutral, data.negative],
-                            backgroundColor: ['#4ad974', '#4a90d9', '#d94a4a'],
-                            borderColor: ['#2e7d32', '#357abd', '#bd3535'],
-                            borderWidth: 2
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: true,
-                        plugins: {
-                            legend: { labels: { color: '#e0e0e0', font: { size: 12 } } },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        const percentage = (context.parsed * 100).toFixed(1);
-                                        return `${context.label}: ${percentage}%`;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-                
-            } catch (error) {
-                document.getElementById('notes-text').textContent = 'Error: ' + error.message;
             }
+            
+            // Animate bars
+            setTimeout(() => {
+                document.getElementById('prob-bar-positive').style.width = `${data.positive * 100}%`;
+                document.getElementById('prob-bar-positive').textContent = `${(data.positive * 100).toFixed(1)}%`;
+            }, 100);
+            setTimeout(() => {
+                document.getElementById('prob-bar-neutral').style.width = `${data.neutral * 100}%`;
+                document.getElementById('prob-bar-neutral').textContent = `${(data.neutral * 100).toFixed(1)}%`;
+            }, 200);
+            setTimeout(() => {
+                document.getElementById('prob-bar-negative').style.width = `${data.negative * 100}%`;
+                document.getElementById('prob-bar-negative').textContent = `${(data.negative * 100).toFixed(1)}%`;
+            }, 300);
+            
+            document.getElementById('notes-text').textContent = data.notes || '';
         }
         
         function closeModal() {
             document.getElementById('emotionModal').classList.remove('show');
+        }
+
+        // ---- Episode Emotion Distribution Graph ----
+        let emotionGraphData = [];  // [{label, happy, neutral, sad}]
+        let emotionBarChart = null;
+
+        function buildEmotionGraphData() {
+            emotionGraphData = [];
+            allEpisodeData.forEach((ep, idx) => {
+                if (!ep.text_emotions || !ep.images) return;
+                ep.images.forEach(imgSrc => {
+                    const te = ep.text_emotions[imgSrc];
+                    if (!te) return;
+                    emotionGraphData.push({
+                        label: `Episode ${idx + 1}`,
+                        happy:   Math.round(te.positive * 100),
+                        neutral: Math.round(te.neutral  * 100),
+                        sad:     Math.round(te.negative * 100),
+                    });
+                });
+            });
+            if (emotionGraphData.length > 0) {
+                document.getElementById('btn-view-graph').style.display = 'inline-block';
+            }
+        }
+
+        function openGraphModal() {
+            document.getElementById('graphModal').classList.add('show');
+            renderEmotionBarChart();
+        }
+        function closeGraphModal() {
+            document.getElementById('graphModal').classList.remove('show');
+            if (emotionBarChart) { emotionBarChart.destroy(); emotionBarChart = null; }
+        }
+        document.addEventListener('click', function(e) {
+            if (e.target === document.getElementById('graphModal')) closeGraphModal();
+        });
+
+        function renderEmotionBarChart() {
+            if (emotionBarChart) { emotionBarChart.destroy(); emotionBarChart = null; }
+            const ctx = document.getElementById('emotionBarChart').getContext('2d');
+            const labels = emotionGraphData.map(d => d.label);
+            emotionBarChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: '😊 Happy',
+                            data: emotionGraphData.map(d => d.happy),
+                            backgroundColor: 'rgba(74, 217, 116, 0.85)',
+                            borderColor: '#4ad974',
+                            borderWidth: 1,
+                            borderRadius: 4,
+                        },
+                        {
+                            label: '😐 Neutral',
+                            data: emotionGraphData.map(d => d.neutral),
+                            backgroundColor: 'rgba(74, 144, 217, 0.85)',
+                            borderColor: '#4a90d9',
+                            borderWidth: 1,
+                            borderRadius: 4,
+                        },
+                        {
+                            label: '😢 Sad',
+                            data: emotionGraphData.map(d => d.sad),
+                            backgroundColor: 'rgba(217, 74, 74, 0.85)',
+                            borderColor: '#d94a4a',
+                            borderWidth: 1,
+                            borderRadius: 4,
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    animation: { duration: 800, easing: 'easeOutQuart' },
+                    plugins: {
+                        legend: {
+                            labels: { color: '#e0e0e0', font: { size: 13 }, padding: 20 },
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y}%`
+                            }
+                        },
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#aaa', font: { size: 12, weight: 'bold' } },
+                            grid: { color: 'rgba(255,255,255,0.06)' },
+                        },
+                        y: {
+                            min: 0,
+                            max: 100,
+                            ticks: { color: '#aaa', stepSize: 20, callback: v => v + '%' },
+                            grid: { color: 'rgba(255,255,255,0.08)' },
+                            title: { display: true, text: 'Percentage', color: '#888' },
+                        },
+                    },
+                },
+            });
         }
         
         document.addEventListener('click', function(event) {
@@ -630,6 +811,20 @@ def serve_image(filename: str):
     
     return send_from_directory(images_dir, filename)
 
+
+@app.route('/static/sample-data/<path:filename>')
+def serve_sample_data(filename: str):
+    """Serve images from the sample-data directory."""
+    from flask import send_from_directory
+    sample_dir = Path(__file__).parent / "sample-data"
+    try:
+        safe_path = (sample_dir / filename).resolve()
+        safe_path.relative_to(sample_dir.resolve())
+    except ValueError:
+        return jsonify({'error': 'Invalid path'}), 400
+    return send_from_directory(sample_dir, filename)
+
+
 @app.route('/api/frontend-payload/<user_id>')
 def api_frontend_payload(user_id: str):
     posts = generate_sample_posts(user_id)
@@ -653,7 +848,32 @@ def api_frontend_payload(user_id: str):
                 episode_images.append(post['image'])
         if episode_images:
             node_data['images'] = episode_images
-    
+
+    # For user_002 (Bob Smith), add captions and text emotion analysis from bob-smith.json
+    if user_id == "user_002":
+        for node_data in result['nodes']:
+            if 'images' in node_data:
+                captions = {}
+                text_emotions = {}
+                for img_path in node_data['images']:
+                    caption = BOB_SMITH_CAPTIONS.get(img_path, "")
+                    if caption:
+                        captions[img_path] = caption
+                        if _TEXT_SENTIMENT_AVAILABLE:
+                            try:
+                                text_emotions[img_path] = analyze_text_sentiment(caption)
+                            except Exception as e:
+                                text_emotions[img_path] = {
+                                    'positive': 0.33, 'negative': 0.33, 'neutral': 0.34,
+                                    'uncertainty_margin': 0.20,
+                                    'notes': f'Analysis error: {e}',
+                                    'disclaimer': 'Error during analysis.',
+                                }
+                if captions:
+                    node_data['captions'] = captions
+                if text_emotions:
+                    node_data['text_emotions'] = text_emotions
+
     return jsonify(result)
 
 
@@ -669,6 +889,31 @@ def api_cache_status(user_id: str):
         'timeline_cached': cache.is_valid(timeline.fingerprint()),
         'graph_cached': cache.is_valid(graph.graph_id) if graph else False,
     })
+
+
+@app.route('/api/text-emotion', methods=['POST'])
+def api_text_emotion():
+    """
+    Analyze text for sentiment using the text-based ML model.
+    Expects JSON body: {"text": "description text"}
+    Returns positive/negative/neutral percentages.
+    """
+    if not _TEXT_SENTIMENT_AVAILABLE:
+        return jsonify({
+            'error': 'Text sentiment dependencies not installed',
+            'message': _TEXT_SENTIMENT_ERROR,
+        }), 500
+
+    from flask import request
+    data = request.get_json()
+    if not data or 'text' not in data:
+        return jsonify({'error': 'Missing "text" field in request body'}), 400
+
+    try:
+        result = analyze_text_sentiment(data['text'])
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/perceptual-emotion/<path:image_path>')
