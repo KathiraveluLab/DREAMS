@@ -1,77 +1,74 @@
-# DREAMS
-Digitization for Recovery: Exploring Arts with Mining for Societal well-being.
+# DREAMS Research
 
-DREAMS is an extension of the Beehive project, focused on exploring time and ordering across photo memories to better understand personal recovery journeys. The goal is to build tools that help track and analyze visual narratives over time using data mining and intelligent processing.
+Computational pipeline for validating **Stable Emotional Fingerprints** in human memory. We test whether specific locations induce statistically consistent emotional states over time.
 
-## Current Progress
+## Hypothesis
 
-- Set up core infrastructure using Flask and Hugging Face models.
-- Implemented a basic **Caption Sentiment Analysis API** to classify emotional tone in user-submitted captions.
-- Integrating this API into Beehive to capture sentiment when users upload photos.
-- Exploring time-based data structuring and narrative analysis features.
+Physical locations possess a stable emotional fingerprint. When a user visits the same place repeatedly, their emotional state converges to a consistent pattern — measurable via mean emotional vector (μ), covariance (Σ), and entropy (H).
 
-### [View the API Module](./dreamsApp/README.md)
+## Pipeline
 
-## Repositories
-
-- Beehive: [github.com/KathiraveluLab/beehive](https://github.com/KathiraveluLab/Beehive)
-- DREAMS: [github.com/KathiraveluLab/DREAMS](https://github.com/KathiraveluLab/DREAMS)
-
-
-## Repository Structure
-
-```text
-DREAMS/
-├── dreamsApp/                  # Main application package
-│   ├── app/                    # Flask app package (app factory + blueprints)
-│   │   ├── __init__.py         # create_app() factory
-│   │   ├── config.py           # App configuration
-│   │   ├── models.py           # Database models
-│   │   ├── auth.py             # Authentication routes
-│   │   │
-│   │   ├── ingestion/          # Image ingestion & processing
-│   │   │   ├── __init__.py
-│   │   │   └── routes.py
-│   │   │
-│   │   ├── dashboard/          # Dashboard & analytics views
-│   │   │   ├── __init__.py
-│   │   │   └── main.py
-│   │   │
-│   │   └── utils/              # Core ML / NLP utilities
-│   │       ├── sentiment.py    # Caption sentiment analysis
-│   │       ├── keywords.py     # Keyword extraction
-│   │       ├── clustering.py   # Keyword clustering (HDBSCAN)
-│   │       └── llms.py         # LLM (Gemini) integration
-│   │
-│   └── docs/                   # Project documentation
-│
-├── data_integrity/             # Data validation utilities
-├── location_proximity/         # Location-based analysis (future)
-├── dream-integration/          # Integration & experimental code
-├── tests/                      # Unit and integration tests
-│
-├── requirements.txt            # Python dependencies
-├── pytest.ini                  # Pytest configuration
-└── README.md                   # Project documentation
-```
- 
-## Installation and Setup
+Single-command orchestrator that transforms raw memory logs into research-ready vectors.
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/KathiraveluLab/DREAMS.git
-cd DREAMS
+# Full pipeline
+python pipeline/run_pipeline.py clinical_depression_study/dataset.csv
 
-# 2. (Optional but recommended) Create and activate a virtual environment
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-# 3. Install the required dependencies
-pip install -r requirements.txt
-
-# 4. Run tests to verify everything is working
-pytest
-
-# 5. Start the Flask server in debug mode
-flask --app "dreamsApp.app:create_app()" run --debug
+# Or use Make
+make pipeline
 ```
+
+### Steps
+
+| # | Step | Model / Tool | Output |
+|---|------|-------------|--------|
+| 1 | **Import** | — | CSV → SQLite `memories` |
+| 2 | **Emotions** | `Mavdol/NPC-Valence-Arousal-Prediction` + `j-hartmann/emotion-english-distilroberta-base` | SQLite `emotion_scores` |
+| 3 | **Temporal** | sin/cos hour encoding | SQLite `temporal_features` |
+| 4 | **Location Embeddings** | Nominatim + CLIP `ViT-B/32` (text+image fusion) | ChromaDB + SQLite `location_descriptions` |
+| 5 | **Caption Embeddings** | Sentence-BERT `all-MiniLM-L6-v2` | ChromaDB `caption_embeddings` |
+| 6 | **Image Embeddings** | CLIP `ViT-B/32` | ChromaDB `image_embeddings` |
+| 7 | **Verify** | — | Alignment check |
+| 8 | **Manifest** | — | `master_manifest` view report |
+
+### CLI Options
+
+```bash
+python pipeline/run_pipeline.py dataset.csv --only emotions,temporal   # run specific steps
+python pipeline/run_pipeline.py dataset.csv --skip location_embeddings # skip slow steps
+python pipeline/run_pipeline.py dataset.csv --resume                   # resume after crash
+python pipeline/run_pipeline.py dataset.csv --export                   # export parquet
+python pipeline/run_pipeline.py --source d1                            # pull from Cloudflare D1
+```
+
+## Data Schema
+
+### SQLite (`data/processed/dreams.db`)
+
+| Table / View | Description |
+|:---|:---|
+| `memories` | Raw metadata (user, caption, timestamp, GPS, image path) |
+| `emotion_scores` | Valence, arousal, + 7 discrete emotion probabilities |
+| `temporal_features` | Circadian sin/cos + relative day |
+| `location_descriptions` | Geocoded location text + display name |
+| `master_manifest` | **VIEW** — unified join of all tables |
+
+### ChromaDB (`data/processed/chroma_db/`)
+
+| Collection | Dim | Description |
+|:---|:---|:---|
+| `image_embeddings` | 512 | CLIP visual embeddings |
+| `caption_embeddings` | 384 | S-BERT narrative embeddings |
+| `location_descriptions` | 512 | CLIP text+image fused location embeddings |
+
+## Setup
+
+```bash
+git clone https://github.com/ayusrjn/dreams-research.git
+cd dreams-research
+python3 -m venv env
+source env/bin/activate
+pip install -r requirements.txt
+```
+
+Requires Python 3.10+ and a CUDA GPU (recommended).
