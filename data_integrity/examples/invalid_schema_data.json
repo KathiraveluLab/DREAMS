@@ -1,8 +1,0 @@
-{
-  "samples": [
-    {
-      "sample_id": 123,
-      "description": "Missing required timestamp field"
-    }
-  ]
-}
