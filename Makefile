@@ -25,7 +25,7 @@ verify: ## Run only the verification step
 	python pipeline/run_pipeline.py $(DATASET) --only verify
 
 manifest: ## Generate manifest report (add EXPORT=1 to export parquet)
-	python pipeline/run_pipeline.py $(DATASET) --only manifest $(if $(EXPORT),--export,)
+	python pipeline/run_pipeline.py $(DATASET) --only manifest $(if $(EXPORT),--export)
 
 clean-db: ## Remove dreams.db and chroma_db (fresh start)
 	rm -rf data/processed/dreams.db data/processed/chroma_db
