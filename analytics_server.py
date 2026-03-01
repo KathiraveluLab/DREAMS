@@ -67,8 +67,8 @@ SAMPLE_USERS = {
 # Alice's special images
 ALICE_IMAGES = [
     "/static/images/download.jpeg",
-    "/static/images/download%20(1).jpeg",
-    "/static/images/download%20(2).jpeg"
+    "/static/images/download (1).jpeg",
+    "/static/images/download (2).jpeg"
 ]
 
 # Bob Smith's sample data (user_002) — loaded from bob-smith.json
@@ -402,7 +402,16 @@ NARRATIVE_TEMPLATE = """
             document.getElementById('graph-fingerprint').textContent = `Fingerprint: ${timeline.fingerprint}`;
 
             const payloadRes = await fetch(`/api/frontend-payload/${userId}`, { cache: 'no-store' });
-            const payload = await payloadRes.json();
+            let payload = await payloadRes.json();
+
+            // Auto-retry once if a user expected to have images returns none on first load
+            const expectedImageUser = userId === 'user_001' || userId === 'user_002';
+            const hasAnyImages = payload.nodes && payload.nodes.some(node => node.images && node.images.length > 0);
+            if (expectedImageUser && !hasAnyImages) {
+                await new Promise(resolve => setTimeout(resolve, 250));
+                const retryRes = await fetch(`/api/frontend-payload/${userId}?_=${Date.now()}`, { cache: 'no-store' });
+                payload = await retryRes.json();
+            }
             
             document.getElementById('stat-episodes').textContent = payload.node_count;
             document.getElementById('stat-edges').textContent = payload.edge_count;
@@ -441,10 +450,9 @@ NARRATIVE_TEMPLATE = """
                 if (node.images && node.images.length > 0) {
                     // Display all images in the episode
                     const imagesContainer = node.images.map((imgSrc, imgIdx) => {
-                        const imgPath = decodeURIComponent(
-                            imgSrc.replace('/static/images/', '').replace('/static/sample-data/', '')
-                        );
-                        return `<img src="${imgSrc}" alt="Episode ${node.index + 1} Image ${imgIdx + 1}" 
+                        const imgPath = getRelativeImagePath(imgSrc);
+                        const normalizedImgSrc = encodeURI(imgSrc);
+                        return `<img src="${normalizedImgSrc}" alt="Episode ${node.index + 1} Image ${imgIdx + 1}" 
                             style="width: ${node.images.length > 1 ? '48%' : '100%'}; height: ${node.images.length > 1 ? '80px' : '120px'}; object-fit: cover; border-radius: 8px; cursor: pointer;" 
                             onclick="showPerceptualAnalysis('${imgPath}', '${imgSrc}', ${idx})">`;
                     }).join('');
