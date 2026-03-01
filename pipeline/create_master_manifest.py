@@ -4,7 +4,7 @@ from pathlib import Path
 import argparse
 
 sys.path.insert(0, str(Path(__file__).parent))
-from config import PROCESSED_DIR, IMAGE_COLLECTION_NAME, CAPTION_COLLECTION_NAME, LOCATION_COLLECTION_NAME
+from config import PROCESSED_DIR, IMAGE_COLLECTION_NAME, CAPTION_COLLECTION_NAME, LOCATION_TEXT_COLLECTION_NAME, LOCATION_IMAGE_COLLECTION_NAME
 from db import init_db, get_collection
 
 
@@ -29,7 +29,7 @@ def run(logger: logging.Logger | None = None, export: bool = False) -> dict:
             if nulls > 0:
                 log.info("  %s NULLs: %d", col, nulls)
 
-        for coll in [IMAGE_COLLECTION_NAME, CAPTION_COLLECTION_NAME, LOCATION_COLLECTION_NAME]:
+        for coll in [IMAGE_COLLECTION_NAME, CAPTION_COLLECTION_NAME, LOCATION_TEXT_COLLECTION_NAME, LOCATION_IMAGE_COLLECTION_NAME]:
             count = get_collection(coll).count()
             log.info("  %s: %d vectors", coll, count)
             counts[coll] = count

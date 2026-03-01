@@ -5,7 +5,7 @@ from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
 sys.path.insert(0, str(Path(__file__).parent))
-from config import SENTENCE_BERT_MODEL, IMAGE_COLLECTION_NAME, CAPTION_COLLECTION_NAME, LOCATION_COLLECTION_NAME
+from config import SENTENCE_BERT_MODEL, IMAGE_COLLECTION_NAME, CAPTION_COLLECTION_NAME, LOCATION_TEXT_COLLECTION_NAME, LOCATION_IMAGE_COLLECTION_NAME
 from db import init_db, get_collection
 
 
@@ -34,7 +34,7 @@ def run(logger: logging.Logger | None = None) -> dict:
             log.info("  %s: %d rows", t, count)
             details[t] = count
 
-        for c in (IMAGE_COLLECTION_NAME, CAPTION_COLLECTION_NAME, LOCATION_COLLECTION_NAME):
+        for c in (IMAGE_COLLECTION_NAME, CAPTION_COLLECTION_NAME, LOCATION_TEXT_COLLECTION_NAME, LOCATION_IMAGE_COLLECTION_NAME):
             count = get_collection(c).count()
             log.info("  %s: %d vectors", c, count)
             details[c] = count

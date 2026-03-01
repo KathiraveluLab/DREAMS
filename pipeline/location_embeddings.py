@@ -8,10 +8,10 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 from sentence_transformers import SentenceTransformer
-from sklearn.cluster import DBSCAN
+import hdbscan
 
 sys.path.insert(0, str(Path(__file__).parent))
-from config import RAW_IMAGES_DIR, RAW_METADATA_PATH, LOCATION_COLLECTION_NAME
+from config import RAW_IMAGES_DIR, RAW_METADATA_PATH, LOCATION_TEXT_COLLECTION_NAME, LOCATION_IMAGE_COLLECTION_NAME
 from db import get_collection
 from geocoder import reverse_geocode
 
@@ -19,46 +19,44 @@ def get_nominatim_user_agent():
     return "dreams-research/1.0 (contact@dreams-research.org)"
 
 def format_geocode_data(geocode_data: dict) -> str:
+    """Format geocode data deterministically for CLIP encode"""
     if not geocode_data or not geocode_data.get("raw"):
-        return "Unknown location without specific geographic features"
-    
+        return "A specific geographic location without known features."
+
     raw = geocode_data["raw"]
     address = geocode_data.get("address", {})
+
+    locality = address.get("city") or address.get("town") or address.get("village") or address.get("county") or ""
+    sublocality = address.get("suburb") or address.get("neighbourhood") or ""
     
-    parts = []
-    if "city" in address:
-        parts.append(f"City: {address['city']}")
-    elif "town" in address:
-        parts.append(f"Town: {address['town']}")
-    elif "village" in address:
-        parts.append(f"Village: {address['village']}")
-    elif "county" in address:
-        parts.append(f"County: {address['county']}")
-
-    if "suburb" in address:
-        parts.append(f"Suburb: {address['suburb']}")
-    elif "neighbourhood" in address:
-        parts.append(f"Neighbourhood: {address['neighbourhood']}")
-
-    place_type = raw.get("type", "").replace("_", " ")
     place_category = raw.get("category", "").replace("_", " ")
-    if place_type:
-        parts.append(f"Type: {place_type}")
-    if place_category:
-        parts.append(f"Category: {place_category}")
+    place_type = raw.get("type", "").replace("_", " ")
 
-    if "amenity" in address:
-        parts.append(f"Amenity: {address['amenity'].replace('_', ' ')}")
-    if "building" in address:
-        parts.append(f"Building: {address['building'].replace('_', ' ')}")
-    if "leisure" in address:
-        parts.append(f"Leisure: {address['leisure'].replace('_', ' ')}")
-    if "natural" in address:
-        parts.append(f"Natural: {address['natural'].replace('_', ' ')}")
+    feature = address.get("amenity") or address.get("building") or address.get("leisure") or address.get("natural") or ""
+    if feature: feature = feature.replace("_", " ")
 
-    seen = set()
-    unique_parts = [x for x in parts if not (x in seen or seen.add(x))]
-    return "Location characteristics: " + ", ".join(unique_parts) if unique_parts else "Unknown location without specific geographic features"
+    desc = "A photo of"
+    if feature and place_category:
+        desc += f" a {feature} which is a {place_category}"
+    elif feature:
+        desc += f" a {feature}"
+    elif place_category and place_type:
+        desc += f" a {place_type} ({place_category})"
+    elif place_type:
+        desc += f" a {place_type}"
+    else:
+        desc += " a specific location"
+
+    if sublocality and locality:
+        desc += f", located in {sublocality}, {locality}."
+    elif locality:
+        desc += f", located in {locality}."
+    elif sublocality:
+        desc += f", located in {sublocality}."
+    else:
+        desc += "."
+
+    return desc
 
 async def process(rec, ua):
     if (lat := rec.get("lat")) is None or (lon := rec.get("lon")) is None:
@@ -76,7 +74,16 @@ async def process(rec, ua):
 
     desc = format_geocode_data(geo)
 
-    return {"id": str(rec["id"]), "lat": lat, "lon": lon, "img_path": img_path, "geocode_display_name": geo.get("display_name") or "(unknown)", "description": desc}
+    return {
+        "id": str(rec["id"]),
+        "lat": lat,
+        "lon": lon,
+        "caption": rec.get("caption", ""),
+        "timestamp": rec.get("timestamp", ""),
+        "img_path": img_path,
+        "geocode_display_name": geo.get("display_name") or "(unknown)",
+        "description": desc
+    }
 
 def encode_multimodal(clip_model, text: str, img_path: str) -> np.ndarray:
     text_emb = clip_model.encode([text], convert_to_numpy=True)
@@ -97,10 +104,48 @@ def main():
 
     if args.query:
         clip_model = SentenceTransformer("clip-ViT-B-32")
-        coll = get_collection(LOCATION_COLLECTION_NAME)
-        if coll.count() == 0: sys.exit(1)
-        res = coll.query(query_embeddings=clip_model.encode([args.query], normalize_embeddings=True).tolist(), n_results=min(3, coll.count()), include=["documents", "metadatas", "distances"])
-        for d, m in zip(res["documents"][0], res["metadatas"][0]): print(f"{m.get('geocode_display_name')}: {d}")
+        text_coll = get_collection(LOCATION_TEXT_COLLECTION_NAME)
+        img_coll = get_collection(LOCATION_IMAGE_COLLECTION_NAME)
+        
+        if text_coll.count() == 0 or img_coll.count() == 0: 
+            print("Collections are empty. Run pipeline first.")
+            sys.exit(1)
+            
+        q_emb = clip_model.encode([args.query], normalize_embeddings=True).tolist()
+        n_res = min(20, text_coll.count())
+        
+        # Search both modalities
+        t_res = text_coll.query(query_embeddings=q_emb, n_results=n_res, include=["documents", "metadatas", "distances"])
+        i_res = img_coll.query(query_embeddings=q_emb, n_results=n_res, include=["documents", "metadatas", "distances"])
+        
+        # Reciprocal Rank Fusion (RRF)
+        rrf_scores = {}
+        metadata_map = {}
+        doc_map = {}
+        
+        for k, rank_factor in [("text", t_res), ("image", i_res)]:
+            if rank_factor and "ids" in rank_factor and rank_factor["ids"]:
+                for rank, uid in enumerate(rank_factor["ids"][0]):
+                    if uid not in rrf_scores:
+                        rrf_scores[uid] = 0
+                        metadata_map[uid] = rank_factor["metadatas"][0][rank]
+                        doc_map[uid] = rank_factor["documents"][0][rank]
+                    # RRF formula: 1 / (k + rank)
+                    rrf_scores[uid] += 1.0 / (60 + rank)
+                    
+        sorted_results = sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True)
+        
+        print(f"Top results for '{args.query}':")
+        for uid, score in sorted_results[:min(10, len(sorted_results))]:
+            m = metadata_map[uid]
+            d = doc_map[uid]
+            caption = m.get("caption", "N/A")
+            timestamp = m.get("timestamp", "N/A")
+            print(f"RRF={score:.4f} | {m.get('geocode_display_name')}")
+            print(f"  Description: {d}")
+            print(f"  Caption: {caption}")
+            print(f"  Timestamp: {timestamp}")
+            print("-" * 40)
         return
 
     ua = get_nominatim_user_agent()
@@ -111,9 +156,14 @@ def main():
         geo = asyncio.run(reverse_geocode(args.lat, args.lon, user_agent=ua))
         desc = format_geocode_data(geo)
         
-        emb = encode_multimodal(clip_model, desc, args.image)
+        text_emb = clip_model.encode([desc], convert_to_numpy=True)
+        img_emb = clip_model.encode([Image.open(args.image).convert("RGB")], convert_to_numpy=True)
+        text_emb = text_emb / np.linalg.norm(text_emb, axis=1, keepdims=True)
+        img_emb = img_emb / np.linalg.norm(img_emb, axis=1, keepdims=True)
         
-        get_collection(LOCATION_COLLECTION_NAME).upsert(ids=[rid], embeddings=emb.tolist(), metadatas=[{"lat": args.lat, "lon": args.lon, "geocode_display_name": geo.get("display_name")}])
+        meta = {"lat": args.lat, "lon": args.lon, "geocode_display_name": geo.get("display_name"), "caption": "N/A", "timestamp": "N/A"}
+        get_collection(LOCATION_TEXT_COLLECTION_NAME).upsert(ids=[rid], embeddings=text_emb.tolist(), metadatas=[meta])
+        get_collection(LOCATION_IMAGE_COLLECTION_NAME).upsert(ids=[rid], embeddings=img_emb.tolist(), metadatas=[meta])
         return
 
     if not RAW_METADATA_PATH.exists(): sys.exit(1)
@@ -128,14 +178,43 @@ def main():
     
     text_embs = clip_model.encode(texts, convert_to_numpy=True)
     img_embs = clip_model.encode(images, convert_to_numpy=True)
-    multi_embs = (text_embs + img_embs) / 2.0
-    multi_embs = multi_embs / np.linalg.norm(multi_embs, axis=1, keepdims=True)
+    text_embs = text_embs / np.linalg.norm(text_embs, axis=1, keepdims=True)
+    img_embs = img_embs / np.linalg.norm(img_embs, axis=1, keepdims=True)
 
-    get_collection(LOCATION_COLLECTION_NAME).upsert(ids=[r["id"] for r in results], embeddings=multi_embs.tolist(), documents=[r["description"] for r in results], metadatas=[{"lat": r["lat"], "lon": r["lon"], "geocode_display_name": r["geocode_display_name"]} for r in results])
+    metas = [{"lat": r["lat"], "lon": r["lon"], "geocode_display_name": r["geocode_display_name"], "caption": r.get("caption", ""), "timestamp": r.get("timestamp", "")} for r in results]
+    get_collection(LOCATION_TEXT_COLLECTION_NAME).upsert(ids=[r["id"] for r in results], embeddings=text_embs.tolist(), documents=texts, metadatas=metas)
+    get_collection(LOCATION_IMAGE_COLLECTION_NAME).upsert(ids=[r["id"] for r in results], embeddings=img_embs.tolist(), documents=texts, metadatas=metas)
 
-    dist = np.clip(1.0 - np.dot(multi_embs, multi_embs.T), 0.0, 2.0)
-    np.fill_diagonal(dist, 0.0)
-    DBSCAN(eps=args.eps, min_samples=args.min_samples, metric="precomputed").fit_predict(dist)
+    # Compute joint distance matrix for clustering
+    dist_txt = np.clip(1.0 - np.dot(text_embs, text_embs.T), 0.0, 2.0)
+    dist_img = np.clip(1.0 - np.dot(img_embs, img_embs.T), 0.0, 2.0)
+    joint_dist = (dist_txt + dist_img) / 2.0
+    np.fill_diagonal(joint_dist, 0.0)
+    
+    # HDBSCAN Cython bindings requires float64 (double_t) for distance matrices.
+    joint_dist = joint_dist.astype(np.float64)
+    
+    print("Running HDBSCAN clustering on joint multi-modal distance space...\n")
+    clusterer = hdbscan.HDBSCAN(metric="precomputed", min_samples=args.min_samples, min_cluster_size=args.min_samples)
+    labels = clusterer.fit_predict(joint_dist)
+    
+    # Group results by cluster label
+    from collections import defaultdict
+    clusters = defaultdict(list)
+    for res, label in zip(results, labels):
+        clusters[label].append(res)
+        
+    for label in sorted(clusters.keys()):
+        if label == -1:
+            print(f"=== Noise (Unclustered: {len(clusters[label])} records) ===")
+        else:
+            print(f"=== Cluster {label} ({len(clusters[label])} records) ===")
+            
+        for r in clusters[label]:
+            print(f"  [{r['id']}] {r['geocode_display_name']}")
+            print(f"    Caption: {r.get('caption', 'N/A')[:60]}...")
+            
+        print()
 
 if __name__ == "__main__":
     main()

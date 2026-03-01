@@ -26,7 +26,8 @@ DREAMS_DB_PATH = PROCESSED_DIR / "dreams.db"
 CHROMA_DB_DIR = PROCESSED_DIR / "chroma_db"
 IMAGE_COLLECTION_NAME = "image_embeddings"
 CAPTION_COLLECTION_NAME = "caption_embeddings"
-LOCATION_COLLECTION_NAME = "location_descriptions"
+LOCATION_TEXT_COLLECTION_NAME = "location_descriptions_text"
+LOCATION_IMAGE_COLLECTION_NAME = "location_descriptions_image"
 
 # Snapshots
 SNAPSHOTS_DIR = DATA_DIR / "snapshots"
