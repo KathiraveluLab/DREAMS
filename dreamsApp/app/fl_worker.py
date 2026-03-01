@@ -165,7 +165,7 @@ def run_federated_round():
                     logger.debug(f"Skipped 'None' label for post {p['_id']}")
 
             if not training_data:
-                logger.info("No valid labels found (mostly 'None'). Marking processed and exiting.")
+                logger.info("No valid labels found (Mostly 'None'). Marking processed and exiting.")
                 return
 
             # SECURITY: Only log counts/statistics, never actual user text
