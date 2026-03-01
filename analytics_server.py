@@ -199,14 +199,13 @@ MAIN_TEMPLATE = """
 <body>
     <div class="container py-5">
         <h1 class="text-center mb-4">📊 DREAMS Analytics Demo</h1>
-        <p class="text-center text-muted mb-5">PR-6: Canonical Identity, Serialization, Persistence, and Frontend Contract</p>
         
         <div class="row justify-content-center">
             {% for user_id, name in users.items() %}
             <div class="col-md-4 mb-4">
                 <div class="card p-4 text-center">
-                    <h5>{{ name }}</h5>
-                    <p class="text-muted small">{{ user_id }}</p>
+                    <h5 class="text-white">{{ name }}</h5>
+                    <p class="text-white small">{{ user_id }}</p>
                     <div class="d-grid gap-2">
                         <a href="{{ url_for('narrative_view', user_id=user_id) }}" class="btn btn-narrative text-white">📊 View Narrative</a>
                         <a href="{{ url_for('api_timeline', user_id=user_id) }}" class="btn btn-outline-secondary btn-sm">API: Timeline</a>
