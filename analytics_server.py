@@ -4,7 +4,7 @@ import json
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
-from flask import Flask, jsonify, render_template_string, redirect, url_for
+from flask import Flask, jsonify, render_template_string, redirect, url_for, make_response
 import random
 
 # Add dreamsApp to path
@@ -67,8 +67,8 @@ SAMPLE_USERS = {
 # Alice's special images
 ALICE_IMAGES = [
     "/static/images/download.jpeg",
-    "/static/images/download%20(1).jpeg",
-    "/static/images/download%20(2).jpeg"
+    "/static/images/download (1).jpeg",
+    "/static/images/download (2).jpeg"
 ]
 
 # Bob Smith's sample data (user_002) — loaded from bob-smith.json
@@ -199,14 +199,13 @@ MAIN_TEMPLATE = """
 <body>
     <div class="container py-5">
         <h1 class="text-center mb-4">📊 DREAMS Analytics Demo</h1>
-        <p class="text-center text-muted mb-5">PR-6: Canonical Identity, Serialization, Persistence, and Frontend Contract</p>
         
         <div class="row justify-content-center">
             {% for user_id, name in users.items() %}
             <div class="col-md-4 mb-4">
                 <div class="card p-4 text-center">
-                    <h5>{{ name }}</h5>
-                    <p class="text-muted small">{{ user_id }}</p>
+                    <h5 class="text-white">{{ name }}</h5>
+                    <p class="text-white small">{{ user_id }}</p>
                     <div class="d-grid gap-2">
                         <a href="{{ url_for('narrative_view', user_id=user_id) }}" class="btn btn-narrative text-white">📊 View Narrative</a>
                         <a href="{{ url_for('api_timeline', user_id=user_id) }}" class="btn btn-outline-secondary btn-sm">API: Timeline</a>
@@ -254,11 +253,6 @@ NARRATIVE_TEMPLATE = """
         .edge-info { background: #2a2a2a; padding: 0.5rem 1rem; border-radius: 0.5rem; margin: 0.25rem; display: inline-block; }
         .edge-info.adjacent { border-left: 4px solid #4ad974; }
         .edge-info.overlapping { border-left: 4px solid #d9a74a; }
-        .timeline-bar { height: 60px; background: #1a1a2e; border-radius: 0.5rem; position: relative; overflow: hidden; margin: 1rem 0; }
-        .timeline-event { position: absolute; height: 100%; min-width: 4px; border-radius: 2px; }
-        .timeline-event.positive { background: #4ad974; }
-        .timeline-event.neutral { background: #4a90d9; }
-        .timeline-event.negative { background: #d94a4a; }
         .fingerprint { font-family: monospace; font-size: 0.8rem; color: #4a90d9; background: #1a1a2e; padding: 0.25rem 0.5rem; border-radius: 0.25rem; }
         .btn-back { background: #333; border: none; }
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.85); overflow-y: auto; }
@@ -281,6 +275,13 @@ NARRATIVE_TEMPLATE = """
         .perceptual-badge { display: inline-block; background: linear-gradient(135deg, #ff6b6b 0%, #ffa502 100%); color: #000; padding: 0.15rem 0.6rem; border-radius: 1rem; font-size: 0.7rem; font-weight: bold; }
         .disclaimer { font-size: 0.7rem; color: #666; font-style: italic; margin-top: 0.5rem; padding: 0.4rem; background: rgba(255,255,255,0.03); border-radius: 0.4rem; }
         .caption-text { font-style: italic; color: #aaa; margin: 0.25rem 0; font-size: 0.8rem; max-width: 180px; word-wrap: break-word; }
+        /* Loading spinner */
+        .loading-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 0.75rem; z-index: 5; }
+        .loading-overlay.hidden { display: none; }
+        .loading-spinner { width: 40px; height: 40px; border: 4px solid rgba(74, 144, 217, 0.3); border-top: 4px solid #4a90d9; border-radius: 50%; animation: spin 1s linear infinite; }
+        .loading-text { color: #4a90d9; font-size: 0.85rem; margin-top: 0.75rem; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .modal-image-wrap { position: relative; }
         /* View Graph button */
         .btn-view-graph { background: linear-gradient(135deg, #6c5ce7 0%, #a55eea 100%); border: none; color: #fff; padding: 0.35rem 1rem; border-radius: 0.6rem; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; display: none; vertical-align: middle; }
         .btn-view-graph:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(108,92,231,0.4); color: #fff; }
@@ -311,15 +312,6 @@ NARRATIVE_TEMPLATE = """
         <div class="text-center mb-4"><span class="fingerprint" id="graph-fingerprint">Loading...</span></div>
 
         <div class="section">
-            <h4>Emotion Timeline</h4>
-            <div class="timeline-bar" id="timeline-bar"></div>
-            <div class="d-flex justify-content-between text-muted small">
-                <span id="timeline-start">-</span>
-                <span id="timeline-end">-</span>
-            </div>
-        </div>
-
-        <div class="section">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h4 class="mb-0">Episode Network <small class="text-muted">(click images for perceptual analysis)</small></h4>
                 <button class="btn btn-view-graph" id="btn-view-graph" onclick="openGraphModal()">📋 View Client Report</button>
@@ -339,7 +331,7 @@ NARRATIVE_TEMPLATE = """
         <div class="graph-modal-content">
             <button class="graph-modal-close" onclick="closeGraphModal()">&times;</button>
             <div class="graph-modal-title">Episode Emotion Distribution</div>
-            <div class="graph-modal-subtitle">Emotion percentages per episode for Bob Smith</div>
+            <div class="graph-modal-subtitle">Emotion percentages per episode for {{ user_name }}</div>
             <div class="graph-chart-wrap">
                 <canvas id="emotionBarChart"></canvas>
             </div>
@@ -357,6 +349,10 @@ NARRATIVE_TEMPLATE = """
             <!-- 2. Image -->
             <div class="modal-image-wrap">
                 <img id="modal-image" src="" alt="Analyzed image">
+                <div id="image-loading-overlay" class="loading-overlay hidden">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">Analyzing emotion...</div>
+                </div>
             </div>
             
             <!-- 3. Description / Caption -->
@@ -399,15 +395,23 @@ NARRATIVE_TEMPLATE = """
         let currentChart = null;
         
         async function loadData() {
-            const timelineRes = await fetch(`/api/timeline/${userId}`);
+            const timelineRes = await fetch(`/api/timeline/${userId}`, { cache: 'no-store' });
             const timeline = await timelineRes.json();
             
             document.getElementById('stat-events').textContent = timeline.event_count;
             document.getElementById('graph-fingerprint').textContent = `Fingerprint: ${timeline.fingerprint}`;
-            renderTimeline(timeline);
 
-            const payloadRes = await fetch(`/api/frontend-payload/${userId}`);
-            const payload = await payloadRes.json();
+            const payloadRes = await fetch(`/api/frontend-payload/${userId}`, { cache: 'no-store' });
+            let payload = await payloadRes.json();
+
+            // Auto-retry once if a user expected to have images returns none on first load
+            const expectedImageUser = userId === 'user_001' || userId === 'user_002';
+            const hasAnyImages = payload.nodes && payload.nodes.some(node => node.images && node.images.length > 0);
+            if (expectedImageUser && !hasAnyImages) {
+                await new Promise(resolve => setTimeout(resolve, 250));
+                const retryRes = await fetch(`/api/frontend-payload/${userId}?_=${Date.now()}`, { cache: 'no-store' });
+                payload = await retryRes.json();
+            }
             
             document.getElementById('stat-episodes').textContent = payload.node_count;
             document.getElementById('stat-edges').textContent = payload.edge_count;
@@ -427,33 +431,8 @@ NARRATIVE_TEMPLATE = """
             renderGraph(payload);
             renderEdges(payload);
 
-            // For user_002, build emotion graph data from ML output
-            if (userId === 'user_002') {
-                buildEmotionGraphData();
-            }
-        }
-        
-        function renderTimeline(timeline) {
-            const container = document.getElementById('timeline-bar');
-            container.innerHTML = '';
-            if (!timeline.events || !timeline.events.length) return;
-            
-            const startTime = new Date(timeline.temporal_bounds.start).getTime();
-            const endTime = new Date(timeline.temporal_bounds.end).getTime();
-            const duration = endTime - startTime || 1;
-            
-            document.getElementById('timeline-start').textContent = new Date(startTime).toLocaleDateString();
-            document.getElementById('timeline-end').textContent = new Date(endTime).toLocaleDateString();
-            
-            timeline.events.forEach(event => {
-                const pos = ((new Date(event.timestamp).getTime() - startTime) / duration) * 100;
-                const div = document.createElement('div');
-                div.className = `timeline-event ${event.emotion_label}`;
-                div.style.left = `${pos}%`;
-                div.style.width = `${Math.max(1, 100 / timeline.events.length)}%`;
-                div.title = `${event.emotion_label} - ${new Date(event.timestamp).toLocaleString()}`;
-                container.appendChild(div);
-            });
+            // Report is available for all users; data is rebuilt on modal open
+            document.getElementById('btn-view-graph').style.display = 'inline-block';
         }
         
         function renderGraph(payload) {
@@ -471,8 +450,9 @@ NARRATIVE_TEMPLATE = """
                 if (node.images && node.images.length > 0) {
                     // Display all images in the episode
                     const imagesContainer = node.images.map((imgSrc, imgIdx) => {
-                        const imgPath = imgSrc.replace('/static/images/', '').replace('/static/sample-data/', '');
-                        return `<img src="${imgSrc}" alt="Episode ${node.index + 1} Image ${imgIdx + 1}" 
+                        const imgPath = getRelativeImagePath(imgSrc);
+                        const normalizedImgSrc = encodeURI(imgSrc);
+                        return `<img src="${normalizedImgSrc}" alt="Episode ${node.index + 1} Image ${imgIdx + 1}" 
                             style="width: ${node.images.length > 1 ? '48%' : '100%'}; height: ${node.images.length > 1 ? '80px' : '120px'}; object-fit: cover; border-radius: 8px; cursor: pointer;" 
                             onclick="showPerceptualAnalysis('${imgPath}', '${imgSrc}', ${idx})">`;
                     }).join('');
@@ -517,15 +497,33 @@ NARRATIVE_TEMPLATE = """
             });
         }
         
+        let activeAnalysisToken = 0;
+        let analysisTimeoutIds = [];
+
+        function clearAnalysisTimeouts() {
+            analysisTimeoutIds.forEach(id => clearTimeout(id));
+            analysisTimeoutIds = [];
+        }
+
         async function showPerceptualAnalysis(imagePath, imageSrc, episodeIndex) {
+            const analysisToken = ++activeAnalysisToken;
+            clearAnalysisTimeouts();
+
             document.getElementById('modal-image').src = imageSrc;
             document.getElementById('emotionModal').classList.add('show');
             
             // Reset displays
             document.getElementById('prob-bar-positive').style.width = '0%';
+            document.getElementById('prob-bar-positive').textContent = '0%';
             document.getElementById('prob-bar-neutral').style.width = '0%';
+            document.getElementById('prob-bar-neutral').textContent = '0%';
             document.getElementById('prob-bar-negative').style.width = '0%';
-            document.getElementById('notes-text').textContent = 'Analyzing...';
+            document.getElementById('prob-bar-negative').textContent = '0%';
+            document.getElementById('notes-text').textContent = '';
+            
+            // Show loading overlay
+            const loadingOverlay = document.getElementById('image-loading-overlay');
+            loadingOverlay.classList.remove('hidden');
             
             // Check if text-based emotion data is available (user_002 / Bob Smith)
             const episodeData = allEpisodeData[episodeIndex];
@@ -549,76 +547,168 @@ NARRATIVE_TEMPLATE = """
             if (caption) {
                 captionEl.textContent = caption;
                 captionEl.style.display = 'block';
-                document.getElementById('modal-badge').textContent = '📝 TEXT SENTIMENT';
             } else {
                 captionEl.style.display = 'none';
-                document.getElementById('modal-badge').textContent = '🔬 PERCEPTUAL';
             }
             
-            // 4. Get emotion data
+            // 4. Get emotion data (prefer perceptual model; fallback to text when needed)
             let data = null;
-            if (textEmotionData) {
-                data = textEmotionData;
-            } else {
-                try {
-                    const response = await fetch(`/api/perceptual-emotion/${encodeURIComponent(imagePath)}`);
-                    data = await response.json();
-                    if (data.error) {
-                        document.getElementById('notes-text').textContent = 'Error: ' + data.error;
-                        return;
-                    }
-                } catch (error) {
+            let usedTextEmotion = false;
+            try {
+                const response = await fetch(`/api/perceptual-emotion/${encodeURIComponent(imagePath)}`, { cache: 'no-store' });
+                const perceptualData = await response.json();
+                if (analysisToken !== activeAnalysisToken) return;
+
+                if (!perceptualData.error) {
+                    data = perceptualData;
+                } else if (textEmotionData) {
+                    data = textEmotionData;
+                    usedTextEmotion = true;
+                } else {
+                    loadingOverlay.classList.add('hidden');
+                    document.getElementById('modal-badge').textContent = '🔬 PERCEPTUAL';
+                    document.getElementById('notes-text').textContent = 'Error: ' + perceptualData.error;
+                    return;
+                }
+            } catch (error) {
+                if (analysisToken !== activeAnalysisToken) return;
+                if (textEmotionData) {
+                    data = textEmotionData;
+                    usedTextEmotion = true;
+                } else {
+                    loadingOverlay.classList.add('hidden');
+                    document.getElementById('modal-badge').textContent = '🔬 PERCEPTUAL';
                     document.getElementById('notes-text').textContent = 'Error: ' + error.message;
                     return;
                 }
             }
+
+            if (usedTextEmotion) {
+                await new Promise(resolve => setTimeout(resolve, 300));
+                if (analysisToken !== activeAnalysisToken) return;
+                document.getElementById('modal-badge').textContent = '📝 TEXT SENTIMENT';
+            } else {
+                document.getElementById('modal-badge').textContent = '🔬 PERCEPTUAL';
+            }
+            loadingOverlay.classList.add('hidden');
             
             // Animate bars
-            setTimeout(() => {
+            const t1 = setTimeout(() => {
+                if (analysisToken !== activeAnalysisToken) return;
                 document.getElementById('prob-bar-positive').style.width = `${data.positive * 100}%`;
                 document.getElementById('prob-bar-positive').textContent = `${(data.positive * 100).toFixed(1)}%`;
             }, 100);
-            setTimeout(() => {
+            const t2 = setTimeout(() => {
+                if (analysisToken !== activeAnalysisToken) return;
                 document.getElementById('prob-bar-neutral').style.width = `${data.neutral * 100}%`;
                 document.getElementById('prob-bar-neutral').textContent = `${(data.neutral * 100).toFixed(1)}%`;
             }, 200);
-            setTimeout(() => {
+            const t3 = setTimeout(() => {
+                if (analysisToken !== activeAnalysisToken) return;
                 document.getElementById('prob-bar-negative').style.width = `${data.negative * 100}%`;
                 document.getElementById('prob-bar-negative').textContent = `${(data.negative * 100).toFixed(1)}%`;
             }, 300);
+            analysisTimeoutIds.push(t1, t2, t3);
             
             document.getElementById('notes-text').textContent = data.notes || '';
         }
         
         function closeModal() {
+            activeAnalysisToken++;
+            clearAnalysisTimeouts();
             document.getElementById('emotionModal').classList.remove('show');
+            document.getElementById('image-loading-overlay').classList.add('hidden');
         }
 
         // ---- Episode Emotion Distribution Graph ----
         let emotionGraphData = [];  // [{label, happy, neutral, sad}]
         let emotionBarChart = null;
 
-        function buildEmotionGraphData() {
-            emotionGraphData = [];
-            allEpisodeData.forEach((ep, idx) => {
-                if (!ep.text_emotions || !ep.images) return;
-                ep.images.forEach(imgSrc => {
-                    const te = ep.text_emotions[imgSrc];
-                    if (!te) return;
-                    emotionGraphData.push({
-                        label: `Episode ${idx + 1}`,
-                        happy:   Math.round(te.positive * 100),
-                        neutral: Math.round(te.neutral  * 100),
-                        sad:     Math.round(te.negative * 100),
-                    });
-                });
-            });
-            if (emotionGraphData.length > 0) {
-                document.getElementById('btn-view-graph').style.display = 'inline-block';
-            }
+        function getRelativeImagePath(imgSrc) {
+            return decodeURIComponent(
+                imgSrc.replace('/static/images/', '').replace('/static/sample-data/', '')
+            );
         }
 
-        function openGraphModal() {
+        async function buildEmotionGraphData() {
+            const episodeRows = await Promise.all(allEpisodeData.map(async (ep, idx) => {
+                const hasImages = Array.isArray(ep.images) && ep.images.length > 0;
+                const hasDescriptions = hasImages && ep.images.some(imgSrc => {
+                    const caption = ep.captions && ep.captions[imgSrc];
+                    return typeof caption === 'string' && caption.trim().length > 0;
+                });
+
+                // If image or description is missing, show 0% for that episode
+                if (!hasImages || !hasDescriptions) {
+                    return {
+                        label: `Episode ${idx + 1}`,
+                        happy: 0,
+                        neutral: 0,
+                        sad: 0,
+                    };
+                }
+
+                // Build episode percentages from perceptual model outputs only
+                const estimates = await Promise.all(ep.images.map(async (imgSrc) => {
+                    const relativePath = getRelativeImagePath(imgSrc);
+                    try {
+                        const response = await fetch(`/api/perceptual-emotion/${encodeURIComponent(relativePath)}`, { cache: 'no-store' });
+                        const result = await response.json();
+                        if (result.error) return null;
+                        if (
+                            typeof result.positive !== 'number' ||
+                            typeof result.neutral !== 'number' ||
+                            typeof result.negative !== 'number'
+                        ) {
+                            return null;
+                        }
+                        return result;
+                    } catch (err) {
+                        return null;
+                    }
+                }));
+
+                const valid = estimates.filter(Boolean);
+                if (!valid.length) {
+                    return {
+                        label: `Episode ${idx + 1}`,
+                        happy: 0,
+                        neutral: 0,
+                        sad: 0,
+                    };
+                }
+
+                const sums = valid.reduce(
+                    (acc, item) => {
+                        acc.positive += item.positive;
+                        acc.neutral += item.neutral;
+                        acc.negative += item.negative;
+                        return acc;
+                    },
+                    { positive: 0, neutral: 0, negative: 0 }
+                );
+
+                return {
+                    label: `Episode ${idx + 1}`,
+                    happy: Math.round((sums.positive / valid.length) * 100),
+                    neutral: Math.round((sums.neutral / valid.length) * 100),
+                    sad: Math.round((sums.negative / valid.length) * 100),
+                };
+            }));
+
+            emotionGraphData = episodeRows;
+        }
+
+        async function openGraphModal() {
+            const graphButton = document.getElementById('btn-view-graph');
+            const originalButtonText = graphButton.textContent;
+            graphButton.disabled = true;
+            graphButton.textContent = '⏳ Loading Report...';
+
+            await buildEmotionGraphData();
+
+            graphButton.disabled = false;
+            graphButton.textContent = originalButtonText;
             document.getElementById('graphModal').classList.add('show');
             renderEmotionBarChart();
         }
@@ -719,7 +809,15 @@ def index():
 def narrative_view(user_id: str):
     if user_id not in SAMPLE_USERS:
         return jsonify({'error': 'User not found'}), 404
-    return render_template_string(NARRATIVE_TEMPLATE, user_id=user_id)
+    response = make_response(render_template_string(
+        NARRATIVE_TEMPLATE,
+        user_id=user_id,
+        user_name=SAMPLE_USERS[user_id],
+    ))
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 
 @app.route('/api/timeline/<user_id>')
@@ -837,7 +935,6 @@ def api_frontend_payload(user_id: str):
     result['user_id'] = user_id
     
     # Add images to nodes by matching episode timestamps with posts
-    posts_by_timestamp = {p['timestamp']: p for p in posts}
     for node_data in result['nodes']:
         # Find posts in this episode's time range
         start = datetime.fromisoformat(node_data['start_time_iso'])
@@ -849,30 +946,54 @@ def api_frontend_payload(user_id: str):
         if episode_images:
             node_data['images'] = episode_images
 
-    # For user_002 (Bob Smith), add captions and text emotion analysis from bob-smith.json
-    if user_id == "user_002":
-        for node_data in result['nodes']:
-            if 'images' in node_data:
-                captions = {}
-                text_emotions = {}
-                for img_path in node_data['images']:
-                    caption = BOB_SMITH_CAPTIONS.get(img_path, "")
-                    if caption:
-                        captions[img_path] = caption
-                        if _TEXT_SENTIMENT_AVAILABLE:
-                            try:
-                                text_emotions[img_path] = analyze_text_sentiment(caption)
-                            except Exception as e:
-                                text_emotions[img_path] = {
-                                    'positive': 0.33, 'negative': 0.33, 'neutral': 0.34,
-                                    'uncertainty_margin': 0.20,
-                                    'notes': f'Analysis error: {e}',
-                                    'disclaimer': 'Error during analysis.',
-                                }
-                if captions:
-                    node_data['captions'] = captions
-                if text_emotions:
-                    node_data['text_emotions'] = text_emotions
+    # Add captions and text emotion analysis for all users
+    for node_data in result['nodes']:
+        if 'images' not in node_data:
+            continue
+
+        start = datetime.fromisoformat(node_data['start_time_iso'])
+        end = datetime.fromisoformat(node_data['end_time_iso'])
+        captions = {}
+        text_emotions = {}
+
+        for img_path in node_data['images']:
+            caption = ""
+
+            # Prefer bob-smith.json captions for Bob
+            if user_id == "user_002":
+                caption = BOB_SMITH_CAPTIONS.get(img_path, "")
+
+            # Fallback: use post caption for this image within episode range
+            if not caption:
+                matching_post = next(
+                    (
+                        p for p in posts
+                        if start <= p['timestamp'] < end
+                        and p.get('image') == img_path
+                        and isinstance(p.get('caption'), str)
+                        and p['caption'].strip()
+                    ),
+                    None,
+                )
+                caption = matching_post['caption'] if matching_post else ""
+
+            if caption:
+                captions[img_path] = caption
+                if _TEXT_SENTIMENT_AVAILABLE:
+                    try:
+                        text_emotions[img_path] = analyze_text_sentiment(caption)
+                    except Exception as e:
+                        text_emotions[img_path] = {
+                            'positive': 0.33, 'negative': 0.33, 'neutral': 0.34,
+                            'uncertainty_margin': 0.20,
+                            'notes': f'Analysis error: {e}',
+                            'disclaimer': 'Error during analysis.',
+                        }
+
+        if captions:
+            node_data['captions'] = captions
+        if text_emotions:
+            node_data['text_emotions'] = text_emotions
 
     return jsonify(result)
 
@@ -942,15 +1063,22 @@ def api_perceptual_emotion(image_path: str):
         image_path = unquote(image_path)
         
         images_dir = Path(__file__).parent / "images"
-        
-        # Validate path to prevent directory traversal attacks
-        try:
-            full_path = (images_dir / image_path).resolve()
-            full_path.relative_to(images_dir.resolve())
-        except ValueError:
-            return jsonify({'error': 'Invalid path: access denied'}), 400
-        
-        if not full_path.exists():
+        sample_dir = Path(__file__).parent / "sample-data"
+
+        # Validate and resolve path against allowed roots
+        full_path = None
+        for root_dir in (images_dir, sample_dir):
+            try:
+                candidate = (root_dir / image_path).resolve()
+                candidate.relative_to(root_dir.resolve())
+            except ValueError:
+                continue
+
+            if candidate.exists():
+                full_path = candidate
+                break
+
+        if full_path is None:
             return jsonify({'error': f'Image not found: {image_path}'}), 404
         
         img = Image.open(full_path).convert('RGB')
