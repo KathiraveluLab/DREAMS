@@ -281,6 +281,13 @@ NARRATIVE_TEMPLATE = """
         .perceptual-badge { display: inline-block; background: linear-gradient(135deg, #ff6b6b 0%, #ffa502 100%); color: #000; padding: 0.15rem 0.6rem; border-radius: 1rem; font-size: 0.7rem; font-weight: bold; }
         .disclaimer { font-size: 0.7rem; color: #666; font-style: italic; margin-top: 0.5rem; padding: 0.4rem; background: rgba(255,255,255,0.03); border-radius: 0.4rem; }
         .caption-text { font-style: italic; color: #aaa; margin: 0.25rem 0; font-size: 0.8rem; max-width: 180px; word-wrap: break-word; }
+        /* Loading spinner */
+        .loading-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 0.75rem; z-index: 5; }
+        .loading-overlay.hidden { display: none; }
+        .loading-spinner { width: 40px; height: 40px; border: 4px solid rgba(74, 144, 217, 0.3); border-top: 4px solid #4a90d9; border-radius: 50%; animation: spin 1s linear infinite; }
+        .loading-text { color: #4a90d9; font-size: 0.85rem; margin-top: 0.75rem; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .modal-image-wrap { position: relative; }
         /* View Graph button */
         .btn-view-graph { background: linear-gradient(135deg, #6c5ce7 0%, #a55eea 100%); border: none; color: #fff; padding: 0.35rem 1rem; border-radius: 0.6rem; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; display: none; vertical-align: middle; }
         .btn-view-graph:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(108,92,231,0.4); color: #fff; }
@@ -339,7 +346,7 @@ NARRATIVE_TEMPLATE = """
         <div class="graph-modal-content">
             <button class="graph-modal-close" onclick="closeGraphModal()">&times;</button>
             <div class="graph-modal-title">Episode Emotion Distribution</div>
-            <div class="graph-modal-subtitle">Emotion percentages per episode for Bob Smith</div>
+            <div class="graph-modal-subtitle">Emotion percentages per episode for {{ user_name }}</div>
             <div class="graph-chart-wrap">
                 <canvas id="emotionBarChart"></canvas>
             </div>
@@ -357,6 +364,10 @@ NARRATIVE_TEMPLATE = """
             <!-- 2. Image -->
             <div class="modal-image-wrap">
                 <img id="modal-image" src="" alt="Analyzed image">
+                <div id="image-loading-overlay" class="loading-overlay hidden">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">Analyzing emotion...</div>
+                </div>
             </div>
             
             <!-- 3. Description / Caption -->
@@ -427,10 +438,8 @@ NARRATIVE_TEMPLATE = """
             renderGraph(payload);
             renderEdges(payload);
 
-            // For user_002, build emotion graph data from ML output
-            if (userId === 'user_002') {
-                buildEmotionGraphData();
-            }
+            // Build emotion graph data for all users
+            buildEmotionGraphData();
         }
         
         function renderTimeline(timeline) {
@@ -523,9 +532,16 @@ NARRATIVE_TEMPLATE = """
             
             // Reset displays
             document.getElementById('prob-bar-positive').style.width = '0%';
+            document.getElementById('prob-bar-positive').textContent = '0%';
             document.getElementById('prob-bar-neutral').style.width = '0%';
+            document.getElementById('prob-bar-neutral').textContent = '0%';
             document.getElementById('prob-bar-negative').style.width = '0%';
-            document.getElementById('notes-text').textContent = 'Analyzing...';
+            document.getElementById('prob-bar-negative').textContent = '0%';
+            document.getElementById('notes-text').textContent = '';
+            
+            // Show loading overlay
+            const loadingOverlay = document.getElementById('image-loading-overlay');
+            loadingOverlay.classList.remove('hidden');
             
             // Check if text-based emotion data is available (user_002 / Bob Smith)
             const episodeData = allEpisodeData[episodeIndex];
@@ -559,15 +575,20 @@ NARRATIVE_TEMPLATE = """
             let data = null;
             if (textEmotionData) {
                 data = textEmotionData;
+                // Small delay to show loading feedback even for pre-computed data
+                await new Promise(resolve => setTimeout(resolve, 300));
+                loadingOverlay.classList.add('hidden');
             } else {
                 try {
                     const response = await fetch(`/api/perceptual-emotion/${encodeURIComponent(imagePath)}`);
                     data = await response.json();
+                    loadingOverlay.classList.add('hidden');
                     if (data.error) {
                         document.getElementById('notes-text').textContent = 'Error: ' + data.error;
                         return;
                     }
                 } catch (error) {
+                    loadingOverlay.classList.add('hidden');
                     document.getElementById('notes-text').textContent = 'Error: ' + error.message;
                     return;
                 }
@@ -592,6 +613,7 @@ NARRATIVE_TEMPLATE = """
         
         function closeModal() {
             document.getElementById('emotionModal').classList.remove('show');
+            document.getElementById('image-loading-overlay').classList.add('hidden');
         }
 
         // ---- Episode Emotion Distribution Graph ----
@@ -601,18 +623,42 @@ NARRATIVE_TEMPLATE = """
         function buildEmotionGraphData() {
             emotionGraphData = [];
             allEpisodeData.forEach((ep, idx) => {
-                if (!ep.text_emotions || !ep.images) return;
-                ep.images.forEach(imgSrc => {
-                    const te = ep.text_emotions[imgSrc];
-                    if (!te) return;
-                    emotionGraphData.push({
-                        label: `Episode ${idx + 1}`,
-                        happy:   Math.round(te.positive * 100),
-                        neutral: Math.round(te.neutral  * 100),
-                        sad:     Math.round(te.negative * 100),
+                // First try to use text_emotions if available (for images)
+                let hasTextEmotions = false;
+                if (ep.text_emotions && ep.images) {
+                    ep.images.forEach(imgSrc => {
+                        const te = ep.text_emotions[imgSrc];
+                        if (!te) return;
+                        hasTextEmotions = true;
+                        emotionGraphData.push({
+                            label: `Episode ${idx + 1}`,
+                            happy:   Math.round(te.positive * 100),
+                            neutral: Math.round(te.neutral  * 100),
+                            sad:     Math.round(te.negative * 100),
+                        });
                     });
-                });
+                }
+                
+                // If no text_emotions, compute from episode events
+                if (!hasTextEmotions && ep.events && ep.events.length > 0) {
+                    let positive = 0, neutral = 0, negative = 0;
+                    ep.events.forEach(e => {
+                        if (e.emotion_label === 'positive') positive++;
+                        else if (e.emotion_label === 'neutral') neutral++;
+                        else if (e.emotion_label === 'negative') negative++;
+                    });
+                    const total = positive + neutral + negative;
+                    if (total > 0) {
+                        emotionGraphData.push({
+                            label: `Episode ${idx + 1}`,
+                            happy:   Math.round((positive / total) * 100),
+                            neutral: Math.round((neutral / total) * 100),
+                            sad:     Math.round((negative / total) * 100),
+                        });
+                    }
+                }
             });
+            // Always show the button since we can now generate data for all users
             if (emotionGraphData.length > 0) {
                 document.getElementById('btn-view-graph').style.display = 'inline-block';
             }
@@ -719,7 +765,7 @@ def index():
 def narrative_view(user_id: str):
     if user_id not in SAMPLE_USERS:
         return jsonify({'error': 'User not found'}), 404
-    return render_template_string(NARRATIVE_TEMPLATE, user_id=user_id)
+    return render_template_string(NARRATIVE_TEMPLATE, user_id=user_id, user_name=SAMPLE_USERS[user_id])
 
 
 @app.route('/api/timeline/<user_id>')
