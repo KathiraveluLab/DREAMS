@@ -1,0 +1,16 @@
+# Core ML / NLP
+torch>=2.0
+transformers>=4.30
+sentence-transformers>=2.2
+
+# Image processing
+Pillow>=9.0
+
+# Vector database
+chromadb>=0.4
+
+# Async HTTP (for geocoding)
+aiohttp>=3.8
+
+# Data
+numpy>=1.24
