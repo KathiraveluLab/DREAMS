@@ -399,6 +399,7 @@ def _build_analysis(
             "longitude": mem["longitude"],
             "display_name": loc["display_name"],
             "place_type": loc["place_type"],
+            "place_category": loc["place_category"],
             "address": {
                 "road": loc["address_road"],
                 "city": loc["address_city"],
@@ -412,6 +413,7 @@ def _build_analysis(
             "longitude": mem["longitude"],
             "display_name": None,
             "place_type": None,
+            "place_category": None,
             "address": None,
         }
     else:

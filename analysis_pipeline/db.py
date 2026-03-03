@@ -102,7 +102,9 @@ CREATE TABLE IF NOT EXISTS temporal_features (
 CREATE TABLE IF NOT EXISTS location_info (
     memory_id       TEXT PRIMARY KEY,
     display_name    TEXT,
-    place_type      TEXT,
+    place_type      TEXT,          -- raw OSM type (e.g. "church", "post_box")
+    place_category  TEXT,          -- broader DREAMS category (e.g. "faith_space")
+                                   -- NULL when place_type is meaningless/generic
     address_road    TEXT,
     address_city    TEXT,
     address_state   TEXT,
@@ -148,7 +150,8 @@ SELECT
     t.cos_hour,
     t.relative_day,
     l.display_name,
-    l.place_type
+    l.place_type,
+    l.place_category
 FROM memories m
 LEFT JOIN emotion_scores  e ON m.memory_id = e.memory_id
 LEFT JOIN temporal_features t ON m.memory_id = t.memory_id
@@ -182,6 +185,17 @@ def init_db() -> None:
     """Create all tables, indices, and views."""
     with get_db() as conn:
         conn.executescript(_SCHEMA_SQL)
+        # ── Schema migrations (idempotent for existing databases) ─────────────
+        # Add place_category column if it does not yet exist.
+        existing_cols = {
+            row[1]
+            for row in conn.execute("PRAGMA table_info(location_info)").fetchall()
+        }
+        if "place_category" not in existing_cols:
+            conn.execute(
+                "ALTER TABLE location_info ADD COLUMN place_category TEXT"
+            )
+            conn.commit()
 
 
 # ── Geocode cache ─────────────────────────────────────────────────────────────

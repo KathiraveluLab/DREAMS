@@ -49,6 +49,34 @@ logger = logging.getLogger(__name__)
 _MAX_INPUT_LEN = 512
 
 
+def _derive_valence_arousal(discrete: dict) -> tuple[float, float]:
+    """Derive valence and arousal from Ekman discrete emotions.
+
+    Used as a fallback when the dedicated VA model is unavailable or
+    returns null.  Mappings are grounded in Russell's circumplex model:
+    - Valence:  joy is positive; fear, sadness, anger, disgust are negative.
+    - Arousal:  fear, anger, surprise are activating;
+                sadness and neutral are deactivating.
+
+    Returns values clamped to [-1.0, 1.0].
+    """
+    joy      = discrete.get("joy",      0.0)
+    fear     = discrete.get("fear",     0.0)
+    sadness  = discrete.get("sadness",  0.0)
+    anger    = discrete.get("anger",    0.0)
+    disgust  = discrete.get("disgust",  0.0)
+    surprise = discrete.get("surprise", 0.0)
+    neutral  = discrete.get("neutral",  0.0)
+
+    valence = joy - (fear + sadness + anger + disgust) / 4.0
+    arousal = (fear + anger + surprise) / 3.0 - (sadness + neutral) / 2.0
+
+    return (
+        max(-1.0, min(1.0, round(valence, 4))),
+        max(-1.0, min(1.0, round(arousal, 4))),
+    )
+
+
 def _unload(*objs) -> None:
     """Delete objects and free memory."""
     for o in objs:
@@ -201,6 +229,22 @@ def run(log: logging.Logger | None = None) -> int:
         _log.info("CHIME done — model unloaded.")
     else:
         _log.warning("dreamsApp sentiment module not available; CHIME scores will be NULL.")
+
+    # ── Fallback: derive valence/arousal from discrete if VA model gave null ──
+    _log.info("Applying valence/arousal fallback for records where VA model returned null …")
+    fallback_count = 0
+    for mid, data in emo_data.items():
+        if data.get("valence") is None or data.get("arousal") is None:
+            discrete = data.get("discrete", {})
+            if discrete:
+                v, a = _derive_valence_arousal(discrete)
+                if data.get("valence") is None:
+                    data["valence"] = v
+                if data.get("arousal") is None:
+                    data["arousal"] = a
+                fallback_count += 1
+    if fallback_count:
+        _log.info("  Derived valence/arousal for %d record(s) via circumplex fallback.", fallback_count)
 
     # ── Write all results to DB ──────────────────────────────────────────────
     conn = get_db()

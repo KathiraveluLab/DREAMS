@@ -1,0 +1,294 @@
+Discussion: Temporal Segmentation Utilities
+
+Hi @pradeeban ,
+
+Building on PR-1 (Data Integrity Layer) and PR-2 (Time-Aware Emotion Timeline), I’d like to propose a small follow-up PR that focuses on temporal segmentation.
+
+With validated data and a shared EmotionTimeline abstraction in place, the next structural gap is how timelines are sliced and aligned in time. Currently, downstream features (visualization, proximity, narrative work) would need to implement this logic independently.
+
+This PR would introduce lightweight, structure-only utilities that:
+
+Segment timelines into fixed or gap-based windows
+
+Align multiple timelines to shared time windows
+
+Produce immutable EmotionTimeline segments
+
+This keeps the design modular while supporting upcoming proximity and visualization work.
+
+If this direction aligns with the project’s expectations, I’m happy to proceed.
+Done
+
+Discussion: Canonical Time-Aware Proximity & Comparison Layer
+Hi @pradeeban,
+
+Building on the earlier PRs around data integrity and time-aware emotion timelines, I’d like to propose a follow-up PR that focuses on standardizing how emotion timelines are compared over time.
+
+With validated inputs and a shared EmotionTimeline abstraction now in place, the next structural gap is that timeline comparison logic—such as window alignment, gap handling, and distance computation—is still implicit and likely to be re-implemented differently by future modules (e.g., clustering, visualization, narrative analysis).
+
+This PR aims to introduce a canonical, structure-only proximity layer that formalizes this logic in one place.
+
+Proposed Scope
+This PR would introduce:
+
+A standard way to segment and align multiple EmotionTimeline objects over shared time windows
+Deterministic, explainable distance metrics for comparing timelines (no ML or inference)
+Utilities for computing pairwise proximity and proximity matrices across many timelines
+Explicit handling of sparse timelines, missing windows, and anchor-time determinism
+All operations would remain
+Structural and deterministic
+Side-effect free
+Non-interpretive (no semantics, labeling, or prediction)
+Why This Layer Is Useful
+By making timeline-to-timeline comparison a first-class, reusable layer:
+
+Time-alignment logic is not duplicated across downstream modules
+Future clustering, visualization, or analysis work can rely on a single documented interface
+Research experiments can build on consistent, explainable proximity outputs
+The framework gains a clear separation between structure and interpretation
+Feedback Requested
+Before proceeding, I wanted to check whether this direction—
+data integrity → time-aware timelines → canonical time-aware comparison—fits well with the project’s current direction and expectations.
+
+Makes sense to me. Good approach.
+
+Discussion: Canonical Temporal Narrative Graph
+Hi @pradeeban,
+
+Building on recent PRs around data integrity, time-aware emotion timelines, and deterministic proximity, I’d like to propose a follow-up research-oriented PR that introduces a canonical structural representation of narrative evolution in DREAMS.
+
+This proposal adds one conceptual layer, not features or analysis.
+
+Motivation
+With validated data and shared temporal abstractions in place, narrative comparison logic (episodes, continuity, alignment) is still implicit and likely to be re-implemented inconsistently.
+
+This PR makes that logic explicit, deterministic, and reusable.
+
+Conceptual Pipeline
+Validated Data
+  → EmotionTimeline
+    → Episodes
+      → Episode Proximity
+        → Temporal Narrative Graph
+This is a structural research abstraction, not an interpretive layer.
+
+What This PR Adds
+Episode Segmentation
+Deterministic, window-aware segmentation
+Immutable Episode objects
+No labels or semantics
+Episode-Level Proximity
+Deterministic presence/absence distances
+Symmetric and reusable
+No ML or inference
+Temporal Narrative Graph
+Nodes = Episodes
+Edges = temporal proximity
+Immutable, structure-only graph
+Formal Guarantees
+Determinism
+Temporal consistency
+Symmetry
+Strict separation of structure and interpretation
+Why This Matters
+Prevents duplication of narrative logic
+Provides a canonical interface for future research
+Enables visualization, clustering, and analysis without implementing them
+Preserves architectural discipline in DREAMS
+Feedback Requested
+Before drafting the PR, I’d like to confirm whether this direction—
+
+timelines → episodes → proximity → narrative graph—
+
+fits well with the project’s research and architectural goals.
+
+Hi @pradeeban could you share which audience DREAMS primarily targets? It would help me better understand the pipeline.
+
+the primary target, just like Beehive, is people with serious mental illnesses or those who face other social determinants (homelessness, drug use, ...). The target location is Anchorage and we have community partners here to eventually deploy and test these. But in the early days, and also for general interest, we could let the general public use too. I mean, nothing prevents us from us becoming users after all. That will even help with early testing as accessing these marginalized folks (people with serious mental illnesses, etc) will need Institutional Review Board (IRB) approval and the software (Beehive + DREAMS + ...) should be complete and well-tested before that.
+
+Discussion: Modeling Emotional Trajectories Over Time
+Background
+In DREAMS, emotions are not isolated events. They unfold over time and form patterns that are meaningful only when viewed across longer periods rather than as single observations.
+
+A sequence of emotional observations such as early periods dominated by negative emotions, followed by neutral and later positive ones can reveal trends in emotional change without requiring interpretation or explanation.
+
+Proposed Direction
+This approach focuses on representing emotions as time-ordered sequences. Emotional observations are organized into timelines that allow aggregation at different temporal resolutions, such as weekly or monthly intervals.
+
+The emphasis is on capturing directionality of change over time whether emotional states appear to be improving, stable, or declining without attempting to explain causality or assign meaning.
+
+What This Enables
+By formalizing emotional trajectories, DREAMS can:
+
+Represent emotional evolution in a consistent and reusable structure
+Support longitudinal analysis without relying on single snapshots
+Provide a foundation for narrative and proximity-based research layers
+Scope and Constraints
+This work is strictly structural and observational. It does not:
+
+Interpret emotional causes
+Predict future emotional states
+Perform semantic or psychological analysis
+Open Question
+Does this framing align with the intended role of temporal emotion modeling in DREAMS, or should the temporal granularity or abstraction be adjusted?
+
+I like this framing. This is also includes the time and ordering factor. In the broader scheme this is studied in the literature, although our focus is on the images captured by the persons.
+
+This was a paper I shared with David and Jihye a year ago: https://link.springer.com/content/pdf/10.1007/s42438-024-00484-2.pdf
+
+Here, the authors are using Google maps street view to understand the evolving emotions of a selected few individuals.
+
+The street view is powerful, because it captures many moments that we don't bother to take a photo of.
+
+Like, a random street that we often traveled (which is not remarkable on its own, so we won't take a photo of it, despite being a part of our life for several days).
+
+It is a feeling of nostalgia / saudade. Usually, the Street View is frozen in the past too. Sometimes, newer versions emerge, replacing the views we have experienced in-person, showing the development/change (or lack thereof).
+
+I wonder how such images can be of use in recovery and mapping the emotions in the journey of recovery. Without getting too much distracted into the research aspects, while also framing our contributions in the broader space, helps us into identifying the novelty aspects in the research, design, and coding better.
+
+Hi @pradeeban Thanks for sharing this - the Street View example really clarifies the idea.
+
+What stands out to me is how different this is from DREAMS. Street View captures everything, while DREAMS only reflects what a person intentionally photographs. In a recovery journey, that choice itself may carry meaning, along with patterns like repetition or long gaps between photos.
+
+I like framing photos as time anchors rather than trying to explain why an emotion exists. Organizing them into ordered emotional trajectories feels like a clear way to show change without interpretation.
+
+One question I had: do you think the intentional act of photo-taking should be emphasized more, or should missing and repeated captures over time be treated as equally meaningful signals?
+"do you think the intentional act of photo-taking should be emphasized more, or should missing and repeated captures over time be treated as equally meaningful signals?"
+
+This is an interesting questions and we do not know the answer.
+
+We tend to take photos of things that are new. Like, you take photos when you go somewhere new. At the same time, we are likely to ignore repetitive things (such as, the photo of your own house). But those are in fact important since those define your daily norm.
+
+I think, lack of photos can mean many things. But we can only study what is captured. Lack of photos maybe discussed through the patient narratives.
+
+Yes @pradeeban ,That makes sense. Would it be reasonable to treat the absence of photos as an unknown or neutral state, rather than inferring any emotional signal from it?
+
+This way, the system avoids assumptions and only reflects what is actually captured, while leaving interpretation of missing periods to patient narratives or additional context.
+
+Yes, that sounds reasonable. If we want to infer emotions from lack of photos, that will probably need a research (or at least a literature study) on its own. That will go outside the scope of GSoC.
+
+Should we categorise a place by the emotions people feel there?
+Hi @pradeeban, I’ve been thinking about something simple but complicated:
+
+Can we describe a place based on the emotions people show there?
+
+Take a railway station. In the morning, it feels rushed and tense. At night, it feels quiet and drained. So is it a “stressful place”? Or does that depend entirely on the moment?
+
+Same with a hospital. You’ll see fear, but also relief. A park might look calm overall, but someone there could be grieving. If we average everyone’s expressions, are we actually capturing the “feeling” of the place, or just flattening human experience into a label?
+
+There’s also a practical angle. If we could understand emotional patterns in spaces, maybe it could help with urban planning, crowd safety, or even mental health support. But it also raises concerns about oversimplification and surveillance.
+
+So I’m curious what others think:
+
+Do places have emotional identities?
+Should we treat emotion as something stable enough to classify?
+Does aggregation help us understand a space - or distort it?
+Where should the ethical boundaries be?
+Would love to hear thoughts, especially on whether this idea feels meaningful or reductive.
+
+Interesting questions! Definitely time plays a factor. Also seasonality. 10 pm in the summer, Anchorage is still bright with people outside. Same 10 pm is pitch-dark and empty during winter...
+
+Hi @pradeeban, That’s a really helpful example seasonality makes the point even clearer.
+
+If the same place at the same time of day can feel completely different depending on the season, then it seems like what we’re observing isn’t a fixed “emotional identity” of the place, but a context-driven state.
+
+It makes me wonder whether categorising the place itself is the wrong abstraction. Maybe what’s more meaningful is to treat emotion as a temporal signal attached to space, something that shifts with time, season, density, and activity rather than something that defines the space permanently.
+
+Would you say this leans more toward modelling recurring emotional patterns over time, instead of trying to label the place itself?
+
+Yes, recurring patterns. Time (as in ordering of events; not just as a clock/physical-time) matters. Events feel different based on what happened before. So, we are looking at an event sequence, rather than individually as a transaction.
+That makes sense, I see the distinction now. It’s less about clock-time and more about how each moment is shaped by what happened before.
+
+Thinking in terms of event sequences instead of isolated moments definitely feels more accurate. Thanks for clarifying.
+
+Yes, that was the original vision of the GSoC 2025 "Time and Ordering in Beehive" project, which created the first version of DREAMS.
+
+Multimodal Emotion Disagreement Detection, Seeking Feedback on Approach
+Hi @pradeeban ,
+
+Building on the existing emotion analysis work in DREAMS, I've been thinking about a specific scenario that I believe has strong clinical relevance and wanted to get your thoughts before proceeding.
+
+The Scenario
+
+When a user uploads a photo, DREAMS currently analyzes:
+
+Facial expression (face emotion ML model)
+User caption/description (BERT text model)
+Audio voice note (planned)
+Sometimes these three signals may contradict each other. For example:
+
+Face shows 80% positive emotion
+Caption reads "feeling really low today"
+Voice note sounds distressed
+My Proposed Approach
+
+Rather than resolving the disagreement by averaging or picking one signal over another, I propose treating the disagreement itself as a clinically meaningful signal.
+
+The system would:
+
+Store all three emotion scores independently
+Calculate a disagreement score between modalities
+Flag high disagreement entries in the recovery report
+- Surface them to healthcare providers as "emotional inconsistency detected"
+Why I Think This Matters
+
+In recovery contexts, emotional masking is a real phenomenon. Someone consistently presenting positive facial expressions while writing negative captions over several weeks could be an important signal for healthcare providers, one that would be invisible if we simply averaged the modalities together.
+
+My Question
+
+Does this approach flagging disagreement rather than resolving it align with the clinical goals of DREAMS? Should the disagreement flag be visible only to healthcare providers, or also to the individual user themselves?
+
+Also, do you think emotional masking detection is within the intended scope of DREAMS, or is it too interpretive for the current stage?
+
+Looking forward to your thoughts.
+
+hat is an interesting research. But I think, overall, the main DREAMS goal is simple. It largely relies on user-provided sentiments (text) rather than images (binary data) themselves. So, the main problem is probably much easier (text analysis, rather than image analysis).
+
+Thanks for the review @pradeeban, I’ll focus on strengthening the text-based sentiment analysis first since it’s the primray signal in DREAMS. Image and audio emotion outputs can be treated as optional supporting data for now.
+
+Background Scene Analyser for DREAMS: Anchorage-Grounded Location Understanding
+
+Hi @pradeeban,
+
+I've been thinking about the location proximity challenge and wanted to propose a Background Scene Analyser that is specifically grounded in the real environments DREAMS participants inhabit in Anchorage.
+
+The Problem With Generic Scene Classification
+
+Existing approaches like Places365 are trained on global web-scraped imagery. For DREAMS participants in Anchorage, this creates a fundamental mismatch. A model that has never seen Brother Francis Shelter, Beans Café, the Alaska Native Heritage Center, or Ship Creek encampments will misclassify the exact environments most relevant to recovery in this community. Building an emotion-place pipeline on top of noisy scene labels defeats the purpose entirely.
+
+Proposed Approach
+
+Use Places365 as the pretrained backbone, then fine-tune on a small Anchorage-specific dataset assembled from publicly available sources like Google Street View, Flickr Creative Commons, Municipality of Anchorage open data, and OpenStreetMap tagged POIs. This gives stable, interpretable categories grounded in what DREAMS users actually photograph:
+
+Alaska Native cultural space
+Clinical or institutional setting
+Faith community space
+Recovery support environment
+Residential or transitional housing
+Shelter or drop-in center
+Outdoor / wilderness (Alaska-specific)
+The scene classifier never replaces user tags. If a user tagged a photo "hard day," the system now knows that hard day happened in a clinical setting versus a faith space, without interpreting their meaning.
+
+Why Interpretable Categories Matter at DREAMS Scale
+
+With 10-25 participants, unsupervised clustering produces unstable per-user labels impossible to compare across participants. Stable Anchorage-grounded categories let a healthcare provider ask: "Show me all entries from clinical settings this month across participants." That query is only possible with consistent labels.
+
+This approach also classifies scene type entirely from the image with no GPS coordinates stored or transmitted, which addresses the privacy concerns raised in this thread.
+
+It also supports near-duplicate location detection. Two photos from the same place taken weeks apart will share scene type, similar BLIP captions, and visual similarity, giving soft location de-duplication without exact coordinate matching.
+
+Questions for Your Feedback
+
+Do these scene categories reflect the environments DREAMS participants actually document, or are there Anchorage-specific place types I should add?
+Would filtering entries by scene type on the provider dashboard be useful, or is that too interpretive for the current stage?
+Should domain adaptation use only publicly available imagery, or is there a pathway to incorporate existing DREAMS-consented location data for fine-tuning?
+
+No need to have "Anchorage-specific" details.
+Maybe not necessary to go beyond what is provided by the person ("Artist"/"Photographer.")
+Public data or data that we produce on our own (images we generate, including photo and caption) is a more realistic strategy, given the IRB requirements we will need to handle.
+
+Hi @pradeeban,
+Quick follow-up thought: since Places365 won't be 100% accurate out of the box for recovery-relevant environments, would it be worth fine-tuning it on self-generated images (photos and captions we produce ourselves) to get more accurate scene representations? Or do you feel zero-shot classification is sufficient for the current DREAMS scope?
+
+ you can incorporate those into your proposal. Some of these can be research curiosities, while others could work better in practice. As I noted somewhere else, I see these as more than location proximity (more of similarity indices).
+
