@@ -223,10 +223,11 @@ def analysis(memory_id: str):
 
     Query params
     ------------
-    include_embeddings : bool  If ``true``, include raw embedding vectors
-                               (adds ~4 KB per record).  Default ``false``.
+    include_embeddings : bool  Whether to include raw embedding vectors
+                               (512-D image + 384-D caption).  Default ``true``.
+                               Pass ``?include_embeddings=false`` to suppress.
     """
-    include_emb = request.args.get("include_embeddings", "false").lower() == "true"
+    include_emb = request.args.get("include_embeddings", "true").lower() != "false"
 
     result = _build_analysis(memory_id, include_embeddings=include_emb)
     if result is None:
@@ -448,9 +449,10 @@ def _build_analysis(
             img_coll = get_collection("image_embeddings")
             img_data = img_coll.get(ids=[memory_id], include=["embeddings"])
             if img_data["ids"]:
+                vec = img_data["embeddings"][0]
                 result["embeddings"]["image"] = {
-                    "vector": img_data["embeddings"][0],
-                    "dimensions": len(img_data["embeddings"][0]),
+                    "vector": vec.tolist() if hasattr(vec, "tolist") else list(vec),
+                    "dimensions": len(vec),
                 }
         except Exception:
             pass
@@ -458,9 +460,10 @@ def _build_analysis(
             cap_coll = get_collection("caption_embeddings")
             cap_data = cap_coll.get(ids=[memory_id], include=["embeddings"])
             if cap_data["ids"]:
+                vec = cap_data["embeddings"][0]
                 result["embeddings"]["caption"] = {
-                    "vector": cap_data["embeddings"][0],
-                    "dimensions": len(cap_data["embeddings"][0]),
+                    "vector": vec.tolist() if hasattr(vec, "tolist") else list(vec),
+                    "dimensions": len(vec),
                 }
         except Exception:
             pass

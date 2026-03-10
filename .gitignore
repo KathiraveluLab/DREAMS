@@ -188,3 +188,20 @@ venv/
 # Federated Learning Models
 dreamsApp/app/models/production_chime_model/
 dreamsApp/app/models/temp_training_artifact/
+
+Other
+
+# --- DREAMS Analysis Pipeline ---
+analysis_pipeline/data/cache/
+analysis_pipeline/data/chromadb/
+analysis_pipeline/data/processed/
+analysis_pipeline/data/pipeline.db
+analysis_pipeline/data/raw/*.csv
+analysis_pipeline/data/raw/*.jsonl
+images/download_*.jpg
+
+# --- ML Experiments Outputs ---
+ml_experiments_anish/**/output/
+ml_experiments_anish/**/*.pkl
+ml_experiments_anish/**/*.png
+ml_experiments_anish/**/*.jpg
