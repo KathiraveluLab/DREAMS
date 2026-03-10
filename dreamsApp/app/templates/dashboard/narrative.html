@@ -69,7 +69,7 @@
     #narrative-graph svg {
         display: block;
         width: 100%;
-        height: 520px;
+        height: 600px;
     }
 
     /* ── Legend ── */
@@ -215,9 +215,9 @@
     }
 
     /* ── Legend swatches (one per emotion) ── */
-    .legend-swatch-positive { background: #66bb6a; }
-    .legend-swatch-negative { background: #ef5350; }
-    .legend-swatch-neutral  { background: #78909c; }
+    .legend-swatch-positive { background: #4dd0a1; }
+    .legend-swatch-negative { background: #ff6b6b; }
+    .legend-swatch-neutral  { background: #90a4ae; }
 
     /* ── Chart panel typography ── */
     .chart-title {
@@ -395,12 +395,12 @@
 
     // ── Colour Palette ──
     const EMOTION_COLORS = {
-        positive: "#66bb6a",
-        negative: "#ef5350",
-        neutral:  "#78909c",
+        positive: "#4dd0a1",
+        negative: "#ff6b6b",
+        neutral:  "#90a4ae",
     };
 
-    const fallbackColor = "#555";
+    const fallbackColor = "#666";
 
     function emotionColor(label) {
         return EMOTION_COLORS[(label || "").toLowerCase()] || fallbackColor;
@@ -453,7 +453,7 @@
         }
 
         const width  = container.clientWidth;
-        const height = 520;
+        const height = 600;
 
         // Build node data
         const nodes = nodeMetrics.map(n => ({
@@ -471,47 +471,98 @@
             source: e.source,
             target: e.target,
             relation: e.relation || "",
+            weight: Math.max(0, Math.min(1, Number(e.weight) || 0)),
         }));
 
         // Scale node radius by betweenness centrality
         const maxBC = d3.max(nodes, n => n.bc) || 1;
-        const rScale = d3.scaleLinear().domain([0, maxBC]).range([8, 28]);
+        const rScale = d3.scaleLinear().domain([0, maxBC]).range([10, 30]).clamp(true);
+
+        // O(1) node lookup by id for edge colouring
+        const nodeById = new Map(nodes.map(n => [n.id, n]));
 
         const svg = d3.select(container)
             .append("svg")
             .attr("viewBox", `0 0 ${width} ${height}`)
             .attr("preserveAspectRatio", "xMidYMid meet");
 
-        // Arrow marker
-        svg.append("defs").append("marker")
+        // SVG filters — drop shadow for nodes, glow for hover
+        const defs = svg.append("defs");
+
+        const dropShadow = defs.append("filter").attr("id", "drop-shadow").attr("x", "-40%").attr("y", "-40%").attr("width", "180%").attr("height", "180%");
+        dropShadow.append("feDropShadow").attr("dx", 0).attr("dy", 2).attr("stdDeviation", 3).attr("flood-color", "rgba(0,0,0,0.5)");
+
+        const glow = defs.append("filter").attr("id", "glow").attr("x", "-50%").attr("y", "-50%").attr("width", "200%").attr("height", "200%");
+        glow.append("feGaussianBlur").attr("stdDeviation", 4).attr("result", "blur");
+        glow.append("feMerge").selectAll("feMergeNode").data(["blur", "SourceGraphic"]).join("feMergeNode").attr("in", d => d);
+
+        // Arrow marker — sleek and small
+        defs.append("marker")
             .attr("id", "arrow")
-            .attr("viewBox", "0 -5 10 10")
-            .attr("refX", 20)
+            .attr("viewBox", "0 -4 8 8")
+            .attr("refX", 22)
             .attr("refY", 0)
-            .attr("markerWidth", 6)
-            .attr("markerHeight", 6)
+            .attr("markerWidth", 4)
+            .attr("markerHeight", 4)
             .attr("orient", "auto")
             .append("path")
-            .attr("d", "M0,-5L10,0L0,5")
+            .attr("d", "M0,-4L8,0L0,4")
+            .attr("fill", "#666");
+
+        // Subtle arrow for thin edges
+        defs.append("marker")
+            .attr("id", "arrow-light")
+            .attr("viewBox", "0 -3 6 6")
+            .attr("refX", 22)
+            .attr("refY", 0)
+            .attr("markerWidth", 3)
+            .attr("markerHeight", 3)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,-3L6,0L0,3")
             .attr("fill", "#555");
 
-        // Simulation
-        const simulation = d3.forceSimulation(nodes)
-            .force("link", d3.forceLink(links).id(d => d.id).distance(90))
-            .force("charge", d3.forceManyBody().strength(-250))
-            .force("center", d3.forceCenter(width / 2, height / 2))
-            .force("y", d3.forceY(height / 2).strength(0.06))
-            .force("x", d3.forceX(width / 2).strength(0.06))
-            .force("collision", d3.forceCollide().radius(d => rScale(d.bc) + 4));
+        // Simulation — spread nodes apart for clarity
+        const nCount = nodes.length;
+        const MIN_LINK_DISTANCE = 120;
+        const BASE_LINK_DISTANCE = 50;
+        const LINK_DISTANCE_PER_NODE = 8;
+        const MAX_CHARGE_STRENGTH = -300;
+        const BASE_CHARGE_STRENGTH = -150;
+        const CHARGE_PER_NODE = -15;
 
-        // Links
+        const linkDist = Math.max(MIN_LINK_DISTANCE, BASE_LINK_DISTANCE + nCount * LINK_DISTANCE_PER_NODE);   // adaptive spacing
+        const chargeStr = Math.min(MAX_CHARGE_STRENGTH, BASE_CHARGE_STRENGTH + nCount * CHARGE_PER_NODE); // stronger repulsion for more nodes
+
+        const simulation = d3.forceSimulation(nodes)
+            .force("link", d3.forceLink(links).id(d => d.id).distance(linkDist).strength(0.4))
+            .force("charge", d3.forceManyBody().strength(chargeStr).distanceMax(400))
+            .force("center", d3.forceCenter(width / 2, height / 2))
+            .force("y", d3.forceY(height / 2).strength(0.04))
+            .force("x", d3.forceX(width / 2).strength(0.04))
+            .force("collision", d3.forceCollide().radius(d => rScale(d.bc) + 12))
+            .velocityDecay(0.35)
+            .alphaDecay(0.02);
+
+        // Scale edge properties by weight
+        const wScale       = d3.scaleLinear().domain([0, 1]).range([0.6, 2.5]).clamp(true);  // stroke-width
+        const opacityScale = d3.scaleLinear().domain([0, 1]).range([0.25, 0.80]).clamp(true); // stroke-opacity
+
+        // Links — curved paths for a more organic look
         const link = svg.append("g")
-            .selectAll("line")
+            .selectAll("path")
             .data(links)
-            .join("line")
-            .attr("stroke", "#444")
-            .attr("stroke-width", 1.5)
-            .attr("marker-end", "url(#arrow)");
+            .join("path")
+            .attr("fill", "none")
+            .attr("stroke", d => {
+                // tint edge colour by source emotion (O(1) Map lookup)
+                const srcId = d.source.id != null ? d.source.id : d.source;
+                const src = nodeById.get(srcId);
+                return src ? emotionColor(src.label) + "55" : "#44445580";
+            })
+            .attr("stroke-width", d => wScale(d.weight))
+            .attr("stroke-opacity", d => opacityScale(d.weight))
+            .attr("marker-end", d => d.weight > 0.4 ? "url(#arrow)" : "url(#arrow-light)");
 
         // Nodes
         const node = svg.append("g")
@@ -520,22 +571,28 @@
             .join("circle")
             .attr("r", d => rScale(d.bc))
             .attr("fill", d => emotionColor(d.label))
-            .attr("stroke", "#222")
-            .attr("stroke-width", 2)
+            .attr("stroke", d => d3.color(emotionColor(d.label)).brighter(0.8))
+            .attr("stroke-width", 1.5)
+            .attr("filter", "url(#drop-shadow)")
             .style("cursor", "pointer")
-            .call(drag(simulation));
+            .style("transition", "filter 0.2s ease")
+            .call(drag(simulation))
+            .on("mouseenter", function () { d3.select(this).attr("filter", "url(#glow)").raise(); })
+            .on("mouseleave", function () { d3.select(this).attr("filter", "url(#drop-shadow)"); });
 
         // Node index labels
-        svg.append("g")
+        const labels = svg.append("g")
             .selectAll("text")
             .data(nodes)
             .join("text")
             .text(d => d.id)
-            .attr("font-size", 10)
+            .attr("font-size", d => Math.max(10, rScale(d.bc) * 0.65))
+            .attr("font-weight", 600)
             .attr("fill", "#fff")
             .attr("text-anchor", "middle")
-            .attr("dy", 4)
-            .style("pointer-events", "none");
+            .attr("dy", ".35em")
+            .style("pointer-events", "none")
+            .style("text-shadow", "0 1px 3px rgba(0,0,0,0.7)");
 
         // Tooltip
         const tooltip = d3.select("body").append("div").attr("class", "graph-tooltip").style("display", "none");
@@ -560,21 +617,25 @@
             })
             .on("mouseout", () => tooltip.style("display", "none"));
 
+        // Curved-link path generator
+        function linkArc(d) {
+            const dx = d.target.x - d.source.x;
+            const dy = d.target.y - d.source.y;
+            const dr = Math.sqrt(dx * dx + dy * dy) * 1.6;  // arc radius
+            return `M${d.source.x},${d.source.y}A${dr},${dr} 0 0,1 ${d.target.x},${d.target.y}`;
+        }
+
         // Tick update
         simulation.on("tick", () => {
-            link
-                .attr("x1", d => d.source.x)
-                .attr("y1", d => d.source.y)
-                .attr("x2", d => d.target.x)
-                .attr("y2", d => d.target.y);
+            link.attr("d", linkArc);
 
             node
                 .attr("cx", d => d.x = clamp(d.x, 30, width - 30))
                 .attr("cy", d => d.y = clamp(d.y, 30, height - 30));
 
-            svg.selectAll("text")
-                .attr("x", (d, i) => nodes[i] ? nodes[i].x : 0)
-                .attr("y", (d, i) => nodes[i] ? nodes[i].y : 0);
+            labels
+                .attr("x", d => d.x)
+                .attr("y", d => d.y);
         });
 
         function drag(sim) {

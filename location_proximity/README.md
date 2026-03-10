@@ -84,13 +84,21 @@ This work extends these foundations by formalizing multi-dimensional proximity f
 ## Components
 
 ### `location_extractor.py`
-Extract GPS coordinates from image EXIF data.
+Extract GPS coordinates, reverse-geocode via OSM Nominatim, and generate
+a 384-dim semantic embedding (all-MiniLM-L6-v2).
 
 ```python
-from location_extractor import extract_location_from_image
+from dreamsApp.app.utils.location_extractor import extract_gps_from_image, enrich_location
 
-location = extract_location_from_image("photo.jpg")
-# Returns: {'lat': 61.2181, 'lon': -149.9003, 'timestamp': '2024:01:15 10:30:00'}
+gps = extract_gps_from_image("photo.jpg")
+# Returns: {'lat': 61.2181, 'lon': -149.9003, 'timestamp': '2024-01-15T10:30:00+00:00'}
+
+enrichment = enrich_location(gps['lat'], gps['lon'])
+# Returns: {'location_text': 'place of worship amenity St. Mary\'s Church',
+#           'location_embedding': [0.023, -0.114, ...],  # 384-dim
+#           'display_name': 'St. Mary\'s Church, Main St, Anchorage, AK',
+#           'place_category': 'place_of_worship', 'place_type': 'amenity',
+#           'address': {'road': 'Main St', 'city': 'Anchorage', ...}}
 ```
 
 ### `proximity_calculator.py`
@@ -200,29 +208,26 @@ score = composite_proximity(place1, place2, weights=weights)
 
 ## Integration with DREAMS
 
-### Extend Post Schema
+### Extend Post Schema (Implemented)
 
 ```python
 # In dreamsApp/app/ingestion/routes.py
-from location_proximity.location_extractor import extract_location_from_image
-from location_proximity.proximity_calculator import Place
+from ..utils.location_extractor import extract_gps_from_image, enrich_location
 
 @bp.route('/upload', methods=['POST'])
 def upload_post():
     # ... existing code ...
     
-    # Extract location
-    location = extract_location_from_image(image_path)
+    gps_data = extract_gps_from_image(image_path)
+    if gps_data:
+        enrichment = enrich_location(gps_data['lat'], gps_data['lon'], model=model)
+        if enrichment:
+            gps_data.update(enrichment)
     
-    if location:
-        post_doc['location'] = {
-            'lat': location['lat'],
-            'lon': location['lon'],
-            'place_type': None,  # To be enriched via API
-            'language': None
-        }
-    
-    # ... rest of code ...
+    post_doc = {
+        # ... other fields ...
+        'location': gps_data,  # includes coords + place metadata + embedding
+    }
 ```
 
 ### Add Location Analysis Route
@@ -270,7 +275,7 @@ pip install -r ../requirements.txt
 
 ## Future Enhancements
 
-- [ ] Google Places API integration for place enrichment
+- [x] Place enrichment via OSM Nominatim reverse geocoding + semantic embedding
 - [ ] Real-time location clustering as data arrives
 - [ ] Interactive map visualization (Folium)
 - [ ] Temporal-spatial pattern mining

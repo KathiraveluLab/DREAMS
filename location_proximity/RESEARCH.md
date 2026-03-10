@@ -226,7 +226,7 @@ EmotionLocationEntry = {
 - Limited to documented locations (selection bias)
 
 ### 6.2 Future Directions
-1. **Automated Place Enrichment**: Google Places API integration
+1. **~~Automated Place Enrichment~~**: Implemented via OSM Nominatim reverse geocoding
 2. **Image-Based Place Recognition**: CNN for place type classification
 3. **Temporal-Spatial Modeling**: Time-series analysis of location patterns
 4. **Cross-User Analysis**: Population-level place-emotion patterns

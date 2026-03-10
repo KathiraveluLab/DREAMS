@@ -5,7 +5,12 @@ from datetime import timedelta
 from typing import Tuple, List, Dict, Any, Optional
 
 from .emotion_episode import Episode
-from .episode_proximity import ProximityRelation, classify_episode_proximity
+from .episode_proximity import (
+    ProximityRelation,
+    classify_episode_proximity,
+    compute_temporal_gap,
+    compute_temporal_overlap,
+)
 
 
 __all__ = [
@@ -20,6 +25,7 @@ class NarrativeEdge:
     source_index: int
     target_index: int
     relation: ProximityRelation
+    weight: float = 1.0
     
     def __post_init__(self) -> None:
         if self.source_index < 0 or self.target_index < 0:
@@ -32,12 +38,17 @@ class NarrativeEdge:
                 f"source_index must be less than target_index for canonical ordering: "
                 f"{self.source_index} >= {self.target_index}"
             )
+        if not (0.0 <= self.weight <= 1.0):
+            raise ValueError(
+                f"weight must be between 0.0 and 1.0, got {self.weight}"
+            )
     
     def to_dict(self) -> Dict[str, Any]:
         return {
             'source_index': self.source_index,
             'target_index': self.target_index,
             'relation': self.relation.value,
+            'weight': self.weight,
         }
 
 
@@ -86,6 +97,7 @@ class TemporalNarrativeGraph:
         Edge attributes:
             - relation: str — the ProximityRelation.value
               ('overlapping', 'adjacent', 'disjoint').
+            - weight: float — connection strength (0.0–1.0).
 
         Returns:
             networkx.DiGraph
@@ -117,6 +129,7 @@ class TemporalNarrativeGraph:
                 edge.source_index,
                 edge.target_index,
                 relation=edge.relation.value,
+                weight=edge.weight,
             )
         
         return G
@@ -172,10 +185,14 @@ def build_narrative_graph(
             )
             
             if relation != ProximityRelation.DISJOINT or include_disjoint_edges:
+                weight = _compute_edge_weight(
+                    nodes[i], nodes[j], relation, adjacency_threshold
+                )
                 edge = NarrativeEdge(
                     source_index=i,
                     target_index=j,
-                    relation=relation
+                    relation=relation,
+                    weight=weight,
                 )
                 edges.append(edge)
     
@@ -184,3 +201,34 @@ def build_narrative_graph(
         edges=tuple(edges),
         adjacency_threshold=adjacency_threshold
     )
+
+
+def _compute_edge_weight(
+    ep_a: Episode,
+    ep_b: Episode,
+    relation: ProximityRelation,
+    adjacency_threshold: timedelta,
+) -> float:
+    """Compute a 0.0–1.0 connection-strength weight for an edge.
+
+    - **Overlapping** episodes get weight 1.0 (strongest possible link).
+    - **Adjacent** episodes are scored as ``1 - gap / threshold``, giving
+      1.0 for touching episodes and approaching 0.0 as the gap nears the
+      threshold.
+    - **Disjoint** edges (only present when *include_disjoint_edges* is
+      True) always receive 0.0.
+    """
+    if relation == ProximityRelation.OVERLAPPING:
+        return 1.0
+
+    if relation == ProximityRelation.DISJOINT:
+        return 0.0
+
+    # Adjacent — weight decreases linearly with the gap.
+    threshold_secs = adjacency_threshold.total_seconds()
+    if threshold_secs == 0:
+        # Zero threshold means only touching episodes qualify; gap is 0.
+        return 1.0
+
+    gap_secs = compute_temporal_gap(ep_a, ep_b)
+    return max(0.0, 1.0 - gap_secs / threshold_secs)

@@ -128,6 +128,7 @@ Edge creation rule:
 - For every pair of episodes (i, j) where i < j
 - Classify their temporal relationship using `adjacency_threshold`
 - If they overlap or are adjacent (gap ≤ threshold) → create an edge
+- Assign a **weight** (0.0–1.0) reflecting connection strength
 
 The `adjacency_threshold` controls how far apart two episodes can be and still get connected.
 
@@ -137,10 +138,22 @@ The `adjacency_threshold` controls how far apart two episodes can be and still g
 
 Edge types (from `ProximityRelation`):
 | Relation | Meaning |
-|----------|---------|
+|----------|--------|
 | `overlapping` | The episodes overlap in time |
 | `adjacent` | The gap between them is ≤ adjacency_threshold |
 | `disjoint` | The gap is > adjacency_threshold (edge NOT created by default) |
+
+#### Edge Weights
+
+Each edge carries a `weight` field (0.0–1.0) that quantifies connection strength based on temporal proximity:
+
+| Relation | Weight Formula | Intuition |
+|----------|---------------|----------|
+| `overlapping` | Always `1.0` | Simultaneous episodes are maximally connected |
+| `adjacent` | `1.0 − gap / threshold` | Linearly decreases as the gap grows; touching episodes get 1.0, episodes at the threshold get 0.0 |
+| `disjoint` | Always `0.0` | No meaningful temporal connection |
+
+The weight is computed by `_compute_edge_weight()` and validated to stay within `[0.0, 1.0]`.
 
 The graph is always a **DAG** (directed acyclic graph) because edges only go from lower-index to higher-index episodes (earlier → later in time).
 
@@ -165,7 +178,7 @@ Converts the `TemporalNarrativeGraph` to a networkx `DiGraph` via `to_networkx()
 | `degree_centrality` | Fraction of other nodes this episode is connected to |
 | `in_degree_centrality` | How many earlier episodes connect to this one |
 | `out_degree_centrality` | How many later episodes this one connects to |
-| `betweenness_centrality` | How often this episode lies on shortest paths between others (higher = more of a "bridge") |
+| `betweenness_centrality` | How often this episode lies on shortest paths between others (weighted — shorter temporal gaps count as shorter paths) |
 | `emotion_label` | Dominant emotion label across the episode's events |
 | `event_count` | Number of posts in this episode |
 
@@ -186,9 +199,12 @@ The raw directed edge list is also returned so the frontend can render the exact
 {
     "source": 3,
     "target": 4,
-    "relation": "adjacent"
+    "relation": "adjacent",
+    "weight": 0.7143
 }
 ```
+
+The `weight` field (0.0–1.0) is rounded to 4 decimal places. It is used by both `betweenness_centrality` computation and the D3 visualization.
 
 ---
 
@@ -232,7 +248,8 @@ result = analyze_narrative_graph(narrative_graph)
         {
             "source": 0,
             "target": 1,
-            "relation": "adjacent"
+            "relation": "adjacent",
+            "weight": 0.8571
         }
     ],
     "pattern_analysis": {
@@ -319,11 +336,17 @@ Four cards showing at-a-glance metrics:
 
 #### 2. Interactive Force-Directed Graph (D3.js v7)
 - Each **node** = one episode
-- **Node color**: green (positive), red (negative), grey (neutral)
+- **Node color**: teal-green (positive), coral-red (negative), blue-grey (neutral)
 - **Node size**: proportional to betweenness centrality (bigger = more important as a bridge)
-- **Edges**: directed arrows showing temporal flow
+- **Node effects**: drop shadow for depth; glow effect on hover; stroke color derived from emotion
+- **Edges**: curved arc paths with directed arrows showing temporal flow
+- **Edge thickness**: proportional to edge weight (stronger temporal connection = thicker line, 0.6–2.5px)
+- **Edge opacity**: proportional to edge weight (0.25–0.80)
+- **Edge color**: tinted by source node's emotion color
+- **Arrow markers**: sleek small arrows; lighter variant for low-weight edges (≤ 0.4)
 - **Draggable** nodes — user can rearrange the layout
 - **Hover tooltips**: episode index, emotion, event count, timestamps, centrality values
+- **Adaptive layout**: link distance and charge repulsion scale with node count for consistent spacing
 
 #### 3. Centrality Bar Chart (Chart.js 4)
 - Horizontal bar chart showing betweenness centrality per episode
@@ -347,7 +370,9 @@ Four cards showing at-a-glance metrics:
 - Page loads with a spinner, then fetches from `/api/analytics/graph-metrics/<user_id>` via `fetch()`
 - All rendering is **client-side** (D3 + Chart.js) — no matplotlib blocking
 - Uses CDN-loaded libraries (no local static files needed)
-- Dark theme matching the rest of the dashboard
+- Dark theme with radial gradient background for the graph container
+- SVG filters (`feDropShadow`, `feGaussianBlur`) for node depth and hover glow
+- D3 force simulation uses adaptive parameters: `velocityDecay(0.35)`, `alphaDecay(0.02)` for smooth settling
 
 ---
 
@@ -401,7 +426,8 @@ These are currently hardcoded but can be made configurable via `app.config` in t
 ### Tests
 | File | Test Count | Scope |
 |------|-----------|-------|
-| `tests/test_graph_analysis.py` | 32 | Unit tests for all metric computations + edges + to_networkx() |
+| `tests/test_graph_analysis.py` | 33 | Unit tests for all metric computations + edges + weighted edges + to_networkx() |
+| `tests/test_temporal_narrative_graph.py` | 41 | Unit tests for episodes, proximity, narrative edges, edge weights, graph construction |
 | `tests/test_graph_metrics_api.py` | 9 | Integration tests for API endpoint + dashboard route |
 
 ---
@@ -420,13 +446,22 @@ python -m pytest tests/test_graph_analysis.py tests/test_graph_metrics_api.py te
 
 ### Test coverage breakdown
 
-**Unit tests (`test_graph_analysis.py` — 32 tests):**
+**Unit tests (`test_graph_analysis.py` — 33 tests):**
 - Input validation (TypeError on wrong types, empty graph returns zeroed response)
 - Graph summary accuracy (density, components, edge count)
 - Node metrics (centrality values, emotion label derivation, ISO timestamp format)
 - Pattern analysis (transition sorting, cycle detection, label distribution)
-- Edge response (count matches summary, correct structure, DAG ordering)
-- `to_networkx()` (node/edge counts, attributes, empty graph handling)
+- Edge response (count matches summary, correct structure with weight field, DAG ordering)
+- `to_networkx()` (node/edge counts, attributes, edge weight propagation, empty graph handling)
+
+**Unit tests (`test_temporal_narrative_graph.py` — 41 tests):**
+- Episode immutability and temporal invariants
+- Episode segmentation (empty, single, gap-based splitting)
+- Episode proximity (overlap, gap, adjacency classification)
+- NarrativeEdge validation (ordering, index bounds, weight range 0.0–1.0)
+- Edge weight computation (overlapping→1.0, touching→1.0, gap decay, disjoint→0.0)
+- Graph construction (deterministic, immutable, node/edge queries)
+- Weight serialization in `to_dict()`
 
 **Integration tests (`test_graph_metrics_api.py` — 9 tests):**
 - 404 for missing user
@@ -463,6 +498,8 @@ python -m pytest tests/test_graph_analysis.py tests/test_graph_metrics_api.py te
 
 6. **Computation is O(N²)** — The `build_narrative_graph` function checks all pairs of episodes. For users with hundreds of episodes, this becomes slow. Currently fine for typical usage (10–50 posts).
 
+7. **Weights are purely temporal** — Edge weights are based solely on time-gap proximity. Semantic similarity between episode content is not yet factored in. A future "temporo-semantic" model could combine temporal weight with text embedding cosine similarity for richer connections.
+
 ---
 
 ## Future Roadmap
@@ -476,4 +513,5 @@ python -m pytest tests/test_graph_analysis.py tests/test_graph_metrics_api.py te
 | **Phase 3** | Alert system for negative cycles | Flag users stuck in recurring negative loops |
 | **Phase 3** | Graph metrics as ML features | Feed centrality/density into predictive models |
 | **Phase 3** | CHIME-dimension integration | Use CHIME labels instead of just positive/negative/neutral for richer analysis |
+| **Phase 3** | Semantic similarity edges | Combine temporal proximity with text embedding cosine similarity for temporo-semantic edge weights |
 | **Phase 4** | Research data export (CSV/GraphML) | Researchers can download graph data for external analysis and papers |

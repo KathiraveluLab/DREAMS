@@ -106,6 +106,7 @@ def _compute_edges(G: nx.DiGraph) -> List[Dict[str, Any]]:
             "source": u,
             "target": v,
             "relation": attrs.get("relation", ""),
+            "weight": round(attrs.get("weight", 1.0), 4),
         })
     return edges
 
@@ -127,7 +128,7 @@ def _compute_node_metrics(G: nx.DiGraph) -> List[Dict[str, Any]]:
     degree_cent = nx.degree_centrality(G)
     in_degree_cent = nx.in_degree_centrality(G)
     out_degree_cent = nx.out_degree_centrality(G)
-    betweenness_cent = nx.betweenness_centrality(G)
+    betweenness_cent = nx.betweenness_centrality(G, weight='weight')
 
     metrics: List[Dict[str, Any]] = []
     for i in sorted(G.nodes()):

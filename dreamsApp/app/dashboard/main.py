@@ -212,6 +212,11 @@ def narrative(target):
     """Render the Narrative Structure Analysis visualization page."""
     return render_template('dashboard/narrative.html', user_id=target)
 
+@bp.route('/user/<string:target>/cluster_analysis', methods=['GET'])
+@login_required
+def cluster_analysis(target):
+    """Render the Cluster Analysis visualization page."""
+    return render_template('dashboard/cluster_analysis.html', user_id=target)
 
 @bp.route('/clusters/<user_id>')
 @login_required

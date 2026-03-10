@@ -44,18 +44,13 @@ Dreams
 │                      (Your Contribution)                       │
 │                                                                │
 │  ┌──────────────────────────────────────────────────────────┐  │
-│  │  1. Location Extractor                                   │  │
+│  │  1. Location Extractor + Enrichment                      │  │
 │  │     Input: Image file                                    │  │
-│  │     Output: {lat, lon, timestamp}                        │  │ 
-│  │     Tech: Pillow EXIF parsing                            │  │
-│  └──────────────────────────────────────────────────────────┘  │
-│                              │                                 │
-│                              ▼                                 │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │  2. Place Enrichment (Optional - Future)                 │  │
-│  │     Input: {lat, lon}                                    │  │
-│  │     Output: {place_type, name, language, cultural_tags}  │  │
-│  │     Tech: Google Places API / Nominatim                  │  │
+│  │     Output: {lat, lon, timestamp, place_category,        │  │
+│  │              display_name, location_text,                 │  │
+│  │              location_embedding (384-dim)}                │  │
+│  │     Tech: Pillow EXIF + OSM Nominatim +                  │  │
+│  │           all-MiniLM-L6-v2                                │  │
 │  └──────────────────────────────────────────────────────────┘  │
 │                              │                                 │
 │                              ▼                                 │
@@ -112,7 +107,10 @@ Dreams
 │  │  • posts: {                                               │  │
 │  │      user_id, caption, timestamp, image_path,             │  │
 │  │      sentiment: {label, score},                           │  │
-│  │      location: {lat, lon, place_type, language}           │  │
+│  │      location: {lat, lon, timestamp,                      │  │
+│  │        display_name, place_category, place_type,          │  │
+│  │        address: {road, city, state, country},             │  │
+│  │        location_text, location_embedding [384-dim]}       │  │
 │  │    }                                                      │  │
 │  │                                                           │  │
 │  │  • keywords: {                                            │  │
@@ -258,9 +256,9 @@ graph TD
 ### 1. Photo Ingestion Integration
 
 **`dreamsApp/app/ingestion/routes.py`**
-- Extract EXIF data from uploaded photos
-- Call `location_proximity.location_extractor`
-- Store location data in post schema
+- Extract EXIF GPS via `extract_gps_from_image()`
+- Enrich with reverse geocoding + semantic embedding via `enrich_location()`
+- Store enriched location data (coords + place metadata + 384-dim embedding) in post schema
 
 ### 2. Dashboard Integration
 
@@ -328,7 +326,8 @@ graph TD
 
 ### External Dependencies
 - **Image Processing**: Pillow (EXIF extraction)
-- **ML Models**: Hugging Face Transformers
+- **ML Models**: Hugging Face Transformers, sentence-transformers
+- **Geocoding**: OSM Nominatim (via requests)
 - **Geospatial**: Haversine distance calculations
 - **Clustering**: DBSCAN implementation
 

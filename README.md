@@ -57,21 +57,29 @@ DREAMS/
  
 ## Installation and Setup
 
+### Clone the repository
 ```bash
-# 1. Clone the repository
 git clone https://github.com/KathiraveluLab/DREAMS.git
 cd DREAMS
+```
 
-# 2. (Optional but recommended) Create and activate a virtual environment
+### (Optional but recommended) Create and activate a virtual environment
+```bash
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+```
 
-# 3. Install the required dependencies
+### Install the required dependencies
+```bash
 pip install -r requirements.txt
+```
 
-# 4. Run tests to verify everything is working
+### Run tests to verify everything is working
+```bash
 pytest
+```
 
-# 5. Start the Flask server in debug mode
+### Start the Flask server in debug mode
+```bash
 flask --app "dreamsApp.app:create_app()" run --debug
 ```

@@ -13,7 +13,7 @@ A new module for DREAMS that analyzes **multi-dimensional location proximity** t
 ```
 DREAMS/location_proximity/
 ├── __init__.py
-├── location_extractor.py          # Extract GPS from images
+├── location_extractor.py          # Extract GPS + reverse geocode + semantic embedding
 ├── proximity_calculator.py        # Multi-dimensional proximity
 ├── emotion_location_mapper.py     # Emotion-location patterns
 ├── semantic_clustering.py         # Cluster similar places
@@ -131,15 +131,16 @@ for hospital in hospitals:
 
 ### Extend Post Schema
 ```python
-# Add to dreamsApp/app/ingestion/routes.py
-from location_proximity.location_extractor import extract_location_from_image
+# Already integrated in dreamsApp/app/ingestion/routes.py
+from ..utils.location_extractor import extract_gps_from_image, enrich_location
 
-location = extract_location_from_image(image_path)
-if location:
-    post_doc['location'] = {
-        'lat': location['lat'],
-        'lon': location['lon']
-    }
+gps_data = extract_gps_from_image(image_path)
+if gps_data:
+    enrichment = enrich_location(gps_data['lat'], gps_data['lon'], model=model)
+    if enrichment:
+        gps_data.update(enrichment)
+# gps_data now contains: lat, lon, timestamp, display_name,
+# place_category, place_type, address, location_text, location_embedding
 ```
 
 ### Add Dashboard Route

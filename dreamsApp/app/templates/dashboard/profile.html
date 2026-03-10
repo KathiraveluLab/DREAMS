@@ -128,18 +128,34 @@
 
 <div class="container">
 
-    <!-- Narrative Structure Analysis Link -->
+    <!-- Analysis Links -->
     <section class="narrative-link-section">
-        <a href="{{ url_for('dashboard.narrative', target=user_id) }}" class="narrative-link-card">
-            <div class="d-flex align-items-center">
-                <div class="nlc-icon"><i class="fa-solid fa-diagram-project"></i></div>
-                <div>
-                    <div class="nlc-title">Narrative Structure Analysis</div>
-                    <div class="nlc-desc">Interactive graph showing emotional episode connections, centrality, and transition patterns</div>
-                </div>
+        <div class="row g-4">
+            <div class="col-md-6">
+                <a href="{{ url_for('dashboard.narrative', target=user_id) }}" class="narrative-link-card h-100">
+                    <div class="d-flex align-items-center">
+                        <div class="nlc-icon"><i class="fa-solid fa-diagram-project"></i></div>
+                        <div>
+                            <div class="nlc-title">Narrative Structure Analysis</div>
+                            <div class="nlc-desc">Interactive graph showing emotional episode connections, centrality, and transition patterns</div>
+                        </div>
+                    </div>
+                    <div class="nlc-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                </a>
             </div>
-            <div class="nlc-arrow"><i class="fa-solid fa-arrow-right"></i></div>
-        </a>
+            <div class="col-md-6">
+                <a href="{{ url_for('dashboard.cluster_analysis', target=user_id) }}" class="narrative-link-card h-100">
+                    <div class="d-flex align-items-center">
+                        <div class="nlc-icon"><i class="fa-solid fa-object-group"></i></div>
+                        <div>
+                            <div class="nlc-title">Cluster Analysis</div>
+                            <div class="nlc-desc">Multimodal semantic themes and density-based groupings from visual and emotional data</div>
+                        </div>
+                    </div>
+                    <div class="nlc-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                </a>
+            </div>
+        </div>
     </section>
 
     <!-- Sentiment Trend -->
