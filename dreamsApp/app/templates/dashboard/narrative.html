@@ -176,7 +176,7 @@
 
     <!-- Header -->
     <section class="section text-center">
-        <h2 class="section-title">📊 Temporal Narrative Analysis</h2>
+        <h2 class="section-title">Temporal Narrative Analysis</h2>
         <p class="section-description">
             Explore emotional episodes and their relationships over time for user: <strong>{{ user_id }}</strong>
         </p>
@@ -238,8 +238,8 @@
 
     <!-- Controls -->
     <section class="section text-center">
-        <button class="btn-refresh" onclick="refreshData()">🔄 Refresh Analysis</button>
-        <button class="btn-refresh" onclick="invalidateCache()" style="background: linear-gradient(135deg, #d94a4a 0%, #bd3535 100%);">🗑️ Clear Cache</button>
+        <button class="btn-refresh" onclick="refreshData()">Refresh Analysis</button>
+        <button class="btn-refresh" onclick="invalidateCache()" style="background: linear-gradient(135deg, #d94a4a 0%, #bd3535 100%);">Clear Cache</button>
     </section>
 
 </div>
@@ -270,7 +270,7 @@
 
             document.getElementById('stat-episodes').textContent = payload.node_count;
             document.getElementById('stat-edges').textContent = payload.edge_count;
-            document.getElementById('stat-cached').textContent = '✓';
+            document.getElementById('stat-cached').textContent = 'Yes';
             document.getElementById('graph-fingerprint').textContent = `Graph ID: ${payload.graph_id}`;
 
             // Render graph

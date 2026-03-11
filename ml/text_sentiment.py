@@ -86,7 +86,7 @@ def _load_pipeline():
         return _sentiment_pipeline
     except Exception as e:
         _pipeline_error = str(e)
-        print(f"⚠️  Text sentiment pipeline not available: {e}. Using keyword fallback.")
+        print(f"WARNING: Text sentiment pipeline not available: {e}. Using keyword fallback.")
         return None
 
 
