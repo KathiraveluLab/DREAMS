@@ -6,7 +6,6 @@ Covers:
 - get_pending_ids   — only returns records without a 'done' state
 - mark_record_done  — updates processing_state correctly
 - mark_record_error — records error message and status
-- get_cached_geocode / set_cached_geocode — round-trip caching
 """
 
 import pytest
@@ -16,8 +15,6 @@ from analysis_pipeline.db import (
     get_pending_ids,
     mark_record_done,
     mark_record_error,
-    get_cached_geocode,
-    set_cached_geocode,
 )
 from analysis_pipeline.utils import make_memory_id
 
@@ -48,7 +45,6 @@ class TestInitDb:
             assert "processing_state" in tables
             assert "emotion_scores" in tables
             assert "temporal_features" in tables
-            assert "location_info" in tables
         finally:
             conn.close()
 
@@ -131,31 +127,11 @@ class TestMarkRecordError:
     def test_sets_status_error(self, db_conn):
         mid = make_memory_id("u1", "m_err.jpg")
         _insert_memory(db_conn, mid)
-        mark_record_error(mid, "location", "HTTP 429", db_conn)
+        mark_record_error(mid, "emotions", "Model failed", db_conn)
         db_conn.commit()
         row = db_conn.execute(
-            "SELECT status, error_msg FROM processing_state WHERE memory_id=? AND step_name='location'",
+            "SELECT status, error_msg FROM processing_state WHERE memory_id=? AND step_name='emotions'",
             (mid,),
         ).fetchone()
         assert row["status"] == "error"
-        assert "429" in row["error_msg"]
-
-
-# ── Geocode cache ─────────────────────────────────────────────────────────────
-
-class TestGeocodeCache:
-    def test_round_trip(self):
-        payload = {"display_name": "London", "place_type": "city"}
-        set_cached_geocode(51.5074, -0.1278, payload)
-        result = get_cached_geocode(51.5074, -0.1278)
-        assert result == payload
-
-    def test_cache_miss_returns_none(self):
-        assert get_cached_geocode(0.0, 0.0) is None
-
-    def test_coordinates_rounded_to_4dp(self):
-        payload = {"display_name": "Paris"}
-        set_cached_geocode(48.8566123, 2.3522456, payload)
-        # Slightly different coords that round to same 4dp bucket
-        result = get_cached_geocode(48.8566099, 2.3522499)
-        assert result == payload
+        assert "Model failed" in row["error_msg"]

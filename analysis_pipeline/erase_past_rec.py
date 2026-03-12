@@ -18,9 +18,6 @@ TARGETS = [
     # SQLite database (all jobs, memories, processing state)
     PIPELINE / "data" / "pipeline.db",
 
-    # Geocode cache
-    PIPELINE / "data" / "cache" / "geocode_cache.db",
-
     # ChromaDB vector store (all embeddings)
     PIPELINE / "data" / "chromadb",
 

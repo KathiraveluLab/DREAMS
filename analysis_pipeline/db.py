@@ -1,19 +1,17 @@
 """
 Database helpers for SQLite (structured data) and ChromaDB (vector store).
 
-Key improvement over prior pipeline: per-record processing state tracking,
-geocode response caching, and duplicate detection via perceptual hashing.
+Key improvement over prior pipeline: per-record processing state tracking
+and duplicate detection via perceptual hashing.
 """
 
 import sqlite3
-import json
 from pathlib import Path
-from contextlib import contextmanager
 from datetime import datetime, timezone
 
 import chromadb
 
-from .config import SQLITE_DB_PATH, CHROMA_DB_DIR, GEOCODE_CACHE_PATH
+from .config import SQLITE_DB_PATH, CHROMA_DB_DIR
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
 # ║  SQLite                                                                      ║
@@ -28,8 +26,6 @@ CREATE TABLE IF NOT EXISTS memories (
     category        TEXT,
     caption         TEXT,
     generated_caption TEXT,
-    latitude        REAL,
-    longitude       REAL,
     captured_at     TEXT,
     imported_at     TEXT NOT NULL DEFAULT (datetime('now')),
     perceptual_hash TEXT,
@@ -98,21 +94,6 @@ CREATE TABLE IF NOT EXISTS temporal_features (
     FOREIGN KEY (memory_id) REFERENCES memories(memory_id)
 );
 
--- Location metadata (from reverse geocoding)
-CREATE TABLE IF NOT EXISTS location_info (
-    memory_id       TEXT PRIMARY KEY,
-    display_name    TEXT,
-    place_type      TEXT,          -- raw OSM type (e.g. "church", "post_box")
-    place_category  TEXT,          -- broader DREAMS category (e.g. "faith_space")
-                                   -- NULL when place_type is meaningless/generic
-    address_road    TEXT,
-    address_city    TEXT,
-    address_state   TEXT,
-    address_country TEXT,
-    raw_response    TEXT,          -- full geocode JSON for future use
-    FOREIGN KEY (memory_id) REFERENCES memories(memory_id)
-);
-
 -- Pipeline run log
 CREATE TABLE IF NOT EXISTS pipeline_runs (
     run_id      TEXT NOT NULL,
@@ -124,8 +105,9 @@ CREATE TABLE IF NOT EXISTS pipeline_runs (
     finished_at TEXT,
     PRIMARY KEY (run_id, step_name)
 );
+"""
 
--- Master manifest view
+_MASTER_MANIFEST_VIEW_SQL = """
 CREATE VIEW IF NOT EXISTS master_manifest AS
 SELECT
     m.memory_id,
@@ -134,8 +116,6 @@ SELECT
     m.category,
     m.caption,
     m.generated_caption,
-    m.latitude,
-    m.longitude,
     m.captured_at,
     m.is_duplicate,
     e.dominant_emotion,
@@ -148,26 +128,28 @@ SELECT
     t.season,
     t.sin_hour,
     t.cos_hour,
-    t.relative_day,
-    l.display_name,
-    l.place_type,
-    l.place_category
+    t.relative_day
 FROM memories m
 LEFT JOIN emotion_scores  e ON m.memory_id = e.memory_id
 LEFT JOIN temporal_features t ON m.memory_id = t.memory_id
-LEFT JOIN location_info   l ON m.memory_id = l.memory_id
 WHERE m.is_duplicate = 0;
 """
 
-# ── Geocode cache schema ─────────────────────────────────────────────────────
-_GEOCODE_CACHE_SCHEMA = """
-CREATE TABLE IF NOT EXISTS geocode_cache (
-    lat_round   REAL NOT NULL,
-    lon_round   REAL NOT NULL,
-    response    TEXT NOT NULL,
-    cached_at   TEXT NOT NULL DEFAULT (datetime('now')),
-    PRIMARY KEY (lat_round, lon_round)
-);
+_MEMORIES_TABLE_SQL_TEMPLATE = """
+CREATE TABLE IF NOT EXISTS {table_name} (
+    memory_id       TEXT PRIMARY KEY,
+    user_id         TEXT NOT NULL,
+    image_path      TEXT,
+    category        TEXT,
+    caption         TEXT,
+    generated_caption TEXT,
+    captured_at     TEXT,
+    imported_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    perceptual_hash TEXT,
+    is_duplicate    INTEGER NOT NULL DEFAULT 0,
+    duplicate_of    TEXT,
+    FOREIGN KEY (duplicate_of) REFERENCES memories(memory_id)
+)
 """
 
 
@@ -181,60 +163,48 @@ def get_db(db_path: Path | None = None) -> sqlite3.Connection:
     return conn
 
 
+def _migrate_memories_drop_coordinate_columns(conn: sqlite3.Connection) -> None:
+    """Rebuild the memories table if legacy coordinate columns are still present."""
+    columns = {
+        row[1]
+        for row in conn.execute("PRAGMA table_info(memories)").fetchall()
+    }
+    if "latitude" not in columns and "longitude" not in columns:
+        return
+
+    conn.execute("PRAGMA foreign_keys=OFF")
+    conn.execute("DROP TABLE IF EXISTS memories_new")
+    conn.execute(_MEMORIES_TABLE_SQL_TEMPLATE.format(table_name="memories_new"))
+    conn.execute(
+        """
+        INSERT INTO memories_new (
+            memory_id, user_id, image_path, category, caption,
+            generated_caption, captured_at, imported_at,
+            perceptual_hash, is_duplicate, duplicate_of
+        )
+        SELECT
+            memory_id, user_id, image_path, category, caption,
+            generated_caption, captured_at, imported_at,
+            perceptual_hash, is_duplicate, duplicate_of
+        FROM memories
+        """
+    )
+    conn.execute("DROP TABLE memories")
+    conn.execute("ALTER TABLE memories_new RENAME TO memories")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_memories_user ON memories(user_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_memories_phash ON memories(perceptual_hash)")
+    conn.execute("PRAGMA foreign_keys=ON")
+
+
 def init_db() -> None:
     """Create all tables, indices, and views."""
     with get_db() as conn:
+        conn.execute("DROP VIEW IF EXISTS master_manifest")
+        conn.execute("DROP TABLE IF EXISTS location_info")
         conn.executescript(_SCHEMA_SQL)
-        # ── Schema migrations (idempotent for existing databases) ─────────────
-        # Add place_category column if it does not yet exist.
-        existing_cols = {
-            row[1]
-            for row in conn.execute("PRAGMA table_info(location_info)").fetchall()
-        }
-        if "place_category" not in existing_cols:
-            conn.execute(
-                "ALTER TABLE location_info ADD COLUMN place_category TEXT"
-            )
-            conn.commit()
-
-
-# ── Geocode cache ─────────────────────────────────────────────────────────────
-
-def _get_cache_db() -> sqlite3.Connection:
-    conn = sqlite3.connect(str(GEOCODE_CACHE_PATH))
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.executescript(_GEOCODE_CACHE_SCHEMA)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
-def get_cached_geocode(lat: float, lon: float, precision: int = 4) -> dict | None:
-    """Look up a previously cached reverse-geocode response.
-
-    Coordinates are rounded to *precision* decimal places so that
-    minor GPS jitter doesn't create duplicate API calls.
-    """
-    lat_r = round(lat, precision)
-    lon_r = round(lon, precision)
-    with _get_cache_db() as conn:
-        row = conn.execute(
-            "SELECT response FROM geocode_cache WHERE lat_round=? AND lon_round=?",
-            (lat_r, lon_r),
-        ).fetchone()
-    if row:
-        return json.loads(row["response"])
-    return None
-
-
-def set_cached_geocode(lat: float, lon: float, response: dict, precision: int = 4) -> None:
-    """Store a geocode response in the cache."""
-    lat_r = round(lat, precision)
-    lon_r = round(lon, precision)
-    with _get_cache_db() as conn:
-        conn.execute(
-            "INSERT OR REPLACE INTO geocode_cache (lat_round, lon_round, response) VALUES (?,?,?)",
-            (lat_r, lon_r, json.dumps(response)),
-        )
+        conn.execute("DROP VIEW IF EXISTS master_manifest")
+        _migrate_memories_drop_coordinate_columns(conn)
+        conn.execute(_MASTER_MANIFEST_VIEW_SQL)
 
 
 # ── Per-record processing state helpers ───────────────────────────────────────

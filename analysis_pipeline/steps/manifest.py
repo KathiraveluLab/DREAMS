@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 # Whitelist of valid table names to prevent SQL injection via f-string
 _VALID_TABLES = frozenset({
     "memories", "emotion_scores", "temporal_features",
-    "location_info", "processing_state", "pipeline_runs",
+    "processing_state", "pipeline_runs",
 })
 
 
@@ -47,7 +47,6 @@ def run(log: logging.Logger | None = None, export_path: str | None = None) -> in
 
         emotions = _count_table(conn, "emotion_scores")
         temporal = _count_table(conn, "temporal_features")
-        location = _count_table(conn, "location_info")
         img_vectors = _count_collection("image_embeddings")
         cap_vectors = _count_collection("caption_embeddings")
 
@@ -67,7 +66,6 @@ def run(log: logging.Logger | None = None, export_path: str | None = None) -> in
         _log.info("-" * 60)
         _log.info("  Emotion scores:         %d / %d", emotions, non_dup)
         _log.info("  Temporal features:      %d / %d", temporal, non_dup)
-        _log.info("  Location info:          %d / %d", location, non_dup)
         _log.info("  Image embeddings:       %d / %d", img_vectors, non_dup)
         _log.info("  Caption embeddings:     %d / %d", cap_vectors, non_dup)
         _log.info("-" * 60)
@@ -81,7 +79,7 @@ def run(log: logging.Logger | None = None, export_path: str | None = None) -> in
 
         # completeness percentage
         if non_dup > 0:
-            completeness = min(emotions, temporal, location, img_vectors, cap_vectors) / non_dup * 100
+            completeness = min(emotions, temporal, img_vectors, cap_vectors) / non_dup * 100
             _log.info("-" * 60)
             _log.info("  Overall completeness:   %.1f%%", completeness)
 
@@ -91,13 +89,6 @@ def run(log: logging.Logger | None = None, export_path: str | None = None) -> in
         ).fetchone()["c"]
         if null_caps:
             _log.warning("  ⚠ %d records have no caption (user or generated)", null_caps)
-
-        # check for NULL coordinates
-        null_coords = conn.execute(
-            "SELECT COUNT(*) as c FROM memories WHERE is_duplicate=0 AND (latitude IS NULL OR longitude IS NULL)"
-        ).fetchone()["c"]
-        if null_coords:
-            _log.warning("  ⚠ %d records have no GPS coordinates", null_coords)
 
         _log.info("=" * 60)
 

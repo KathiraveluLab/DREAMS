@@ -2,10 +2,7 @@
 Shared utility functions used across pipeline steps.
 
 Path validation, image loading, perceptual hashing, text cleaning,
-EXIF GPS extraction, timestamp parsing.
-
-GPS extraction is aligned with dreamsApp/app/utils/location_extractor.py
-using PIL.ExifTags.GPSTAGS for reliable tag decoding.
+timestamp parsing.
 """
 
 import hashlib
@@ -17,7 +14,6 @@ from datetime import datetime
 from typing import Any
 
 from PIL import Image
-from PIL.ExifTags import TAGS, GPSTAGS
 
 from .config import IMAGE_EXTENSIONS, IMAGE_HASH_SIZE
 
@@ -154,79 +150,6 @@ def parse_timestamp(ts: str | None) -> datetime | None:
             continue
     logger.warning("Unparseable timestamp: %s", ts)
     return None
-
-
-# ── EXIF GPS extraction ──────────────────────────────────────────────────────
-#
-# Aligned with dreamsApp/app/utils/location_extractor.py:
-#   - Uses PIL.ExifTags.GPSTAGS for reliable human-readable key decoding
-#   - Supports both IFDRational tuple fractions and plain float values
-#   - Returns (lat, lon) or (None, None) on failure
-
-def extract_gps_from_exif(image_path: str | Path) -> tuple[float | None, float | None]:
-    """Extract latitude and longitude from EXIF GPS tags.
-
-    Uses the same GPSTAGS decoding approach as
-    ``dreamsApp/app/utils/location_extractor.extract_gps_from_image``.
-    """
-    try:
-        with Image.open(str(image_path)) as img:
-            exif = img.getexif()
-            if not exif:
-                return None, None
-
-            # Locate the GPSInfo IFD
-            gps_raw = None
-            for tag_id, value in exif.items():
-                if TAGS.get(tag_id) == "GPSInfo":
-                    # value may be an IFD dict or tag number
-                    gps_raw = value
-                    break
-
-            if gps_raw is None:
-                return None, None
-
-            # Decode GPS sub-tags into human-readable keys
-            gps_info: dict[str, Any] = {}
-            if isinstance(gps_raw, dict):
-                gps_info = {GPSTAGS.get(k, k): v for k, v in gps_raw.items()}
-            else:
-                # Fallback: raw tag 34853
-                raw = exif.get(34853)
-                if raw and isinstance(raw, dict):
-                    gps_info = {GPSTAGS.get(k, k): v for k, v in raw.items()}
-
-            if "GPSLatitude" not in gps_info or "GPSLongitude" not in gps_info:
-                return None, None
-
-            def _dms_to_decimal(dms_values: tuple | list) -> float:
-                """Convert (degrees, minutes, seconds) to decimal.
-
-                Each component may be a plain float or an IFDRational
-                tuple ``(numerator, denominator)``.
-                """
-                total = 0.0
-                for i, component in enumerate(dms_values):
-                    if isinstance(component, (tuple, list)):
-                        if component[1] == 0:
-                            raise ValueError("Zero denominator in GPS coordinate")
-                        val = component[0] / component[1]
-                    else:
-                        val = float(component)
-                    total += val / (60 ** i)
-                return total
-
-            lat = _dms_to_decimal(gps_info["GPSLatitude"])
-            if gps_info.get("GPSLatitudeRef") == "S":
-                lat = -lat
-
-            lon = _dms_to_decimal(gps_info["GPSLongitude"])
-            if gps_info.get("GPSLongitudeRef") == "W":
-                lon = -lon
-
-            return lat, lon
-    except Exception:
-        return None, None
 
 
 # ── Safe type casting ─────────────────────────────────────────────────────────

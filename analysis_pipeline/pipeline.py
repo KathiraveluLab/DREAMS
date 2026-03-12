@@ -62,9 +62,6 @@ def _get_step_fn(step_name: str, args):
     elif step_name == "emotions":
         from .steps.emotions import run
         return run
-    elif step_name == "location":
-        from .steps.location import run
-        return run
     elif step_name == "temporal":
         from .steps.temporal import run
         return run

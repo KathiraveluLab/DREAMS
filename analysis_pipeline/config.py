@@ -25,7 +25,6 @@ for _d in (DATA_DIR, RAW_DIR, PROCESSED_DIR, SNAPSHOT_DIR, LOG_DIR, CACHE_DIR):
 # ── Database ──────────────────────────────────────────────────────────────────
 SQLITE_DB_PATH = DATA_DIR / "pipeline.db"
 CHROMA_DB_DIR = DATA_DIR / "chromadb"
-GEOCODE_CACHE_PATH = CACHE_DIR / "geocode_cache.db"
 
 # ── AI / ML model identifiers ────────────────────────────────────────────────
 # Image embeddings (HuggingFace CLIPModel — no separate 'clip' package needed)
@@ -63,8 +62,6 @@ DISCRETE_EMOTIONS = [
 # ── Processing parameters ────────────────────────────────────────────────────
 BATCH_SIZE = 16                   # records per processing batch
 MAX_RETRIES = 3                   # per-record retry limit
-GEOCODE_RATE_LIMIT = 1.1          # seconds between Nominatim requests
-GEOCODE_USER_AGENT = "DREAMS-Analysis-Pipeline/0.1 (research)"
 IMAGE_HASH_SIZE = 16              # perceptual hash grid size (16 → 256 bits)
 SIMILARITY_THRESHOLD = 0.90       # cosine threshold for duplicate detection
 
@@ -92,10 +89,6 @@ PIPELINE_STEPS = [
     {
         "name": "emotions",
         "description": "Extract 7 discrete emotions + valence/arousal + sentiment + CHIME",
-    },
-    {
-        "name": "location",
-        "description": "Reverse-geocode GPS → place labels (cached)",
     },
     {
         "name": "temporal",

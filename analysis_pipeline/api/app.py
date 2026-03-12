@@ -16,14 +16,13 @@ from pathlib import Path
 from flask import Flask, Blueprint, request, jsonify
 from PIL import Image
 
-from ..config import IMAGE_EXTENSIONS, PROCESSED_DIR, DATA_DIR
+from ..config import IMAGE_EXTENSIONS, PROCESSED_DIR
 from ..db import get_db, get_collection, init_db
 from ..utils import (
     make_memory_id,
     perceptual_hash,
     hamming_distance,
-    extract_gps_from_exif,
-    safe_float,
+    safe_int,
     validate_safe_path,
 )
 from . import queue
@@ -41,7 +40,7 @@ _DUPLICATE_THRESHOLD = 10
 # Pipeline steps that the worker runs for each uploaded record
 _ALL_STEPS = [
     "caption", "image_embeddings", "caption_embeddings",
-    "emotions", "location", "temporal",
+    "emotions", "temporal",
 ]
 
 # ── Blueprint ─────────────────────────────────────────────────────────────────
@@ -60,8 +59,6 @@ def ingest():
     image      : file   (required)  Image file (.jpg, .png, etc.)
     user_id    : str    (required)  Owner of the memory
     caption    : str    (optional)  User-provided caption text
-    latitude   : float  (optional)  GPS latitude  (falls back to EXIF)
-    longitude  : float  (optional)  GPS longitude (falls back to EXIF)
     category   : str    (optional)  e.g. "park", "hospital"
     timestamp  : str    (optional)  ISO-8601 capture time (default: now)
 
@@ -144,34 +141,24 @@ def ingest():
 
     # ── 9. Extract optional metadata ─────────────────────────────────────
     caption = (request.form.get("caption") or "").strip() or None
-    lat = safe_float(request.form.get("latitude"))
-    lon = safe_float(request.form.get("longitude"))
     category = (request.form.get("category") or "").strip() or None
     captured_at = (
         (request.form.get("timestamp") or "").strip()
         or datetime.now(timezone.utc).isoformat()
     )
 
-    # ── 10. EXIF GPS fallback ────────────────────────────────────────────
-    if lat is None or lon is None:
-        exif_lat, exif_lon = extract_gps_from_exif(save_path)
-        if lat is None:
-            lat = exif_lat
-        if lon is None:
-            lon = exif_lon
-
-    # ── 11. Insert into memories table ───────────────────────────────────
+    # ── 10. Insert into memories table ───────────────────────────────────
     conn = get_db()
     try:
         conn.execute(
             """INSERT INTO memories
                (memory_id, user_id, image_path, category, caption,
-                latitude, longitude, captured_at,
+                captured_at,
                 perceptual_hash, is_duplicate, duplicate_of)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+               VALUES (?,?,?,?,?,?,?,?,?)""",
             (
                 memory_id, user_id, str(save_path), category, caption,
-                lat, lon, captured_at,
+                captured_at,
                 phash, 1 if is_dup else 0, dup_of,
             ),
         )
@@ -248,8 +235,15 @@ def analysis_list():
     per_page : int   Records per page (default 20, max 100)
     """
     user_id = request.args.get("user_id")
-    page = max(1, int(request.args.get("page", 1)))
-    per_page = min(100, max(1, int(request.args.get("per_page", 20))))
+    raw_page = request.args.get("page")
+    raw_per_page = request.args.get("per_page")
+    page = 1 if raw_page is None else safe_int(raw_page)
+    per_page = 20 if raw_per_page is None else safe_int(raw_per_page)
+    if page is None or page < 1:
+        return jsonify({"error": "Invalid page parameter"}), 400
+    if per_page is None or per_page < 1:
+        return jsonify({"error": "Invalid per_page parameter"}), 400
+    per_page = min(100, per_page)
     offset = (page - 1) * per_page
 
     conn = get_db()
@@ -339,10 +333,6 @@ def _build_analysis(
             (memory_id,),
         ).fetchone()
 
-        loc = conn.execute(
-            "SELECT * FROM location_info WHERE memory_id = ?", (memory_id,),
-        ).fetchone()
-
         steps = conn.execute(
             "SELECT step_name, status, error_msg FROM processing_state "
             "WHERE memory_id = ?",
@@ -392,33 +382,6 @@ def _build_analysis(
         }
     else:
         result["emotions"] = None
-
-    # ── Location ─────────────────────────────────────────────────────────
-    if loc:
-        result["location"] = {
-            "latitude": mem["latitude"],
-            "longitude": mem["longitude"],
-            "display_name": loc["display_name"],
-            "place_type": loc["place_type"],
-            "place_category": loc["place_category"],
-            "address": {
-                "road": loc["address_road"],
-                "city": loc["address_city"],
-                "state": loc["address_state"],
-                "country": loc["address_country"],
-            },
-        }
-    elif mem["latitude"] is not None and mem["longitude"] is not None:
-        result["location"] = {
-            "latitude": mem["latitude"],
-            "longitude": mem["longitude"],
-            "display_name": None,
-            "place_type": None,
-            "place_category": None,
-            "address": None,
-        }
-    else:
-        result["location"] = None
 
     # ── Temporal ─────────────────────────────────────────────────────────
     if temp:

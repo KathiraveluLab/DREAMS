@@ -76,8 +76,6 @@ class TestIngestSuccess:
         data = {
             "user_id": "u2",
             "caption": "Sunset at the beach",
-            "latitude": "51.5074",
-            "longitude": "-0.1278",
             "category": "park",
             "timestamp": "2026-01-15T12:00:00",
         }
