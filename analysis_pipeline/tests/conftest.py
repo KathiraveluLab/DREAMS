@@ -62,7 +62,6 @@ def _redirect_pipeline_paths(tmp_path_factory):
     cfg.CACHE_DIR      = base / "cache"
     cfg.SQLITE_DB_PATH = base / "test_pipeline.db"
     cfg.CHROMA_DB_DIR  = base / "chromadb"
-    cfg.GEOCODE_CACHE_PATH = base / "cache" / "geocode_cache.db"
 
     for d in (cfg.RAW_DIR, cfg.PROCESSED_DIR, cfg.SNAPSHOT_DIR,
               cfg.LOG_DIR, cfg.CACHE_DIR, cfg.CHROMA_DB_DIR):
@@ -72,7 +71,6 @@ def _redirect_pipeline_paths(tmp_path_factory):
     import analysis_pipeline.db as db_mod
     db_mod.SQLITE_DB_PATH = cfg.SQLITE_DB_PATH
     db_mod.CHROMA_DB_DIR = cfg.CHROMA_DB_DIR
-    db_mod.GEOCODE_CACHE_PATH = cfg.GEOCODE_CACHE_PATH
 
     # Reset ChromaDB singleton so it picks up the new path
     db_mod._chroma_client = None
@@ -97,9 +95,9 @@ def _clear_state(db_conn):
     """Clear all SQLite tables and ChromaDB collections before each test."""
     # Temporarily disable foreign keys to allow bulk wiping
     db_conn.execute("PRAGMA foreign_keys = OFF")
-    # Clear main pipeline tables (geocode_cache is in a separate DB file, skip it)
+    # Clear main pipeline tables
     for table in ("processing_state", "emotion_scores",
-                  "temporal_features", "location_info", "pipeline_runs", "memories"):
+                  "temporal_features", "pipeline_runs", "memories"):
         db_conn.execute(f"DELETE FROM {table}")
     db_conn.commit()
     db_conn.execute("PRAGMA foreign_keys = ON")

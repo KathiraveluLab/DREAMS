@@ -87,7 +87,7 @@ class TestAnalysisSingle:
         required = ["memory_id", "user_id", "image_path",
                     "caption", "generated_caption", "category",
                     "captured_at", "is_duplicate", "processing_status",
-                    "emotions", "location", "temporal", "embeddings"]
+                    "emotions", "temporal", "embeddings"]
         for field in required:
             assert field in data, f"Missing field: {field}"
 
@@ -157,6 +157,14 @@ class TestAnalysisList:
     def test_per_page_capped_at_100(self, client):
         data = client.get("/api/analysis?per_page=9999").get_json()
         assert data["per_page"] <= 100
+
+    def test_invalid_page_returns_400(self, client):
+        rv = client.get("/api/analysis?page=abc")
+        assert rv.status_code == 400
+
+    def test_invalid_per_page_returns_400(self, client):
+        rv = client.get("/api/analysis?per_page=abc")
+        assert rv.status_code == 400
 
     def test_user_id_filter(self, client, ingest):
         # Upload one memory for a unique user

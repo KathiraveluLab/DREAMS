@@ -27,7 +27,6 @@ _WORKER_STEPS = [
     "image_embeddings",
     "caption_embeddings",
     "emotions",
-    "location",
     "temporal",
 ]
 
@@ -150,6 +149,12 @@ class PipelineWorker:
                     (memory_id,),
                 ).fetchall()
 
+                missing_steps = [
+                    step_name
+                    for step_name in _WORKER_STEPS
+                    if step_name not in done_steps
+                ]
+
                 if error_rows:
                     msgs = "; ".join(
                         f"{r['step_name']}: {r['error_msg']}" for r in error_rows
@@ -157,6 +162,10 @@ class PipelineWorker:
                     queue.mark_error(job_id, msgs)
                     logger.warning("Job %s completed with errors: %s",
                                    job_id, msgs)
+                elif missing_steps:
+                    msg = "Incomplete processing: missing steps " + ", ".join(missing_steps)
+                    queue.mark_error(job_id, msg)
+                    logger.warning("Job %s incomplete: %s", job_id, msg)
                 else:
                     queue.mark_done(job_id)
                     logger.info("Job %s completed successfully "
@@ -177,8 +186,6 @@ class PipelineWorker:
             from ..steps.caption_embeddings import run
         elif step_name == "emotions":
             from ..steps.emotions import run
-        elif step_name == "location":
-            from ..steps.location import run
         elif step_name == "temporal":
             from ..steps.temporal import run
         else:

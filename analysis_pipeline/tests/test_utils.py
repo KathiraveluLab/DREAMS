@@ -72,13 +72,21 @@ class TestPerceptualHash:
     def _solid(self, color):
         return Image.new("RGB", (64, 64), color=color)
 
+    def _checkerboard(self):
+        img = Image.new("RGB", (64, 64), color=(0, 0, 0))
+        for x in range(64):
+            for y in range(64):
+                if (x // 8 + y // 8) % 2 == 0:
+                    img.putpixel((x, y), (255, 255, 255))
+        return img
+
     def test_identical_images_same_hash(self):
         img = self._solid((100, 100, 100))
         assert perceptual_hash(img) == perceptual_hash(img)
 
     def test_different_images_different_hash(self):
         h1 = perceptual_hash(self._solid((0, 0, 0)))
-        h2 = perceptual_hash(self._solid((255, 255, 255)))
+        h2 = perceptual_hash(self._checkerboard())
         assert h1 != h2
 
     def test_hash_is_hex_string(self):

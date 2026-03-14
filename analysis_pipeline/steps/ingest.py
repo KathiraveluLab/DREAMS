@@ -4,7 +4,7 @@ Step 1 — Ingest: Import data from CSV / image folder into SQLite.
 Improvements:
 - Deterministic memory_id (re-importing same data is idempotent)
 - Perceptual hashing for image deduplication
-- EXIF GPS extraction for images that have it
+
 - Supports user-supplied captions alongside BLIP-generated ones
 - Snapshot of raw data for reproducibility
 """
@@ -24,8 +24,6 @@ from ..utils import (
     perceptual_hash,
     hamming_distance,
     parse_timestamp,
-    extract_gps_from_exif,
-    safe_float,
     make_memory_id,
     validate_safe_path,
 )
@@ -74,11 +72,10 @@ def _detect_duplicates(conn, memory_id: str, phash: str) -> tuple[bool, str | No
 
 
 def run(source_path: str, logger: logging.Logger | None = None) -> int:
-    """
-    Ingest data from a CSV file.
+    """Ingest data from a CSV file.
 
     Expected CSV columns:
-        id, user_id, image_filename, category, latitude, longitude, date, caption
+        id, user_id, image_filename, category, date, caption
 
     Returns the number of records imported.
     """
@@ -166,32 +163,22 @@ def run(source_path: str, logger: logging.Logger | None = None) -> int:
                         _log.warning("Image not found: %s", image_filename)
 
                     # parse fields
-                    lat = safe_float(row.get("latitude"))
-                    lon = safe_float(row.get("longitude"))
                     captured_at = row.get("date", "").strip() or None
                     caption = row.get("caption", "").strip() or None
                     category = row.get("category", "").strip() or None
 
-                    # try EXIF GPS if CSV has no coordinates but image exists
-                    if (lat is None or lon is None) and img_path:
-                        exif_lat, exif_lon = extract_gps_from_exif(img_path)
-                        lat = lat or exif_lat
-                        lon = lon or exif_lon
-
                     conn.execute(
                         """INSERT INTO memories
                            (memory_id, user_id, image_path, category, caption,
-                            latitude, longitude, captured_at,
+                            captured_at,
                             perceptual_hash, is_duplicate, duplicate_of)
-                           VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                           VALUES (?,?,?,?,?,?,?,?,?)""",
                         (
                             memory_id,
                             user_id,
                             str(processed_path) if processed_path else None,
                             category,
                             caption,
-                            lat,
-                            lon,
                             captured_at,
                             phash,
                             1 if is_dup else 0,
