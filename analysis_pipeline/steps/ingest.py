@@ -58,13 +58,9 @@ def _copy_image_to_processed(src: Path, memory_id: str) -> Path:
     return dest
 
 
-def _detect_duplicates(conn, memory_id: str, phash: str) -> tuple[bool, str | None]:
-    """Check if a perceptual hash is too close to an existing one."""
-    rows = conn.execute(
-        "SELECT memory_id, perceptual_hash FROM memories WHERE perceptual_hash IS NOT NULL AND memory_id != ?",
-        (memory_id,),
-    ).fetchall()
-    for row in rows:
+def _detect_duplicates(existing_hashes: list[dict], phash: str) -> tuple[bool, str | None]:
+    """Check if a perceptual hash is too close to an existing one using an in-memory cache."""
+    for row in existing_hashes:
         dist = hamming_distance(phash, row["perceptual_hash"])
         if dist <= _DUPLICATE_THRESHOLD:
             return True, row["memory_id"]
@@ -112,6 +108,11 @@ def run(source_path: str, logger: logging.Logger | None = None) -> int:
         reader = csv.DictReader(fh)
 
         conn = get_db()
+        # Pre load exisiting hashes for fast in memory lookups
+        existing_hashes = [ 
+            {"memory_id": r["memory_id"], "perceptual_hash": r["perceptual_hash"]}
+            for r in conn.execute("SELECT memory_id, perceptual_hash FROM memories WHERE perceptual_hash IS NOT NULL").fetchall()
+        ]
         try:
             for row in reader:
                 try:
@@ -144,13 +145,16 @@ def run(source_path: str, logger: logging.Logger | None = None) -> int:
                         try:
                             img = load_image(img_path)
                             phash = perceptual_hash(img)
-                            is_dup, dup_of = _detect_duplicates(conn, memory_id, phash)
+                            is_dup, dup_of = _detect_duplicates(existing_hashes, phash)
                             if is_dup:
                                 _log.info(
                                     "Duplicate detected: %s is near-duplicate of %s",
                                     image_filename, dup_of,
                                 )
                                 skipped_dup += 1
+                            else:
+                                # Add to cache for intra-batch deduplication
+                                existing_hashes.append({"memory_id": memory_id, "perceptual_hash": phash})
                         except Exception as e:
                             _log.warning("Could not hash image %s: %s", image_filename, e)
 
