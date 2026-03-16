@@ -139,6 +139,7 @@ def run(log: logging.Logger | None = None) -> int:
 
     # ── Sub-model 1: Discrete emotions (≈330 MB) ────────────────────────────
     _log.info("Loading discrete-emotion model: %s", DISCRETE_EMOTION_MODEL)
+    emotion_pipe = None
     try:
         emotion_pipe = hf_pipeline(
             "text-classification",
@@ -158,7 +159,7 @@ def run(log: logging.Logger | None = None) -> int:
         
     except Exception as exc:
         _log.warning("Discrete emotion model failed to load or run: %s", exc)
-    finally :
+    finally:
         if emotion_pipe:
             del emotion_pipe
     
@@ -167,6 +168,7 @@ def run(log: logging.Logger | None = None) -> int:
 
     # ── Sub-model 2: Valence / Arousal (≈330 MB) ────────────────────────────
     _log.info("Loading valence-arousal model: %s", VA_EMOTION_MODEL)
+    va_pipe = None
     try:
         va_pipe = hf_pipeline(
             "text-classification",
@@ -185,14 +187,18 @@ def run(log: logging.Logger | None = None) -> int:
                 emo_data[mid]["arousal"] = va_dict.get("arousal") or va_dict.get("Arousal")
             except Exception as e:
                 _log.warning("Valence/arousal parsing failed for %s: %s", mid, e)
-        del va_pipe
+        
     except Exception as exc:
         _log.warning("Valence-arousal model unavailable (%s); skipping.", exc)
+    finally:
+        if va_pipe:
+            del va_pipe
     _unload()
     _log.info("Valence-arousal done — model unloaded.")
 
     # ── Sub-model 3: Sentiment (≈500 MB) ────────────────────────────────────
     _log.info("Loading sentiment model: %s", SENTIMENT_MODEL_NAME)
+    sent_pipe = None
     try:
         sent_pipe = hf_pipeline(
             "sentiment-analysis",
@@ -209,11 +215,13 @@ def run(log: logging.Logger | None = None) -> int:
                 emo_data[mid]["sent_neg"] = sent_dict.get("negative", sent_dict.get("neg"))
                 emo_data[mid]["sent_neu"] = sent_dict.get("neutral", sent_dict.get("neu"))
                 emo_data[mid]["sent_label"] = max(sent_dict, key=sent_dict.get)
-            except Exception:
-                pass
-        del sent_pipe
+            except Exception as e:
+                _log.warning("Semtiment parsing failed for %s: %s", mid, e)
     except Exception as exc:
         _log.warning("Sentiment model unavailable (%s); skipping.", exc)
+    finally:
+        if sent_dict:
+            del sent_pipe
     _unload()
     _log.info("Sentiment done — model unloaded.")
 
