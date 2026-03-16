@@ -155,9 +155,13 @@ def run(log: logging.Logger | None = None) -> int:
                 emo_data[mid]["dominant"] = max(scores, key=scores.get)
             except Exception as e:
                 _log.warning("Discrete emotion parsing failed for %s: %s", mid, e)
-        del emotion_pipe
+        
     except Exception as exc:
         _log.warning("Discrete emotion model failed to load or run: %s", exc)
+    finally :
+        if emotion_pipe:
+            del emotion_pipe
+    
     _unload()
     _log.info("Discrete emotions done — model unloaded.")
 
