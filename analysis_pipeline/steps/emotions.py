@@ -216,7 +216,7 @@ def run(log: logging.Logger | None = None) -> int:
                 emo_data[mid]["sent_neu"] = sent_dict.get("neutral", sent_dict.get("neu"))
                 emo_data[mid]["sent_label"] = max(sent_dict, key=sent_dict.get)
             except Exception as e:
-                _log.warning("Semtiment parsing failed for %s: %s", mid, e)
+                _log.warning("Sentiment parsing failed for %s: %s", mid, e)
     except Exception as exc:
         _log.warning("Sentiment model unavailable (%s); skipping.", exc)
     finally:
