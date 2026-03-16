@@ -233,8 +233,8 @@ def run(log: logging.Logger | None = None) -> int:
                         top_result = max(results, key=lambda x: x['score'])
                         emo_data[mid]["chime_cat"] = top_result["label"]
                         emo_data[mid]["chime_conf"] = float(top_result["score"])
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        _log.warning("CHIME result parsing failed for %s: %s", mid, e)
             except Exception as e:
                 _log.warning("CHIME inference batch failed: %s", e)
         # Clear CHIME model references
