@@ -183,8 +183,8 @@ def run(log: logging.Logger | None = None) -> int:
                 va_dict = {r["label"]: float(r["score"]) for r in va_items}
                 emo_data[mid]["valence"] = va_dict.get("valence") or va_dict.get("Valence")
                 emo_data[mid]["arousal"] = va_dict.get("arousal") or va_dict.get("Arousal")
-            except Exception:
-                pass
+            except Exception as e:
+                _log.warning("Valence/arousal parsing failed for %s: %s", mid, e)
         del va_pipe
     except Exception as exc:
         _log.warning("Valence-arousal model unavailable (%s); skipping.", exc)
