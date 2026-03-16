@@ -132,26 +132,32 @@ def run(log: logging.Logger | None = None) -> int:
 
     # Accumulators: emotion results per memory_id
     emo_data: dict[str, dict] = {mid: {} for mid in texts_by_id}
+    mids = list(texts_by_id.keys())
+    texts = list(texts_by_id.values())
 
     _log.info("Extracting emotions for %d records on %s...", len(texts_by_id), device_label)
 
     # ── Sub-model 1: Discrete emotions (≈330 MB) ────────────────────────────
     _log.info("Loading discrete-emotion model: %s", DISCRETE_EMOTION_MODEL)
-    emotion_pipe = hf_pipeline(
-        "text-classification",
-        model=DISCRETE_EMOTION_MODEL,
-        top_k=None,
-        device=device,
-    )
-    for mid, text in texts_by_id.items():
-        try:
-            results = emotion_pipe(text)[0]
-            scores = {e["label"]: float(e["score"]) for e in results}
-            emo_data[mid]["discrete"] = scores
-            emo_data[mid]["dominant"] = max(scores, key=scores.get)
-        except Exception as e:
-            _log.warning("Discrete emotion failed for %s: %s", mid, e)
-    del emotion_pipe
+    try:
+        emotion_pipe = hf_pipeline(
+            "text-classification",
+            model=DISCRETE_EMOTION_MODEL,
+            top_k=None,
+            device=device,
+        )
+        
+        batch_out = emotion_pipe(texts, batch_size=BATCH_SIZE)
+        for mid, results in zip(mids, batch_out):
+            try:
+                scores = {e["label"]: float(e["score"]) for e in results}
+                emo_data[mid]["discrete"] = scores
+                emo_data[mid]["dominant"] = max(scores, key=scores.get)
+            except Exception as e:
+                _log.warning("Discrete emotion parsing failed for %s: %s", mid, e)
+        del emotion_pipe
+    except Exception as exc:
+        _log.warning("Discrete emotion model failed to load or run: %s", exc)
     _unload()
     _log.info("Discrete emotions done — model unloaded.")
 
@@ -164,14 +170,15 @@ def run(log: logging.Logger | None = None) -> int:
             top_k=None,
             device=device,
         )
-        for mid, text in texts_by_id.items():
+       
+        batch_out = va_pipe(texts, batch_size=BATCH_SIZE)
+        for mid, results in zip(mids, batch_out):
             try:
-                va_out = va_pipe(text)
-                if isinstance(va_out, list) and va_out:
-                    va_items = va_out[0] if isinstance(va_out[0], list) else va_out
-                    va_dict = {r["label"]: float(r["score"]) for r in va_items}
-                    emo_data[mid]["valence"] = va_dict.get("valence") or va_dict.get("Valence")
-                    emo_data[mid]["arousal"] = va_dict.get("arousal") or va_dict.get("Arousal")
+                # Handle potential list nesting in some HF models
+                va_items = results[0] if isinstance(results[0], list) else results
+                va_dict = {r["label"]: float(r["score"]) for r in va_items}
+                emo_data[mid]["valence"] = va_dict.get("valence") or va_dict.get("Valence")
+                emo_data[mid]["arousal"] = va_dict.get("arousal") or va_dict.get("Arousal")
             except Exception:
                 pass
         del va_pipe
@@ -189,11 +196,11 @@ def run(log: logging.Logger | None = None) -> int:
             top_k=None,
             device=device,
         )
-        for mid, text in texts_by_id.items():
+        
+        batch_out = sent_pipe(texts, batch_size=BATCH_SIZE)
+        for mid, results in zip(mids, batch_out):
             try:
-                sent_out = sent_pipe(text)[0]
-                items = sent_out if isinstance(sent_out, list) else [sent_out]
-                sent_dict = {r["label"].lower(): float(r["score"]) for r in items}
+                sent_dict = {r["label"].lower(): float(r["score"]) for r in results}
                 emo_data[mid]["sent_pos"] = sent_dict.get("positive", sent_dict.get("pos"))
                 emo_data[mid]["sent_neg"] = sent_dict.get("negative", sent_dict.get("neg"))
                 emo_data[mid]["sent_neu"] = sent_dict.get("neutral", sent_dict.get("neu"))
@@ -209,17 +216,23 @@ def run(log: logging.Logger | None = None) -> int:
     # ── Sub-model 4: CHIME recovery (≈ 440 MB) ─────────────────────────────
     if DREAMSAPP_CHIME_AVAILABLE:
         _log.info("CHIME: using dreamsApp SentimentAnalyzer (with FL self-correction)")
-        _chime_ready = chime_analyzer.get_chime_classifier() is not None
-        if not _chime_ready:
+        classifier = chime_analyzer.get_chime_classifier()
+        if not classifier:
             _log.warning("CHIME classifier failed to load; CHIME scores will be NULL.")
         else:
-            for mid, text in texts_by_id.items():
-                try:
-                    chime_result = chime_analyzer.analyze_chime(text)
-                    emo_data[mid]["chime_cat"] = chime_result["label"]
-                    emo_data[mid]["chime_conf"] = float(chime_result["score"])
-                except Exception:
-                    pass
+            try:
+                # Vectorized inference directly on underlying pipeline
+                batch_out = classifier(texts, batch_size=BATCH_SIZE)
+                for mid, results in zip(mids, batch_out):
+                    try:
+                        # Find the highest scoring category
+                        top_result = max(results, key=lambda x: x['score'])
+                        emo_data[mid]["chime_cat"] = top_result["label"]
+                        emo_data[mid]["chime_conf"] = float(top_result["score"])
+                    except Exception:
+                        pass
+            except Exception as e:
+                _log.warning("CHIME inference batch failed: %s", e)
         # Clear CHIME model references
         try:
             chime_analyzer._chime_classifier = None
