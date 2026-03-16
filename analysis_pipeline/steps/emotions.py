@@ -220,7 +220,7 @@ def run(log: logging.Logger | None = None) -> int:
     except Exception as exc:
         _log.warning("Sentiment model unavailable (%s); skipping.", exc)
     finally:
-        if sent_dict:
+        if sent_pipe:
             del sent_pipe
     _unload()
     _log.info("Sentiment done — model unloaded.")
