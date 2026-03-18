@@ -84,15 +84,16 @@ def enqueue(memory_id: str) -> str:
             "VALUES (?, ?, 'queued', ?, ?)",
             (job_id, memory_id, now, now),
         )
-        conn.commit()
 
-        # If the INSERT was ignored (duplicate), fetch the existing job_id
+        # SELECT before commit: both operations share the same transaction.
+        # The unique index guarantees exactly one active row exists.
         row = conn.execute(
             "SELECT job_id FROM ingest_queue "
             "WHERE memory_id = ? AND status IN ('queued', 'processing')",
             (memory_id,),
         ).fetchone()
-        return row["job_id"] if row else job_id
+        conn.commit()
+        return row["job_id"]
     except sqlite3.Error:
         conn.rollback()
         raise
