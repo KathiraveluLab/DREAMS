@@ -220,12 +220,12 @@ def get_pending_ids(step_name: str, conn: sqlite3.Connection | None = None) -> l
             """
             SELECT m.memory_id
             FROM memories m
+            LEFT JOIN processing_state ps 
+              ON m.memory_id = ps.memory_id 
+             AND ps.step_name = ? 
+             AND ps.status = 'done'
             WHERE m.is_duplicate = 0
-              AND m.memory_id NOT IN (
-                  SELECT ps.memory_id
-                  FROM processing_state ps
-                  WHERE ps.step_name = ? AND ps.status = 'done'
-              )
+              AND ps.memory_id IS NULL
             ORDER BY m.captured_at
             """,
             (step_name,),
@@ -238,27 +238,41 @@ def get_pending_ids(step_name: str, conn: sqlite3.Connection | None = None) -> l
 
 def mark_record_done(memory_id: str, step_name: str, conn: sqlite3.Connection) -> None:
     """Mark a single record as successfully processed for a step."""
+    mark_records_done([memory_id], step_name, conn)
+
+
+def mark_record_error(memory_id: str, step_name: str, error: str, conn: sqlite3.Connection) -> None:
+    """Mark a single record as failed for a step."""
+    mark_records_error([memory_id], step_name, error, conn)
+
+
+def mark_records_done(memory_ids: list[str], step_name: str, conn: sqlite3.Connection) -> None:
+    """Bulk mark records as successfully processed for a step."""
+    if not memory_ids:
+        return
     now = datetime.now(timezone.utc).isoformat()
-    conn.execute(
+    conn.executemany(
         """
         INSERT OR REPLACE INTO processing_state
             (memory_id, step_name, status, finished_at)
         VALUES (?, ?, 'done', ?)
         """,
-        (memory_id, step_name, now),
+        [(mid, step_name, now) for mid in memory_ids],
     )
 
 
-def mark_record_error(memory_id: str, step_name: str, error: str, conn: sqlite3.Connection) -> None:
-    """Mark a single record as failed for a step."""
+def mark_records_error(memory_ids: list[str], step_name: str, error: str, conn: sqlite3.Connection) -> None:
+    """Bulk mark records as failed for a step."""
+    if not memory_ids:
+        return
     now = datetime.now(timezone.utc).isoformat()
-    conn.execute(
+    conn.executemany(
         """
         INSERT OR REPLACE INTO processing_state
             (memory_id, step_name, status, error_msg, finished_at)
         VALUES (?, ?, 'error', ?, ?)
         """,
-        (memory_id, step_name, error, now),
+        [(mid, step_name, error, now) for mid in memory_ids],
     )
 
 

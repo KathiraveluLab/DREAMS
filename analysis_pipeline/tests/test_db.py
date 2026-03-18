@@ -15,7 +15,10 @@ from analysis_pipeline.db import (
     get_pending_ids,
     mark_record_done,
     mark_record_error,
+    mark_records_done,
+    mark_records_error,
 )
+from analysis_pipeline.api.queue import init_queue, enqueue_batch, get_batch_status
 from analysis_pipeline.utils import make_memory_id
 
 
@@ -120,6 +123,19 @@ class TestMarkRecordDone:
         ).fetchone()
         assert row["status"] == "done"
 
+    def test_bulk_sets_status_done(self, db_conn):
+        mids = [make_memory_id("u1", "bulk_done1.jpg"), make_memory_id("u1", "bulk_done2.jpg")]
+        for mid in mids:
+            _insert_memory(db_conn, mid)
+        mark_records_done(mids, "caption", db_conn)
+        db_conn.commit()
+        rows = db_conn.execute(
+            "SELECT memory_id, status FROM processing_state WHERE step_name='caption'"
+        ).fetchall()
+        assert len(rows) == 2
+        for r in rows:
+            assert r["status"] == "done"
+
 
 # ── mark_record_error ─────────────────────────────────────────────────────────
 
@@ -135,3 +151,43 @@ class TestMarkRecordError:
         ).fetchone()
         assert row["status"] == "error"
         assert "Model failed" in row["error_msg"]
+
+    def test_bulk_sets_status_error(self, db_conn):
+        mids = [make_memory_id("u1", "bulk_err1.jpg"), make_memory_id("u1", "bulk_err2.jpg")]
+        for mid in mids:
+            _insert_memory(db_conn, mid)
+        mark_records_error(mids, "emotions", "Batch failure", db_conn)
+        db_conn.commit()
+        rows = db_conn.execute(
+            "SELECT memory_id, status, error_msg FROM processing_state WHERE step_name='emotions'"
+        ).fetchall()
+        assert len(rows) == 2
+        for r in rows:
+            assert r["status"] == "error"
+            assert "Batch failure" in r["error_msg"]
+
+
+# ── Batch Queueing ────────────────────────────────────────────────────────────
+
+class TestBatchQueue:
+    def test_enqueue_batch_and_status(self, db_conn):
+        init_queue()
+        mids = [make_memory_id("u1", "q1.jpg"), make_memory_id("u1", "q2.jpg")]
+        for mid in mids:
+            _insert_memory(db_conn, mid)
+            
+        batch_id = "batch_001"
+        job_ids = enqueue_batch(mids, batch_id)
+        assert len(job_ids) == 2
+        
+        status = get_batch_status(batch_id)
+        assert status["batch_id"] == batch_id
+        assert status["total"] == 2
+        assert status["queued"] == 2
+        
+        # Test idempotency
+        duplicate_job_ids = enqueue_batch(mids, batch_id)
+        assert len(duplicate_job_ids) == 0
+        
+        status_after = get_batch_status(batch_id)
+        assert status_after["total"] == 2
