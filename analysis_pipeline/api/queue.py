@@ -36,6 +36,11 @@ CREATE TABLE IF NOT EXISTS ingest_queue (
 );
 CREATE INDEX IF NOT EXISTS idx_iq_status ON ingest_queue(status);
 CREATE INDEX IF NOT EXISTS idx_iq_memory ON ingest_queue(memory_id);
+-- Partial unique index: prevents duplicate active jobs for the same memory_id.
+-- SQLite enforces this atomically, eliminating the SELECT→INSERT race condition.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_iq_active_memory
+    ON ingest_queue(memory_id)
+    WHERE status IN ('queued', 'processing');
 """
 
 
@@ -49,6 +54,14 @@ def init_queue() -> None:
             conn.execute("CREATE INDEX IF NOT EXISTS idx_iq_batch ON ingest_queue(batch_id)")
         except sqlite3.OperationalError as e:
             logger.debug("Migration skipped (already applied): %s", e)
+        # Partial unique index to prevent race conditions on concurrent enqueue
+        try:
+            conn.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_iq_active_memory "
+                "ON ingest_queue(memory_id) WHERE status IN ('queued', 'processing')"
+            )
+        except sqlite3.OperationalError as e:
+            logger.debug("Migration skipped (already applied): %s", e)
 
 
 # ── Enqueue / dequeue ─────────────────────────────────────────────────────────
@@ -58,27 +71,32 @@ def enqueue(memory_id: str) -> str:
 
     If a *queued* or *processing* job already exists for the same
     ``memory_id``, the existing ``job_id`` is returned (idempotent).
+
+    Uses INSERT OR IGNORE backed by ``uq_iq_active_memory`` to prevent
+    race conditions on concurrent calls.
     """
-    job_id = uuid.uuid4().hex[:12]
+    job_id = uuid.uuid4().hex
     now = datetime.now(timezone.utc).isoformat()
     conn = get_db()
     try:
-        existing = conn.execute(
-            "SELECT job_id FROM ingest_queue "
-            "WHERE memory_id = ? AND status IN ('queued', 'processing')",
-            (memory_id,),
-        ).fetchone()
-        if existing:
-            return existing["job_id"]
-
         conn.execute(
-            "INSERT INTO ingest_queue "
+            "INSERT OR IGNORE INTO ingest_queue "
             "(job_id, memory_id, status, created_at, updated_at) "
             "VALUES (?, ?, 'queued', ?, ?)",
             (job_id, memory_id, now, now),
         )
         conn.commit()
-        return job_id
+
+        # If the INSERT was ignored (duplicate), fetch the existing job_id
+        row = conn.execute(
+            "SELECT job_id FROM ingest_queue "
+            "WHERE memory_id = ? AND status IN ('queued', 'processing')",
+            (memory_id,),
+        ).fetchone()
+        return row["job_id"] if row else job_id
+    except sqlite3.Error:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 
@@ -88,6 +106,9 @@ def enqueue_batch(memory_ids: list[str], batch_id: str) -> list[str]:
 
     Returns the list of ``job_id``s that were actually created
     (excludes duplicates that were already queued/processing).
+
+    Atomicity: uses INSERT OR IGNORE backed by a partial unique index
+    (uq_iq_active_memory) — no SELECT pre-check needed, race-condition safe.
     """
     if not memory_ids:
         return []
@@ -95,33 +116,29 @@ def enqueue_batch(memory_ids: list[str], batch_id: str) -> list[str]:
     conn = get_db()
     created_job_ids: list[str] = []
     try:
-        # Process in chunks to avoid SQLite max variable limits
         for i in range(0, len(memory_ids), SQL_CHUNK_SIZE):
             chunk = memory_ids[i:i + SQL_CHUNK_SIZE]
 
-            # Avoid creating duplicates if idempotency is needed
-            placeholders = ",".join("?" for _ in chunk)
-            existing = conn.execute(
-                f"SELECT memory_id FROM ingest_queue "
-                f"WHERE memory_id IN ({placeholders}) AND status IN ('queued', 'processing')",
-                chunk,
+            # Generate deterministic job_ids we can track
+            chunk_jobs = [(uuid.uuid4().hex, batch_id, mid, "queued", now, now) for mid in chunk]
+            generated_jids = [row[0] for row in chunk_jobs]
+
+            # INSERT OR IGNORE: the partial unique index on (memory_id) WHERE
+            # status IN ('queued','processing') silently skips duplicates.
+            conn.executemany(
+                "INSERT OR IGNORE INTO ingest_queue "
+                "(job_id, batch_id, memory_id, status, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                chunk_jobs,
+            )
+            # Retrieve only the job_ids we generated that actually landed
+            placeholders = ",".join("?" for _ in generated_jids)
+            rows = conn.execute(
+                f"SELECT job_id FROM ingest_queue WHERE job_id IN ({placeholders})",
+                generated_jids,
             ).fetchall()
-            existing_ids = {row["memory_id"] for row in existing}
+            created_job_ids.extend(r["job_id"] for r in rows)
 
-            insert_data = []
-            for mid in chunk:
-                if mid not in existing_ids:
-                    jid = uuid.uuid4().hex
-                    insert_data.append((jid, batch_id, mid, "queued", now, now))
-                    created_job_ids.append(jid)
-
-            if insert_data:
-                conn.executemany(
-                    "INSERT INTO ingest_queue "
-                    "(job_id, batch_id, memory_id, status, created_at, updated_at) "
-                    "VALUES (?, ?, ?, ?, ?, ?)",
-                    insert_data,
-                )
         conn.commit()
         return created_job_ids
     except sqlite3.Error:
@@ -135,15 +152,21 @@ def dequeue_batch() -> list[dict]:
     """Atomically move all *queued* jobs to *processing* and return them.
 
     Returns a list of ``{"job_id": ..., "memory_id": ...}`` dicts.
+
+    Uses BEGIN IMMEDIATE to acquire a write lock before reading,
+    preventing TOCTOU races where new jobs are inserted between
+    SELECT and UPDATE.
     """
     now = datetime.now(timezone.utc).isoformat()
     conn = get_db()
     try:
+        conn.execute("BEGIN IMMEDIATE")
         jobs = conn.execute(
             "SELECT job_id, memory_id FROM ingest_queue "
             "WHERE status = 'queued' ORDER BY created_at",
         ).fetchall()
         if not jobs:
+            conn.commit()
             return []
 
         job_ids = [j["job_id"] for j in jobs]
@@ -158,6 +181,9 @@ def dequeue_batch() -> list[dict]:
         conn.commit()
         return [{"job_id": j["job_id"], "memory_id": j["memory_id"]}
                 for j in jobs]
+    except sqlite3.Error:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 
