@@ -125,7 +125,7 @@ def enqueue_batch(memory_ids: list[str], batch_id: str) -> list[str]:
                 )
         conn.commit()
         return created_job_ids
-    except Exception:
+    except sqlite3.Error:
         conn.rollback()
         raise
     finally:
