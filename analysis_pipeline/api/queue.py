@@ -51,7 +51,6 @@ def init_queue() -> None:
         # Migrate existing tables
         try:
             conn.execute("ALTER TABLE ingest_queue ADD COLUMN batch_id TEXT")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_iq_batch ON ingest_queue(batch_id)")
         except sqlite3.OperationalError as e:
             logger.debug("Migration skipped (already applied): %s", e)
         # Partial unique index to prevent race conditions on concurrent enqueue
