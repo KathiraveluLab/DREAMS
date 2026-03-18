@@ -35,7 +35,6 @@ CREATE TABLE IF NOT EXISTS ingest_queue (
     FOREIGN KEY (memory_id) REFERENCES memories(memory_id)
 );
 CREATE INDEX IF NOT EXISTS idx_iq_status ON ingest_queue(status);
-CREATE INDEX IF NOT EXISTS idx_iq_batch ON ingest_queue(batch_id);
 CREATE INDEX IF NOT EXISTS idx_iq_memory ON ingest_queue(memory_id);
 """
 
