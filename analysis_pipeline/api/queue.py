@@ -53,14 +53,6 @@ def init_queue() -> None:
             conn.execute("ALTER TABLE ingest_queue ADD COLUMN batch_id TEXT")
         except sqlite3.OperationalError as e:
             logger.debug("Migration skipped (already applied): %s", e)
-        # Partial unique index to prevent race conditions on concurrent enqueue
-        try:
-            conn.execute(
-                "CREATE UNIQUE INDEX IF NOT EXISTS uq_iq_active_memory "
-                "ON ingest_queue(memory_id) WHERE status IN ('queued', 'processing')"
-            )
-        except sqlite3.OperationalError as e:
-            logger.debug("Migration skipped (already applied): %s", e)
 
 
 # ── Enqueue / dequeue ─────────────────────────────────────────────────────────
