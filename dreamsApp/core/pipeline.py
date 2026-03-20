@@ -2,6 +2,8 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List
 
+from dreamsApp.core.config import PipelineConfig
+
 from dreamsApp.core.graph.builder import build_emotion_timeline
 from dreamsApp.core.graph.episode_segmentation import segment_timeline_to_episodes
 from dreamsApp.core.graph.temporal_narrative_graph import build_narrative_graph
@@ -21,12 +23,17 @@ class DreamsPipeline:
     """
     The central orchestration engine for the DREAMS algorithm.
     Decoupled entirely from Flask web routes.
+
+    Parameters
+    ----------
+    config:
+        A :class:`PipelineConfig` instance controlling model IDs, thresholds,
+        and feature flags. Defaults to :class:`PipelineConfig` with all
+        research-friendly defaults so existing call sites require no changes.
     """
-    
-    def __init__(self):
-        # The pipeline can eventually hold loaded AI models directly
-        # rather than reloading them in individual scripts.
-        pass
+
+    def __init__(self, config: PipelineConfig = None):
+        self.config = config or PipelineConfig()
         
     def process_new_post(self, user_id: str, image_path: str, caption: str, timestamp_iso: str = None) -> Dict[str, Any]:
         """
@@ -78,13 +85,20 @@ class DreamsPipeline:
             "keywords_with_vectors": keywords_with_vectors
         }
 
-    def generate_narrative_metrics(self, user_id: str, user_posts: List[Dict], gap_threshold_hours: int = 24, adjacency_threshold_days: int = 7) -> Dict[str, Any]:
+    def generate_narrative_metrics(self, user_id: str, user_posts: List[Dict]) -> Dict[str, Any]:
         """
-        Executes the temporal graph building sequence and calculates structural narrative metrics.
+        Executes the temporal graph building sequence and calculates structural
+        narrative metrics.
+
+        Threshold parameters are read from ``self.config``:
+
+        * ``config.gap_threshold_hours`` — session-break gap between emotion events
+        * ``config.adjacency_threshold_days`` — max distance for adjacent graph edges
+
         Returns a dictionary containing the graph analytics results.
         """
-        gap_threshold = timedelta(hours=gap_threshold_hours)
-        adjacency_threshold = timedelta(days=adjacency_threshold_days)
+        gap_threshold = timedelta(hours=self.config.gap_threshold_hours)
+        adjacency_threshold = timedelta(days=self.config.adjacency_threshold_days)
 
         records = []
         for post in user_posts:
