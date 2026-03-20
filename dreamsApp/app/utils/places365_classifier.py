@@ -164,7 +164,7 @@ def _load_model():
     # Build ResNet50 architecture with 365 output classes
     from torchvision.models import resnet50
     model = resnet50(num_classes=365)
-    checkpoint = torch.load(model_path, map_location="cpu", weights_only=False)
+    checkpoint = torch.load(model_path, map_location="cpu", weights_only=True)
     state_dict = {k.replace("module.", ""): v for k, v in checkpoint["state_dict"].items()}
     model.load_state_dict(state_dict)
     model.eval()
