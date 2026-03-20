@@ -150,7 +150,7 @@ def _load_model():
 
     # Use the Places365 pretrained ResNet50
     model_file = "resnet50_places365.pth.tar"
-    model_url = "http://places2.csail.mit.edu/models_places365/" + model_file
+    model_url = "https://places2.csail.mit.edu/models_places365/" + model_file
 
     # Download model weights if not cached
     cache_dir = os.path.join(torch.hub.get_dir(), "places365")
