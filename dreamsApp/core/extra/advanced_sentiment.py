@@ -15,7 +15,7 @@ class AdvancedSentimentAnalyzer:
         if self._absa_model is None:
             try:
                 from setfit import AbsaModel
-                print("Loading ABSA models...")
+                logging.info("Loading ABSA models...")
                 ASPECT_MODEL_ID = "tomaarsen/setfit-absa-paraphrase-mpnet-base-v2-restaurants-aspect"
                 POLARITY_MODEL_ID = "tomaarsen/setfit-absa-paraphrase-mpnet-base-v2-restaurants-polarity"
                 self._absa_model = AbsaModel.from_pretrained(ASPECT_MODEL_ID, POLARITY_MODEL_ID)

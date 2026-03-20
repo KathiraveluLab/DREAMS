@@ -1,8 +1,11 @@
 import os
+import logging
 import torch
 import requests
 from PIL import Image
 from transformers import BlipProcessor, BlipForConditionalGeneration
+
+logger = logging.getLogger(__name__)
 
 def load_image(path_or_url):
     if path_or_url.startswith("http://") or path_or_url.startswith("https://"):
@@ -20,7 +23,7 @@ class ImageCaptioner:
 
     def get_blip_models(self):
         if self._blip_processor is None or self._blip_model is None:
-            print("Loading Blip models...")
+            logger.info("Loading Blip models...")
             self._blip_processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-large")
             self._blip_model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-large")
         return self._blip_processor, self._blip_model

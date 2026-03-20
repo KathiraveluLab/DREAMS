@@ -1,7 +1,10 @@
+import logging
 import numpy as np
 import torch
 from scipy.special import softmax
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, AutoConfig
+
+logger = logging.getLogger(__name__)
 
 def preprocess(text):
     if not text:
@@ -22,7 +25,7 @@ class SentimentAnalyzer:
 
     def get_sentiment_models(self, sentiment_model_name: str = "cardiffnlp/twitter-roberta-base-sentiment-latest"):
         if self._sentiment_model is None or self._sentiment_model_name != sentiment_model_name:
-            print(f"Loading Sentiment model ({sentiment_model_name})...")
+            logger.info(f"Loading Sentiment model ({sentiment_model_name})...")
             self._sentiment_model_name = sentiment_model_name
             self._sentiment_tokenizer = AutoTokenizer.from_pretrained(sentiment_model_name)
             self._sentiment_config = AutoConfig.from_pretrained(sentiment_model_name)
