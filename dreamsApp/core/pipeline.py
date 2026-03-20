@@ -1,35 +1,23 @@
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Dict, Any, List
 
 from dreamsApp.core.config import PipelineConfig
-
-from dreamsApp.core.graph.builder import build_emotion_timeline
-from dreamsApp.core.graph.episode_segmentation import segment_timeline_to_episodes
-from dreamsApp.core.graph.temporal_narrative_graph import build_narrative_graph
-from dreamsApp.core.graph.graph_analysis import analyze_narrative_graph
-
-from dreamsApp.core.keywords import extract_keywords_and_vectors
-from dreamsApp.core.location_extractor import extract_gps_from_image
-from dreamsApp.core.sentiment import (
-    get_chime_category,
-    get_image_caption_and_sentiment,
-    select_text_for_analysis,
-)
+from dreamsApp.core.sentiment import get_sentiment
+from dreamsApp.core.embeddings import get_text_embedding, get_image_embedding
 
 logger = logging.getLogger(__name__)
+
 
 class DreamsPipeline:
     """
     The central orchestration engine for the DREAMS algorithm.
-    Decoupled entirely from Flask web routes.
+    Simplified to focus strictly on Captioning, Sentiment, and Embeddings.
 
     Parameters
     ----------
     config:
-        A :class:`PipelineConfig` instance controlling model IDs, thresholds,
-        and feature flags. Defaults to :class:`PipelineConfig` with all
-        research-friendly defaults so existing call sites require no changes.
+        A :class:`PipelineConfig` instance controlling model IDs.
     """
 
     def __init__(self, config: PipelineConfig = None):
@@ -45,58 +33,41 @@ class DreamsPipeline:
         else:
             timestamp_dt = datetime.fromisoformat(timestamp_iso)
             
-        gps_data = extract_gps_from_image(image_path)
-        
-        analysis_result = get_image_caption_and_sentiment(image_path, caption)
-        sentiment = analysis_result["sentiment"]
-        generated_caption = analysis_result["imgcaption"]
+        # 1. Simple Sentiment (on Caption)
+        sentiment = get_sentiment(
+            caption,
+            sentiment_model_name=self.config.sentiment_model_id
+        )
 
-        text_for_analysis = select_text_for_analysis(caption, generated_caption)
-        chime_result = get_chime_category(text_for_analysis)
-        
-        keywords_with_vectors = []
-        keyword_type = None
-        if sentiment['label'] in ('positive', 'negative'):
-            keywords_with_vectors = extract_keywords_and_vectors(generated_caption)
-            keyword_type = f"{sentiment['label']}_keywords"
+        # 2. Caption Embedding (Text)
+        caption_embedding = get_text_embedding(caption, self.config.text_embedding_model_id)
 
-        keywords_for_mongo = []
-        if keywords_with_vectors:
-            keywords_for_mongo = [
-                {k: v for k, v in kw.items() if k != "embedding"}
-                for kw in keywords_with_vectors
-            ]
+        # 3. Image Embeddings (CLIP)
+        image_embedding = None
+        if self.config.enable_image_embedding:
+            image_embedding = get_image_embedding(image_path, self.config.image_embedding_model_id)
 
         post_doc = {
             'user_id': user_id,
             'caption': caption,
             'timestamp': timestamp_dt,
             'image_path': image_path,
-            'generated_caption': generated_caption,
             'sentiment': sentiment,
-            'chime_analysis': chime_result,
-            'location': gps_data,
         }
 
         return {
             "post_doc": post_doc,
-            "keyword_type": keyword_type,
-            "keywords_for_db": keywords_for_mongo,
-            "keywords_with_vectors": keywords_with_vectors
+            "caption_embedding": caption_embedding,
+            "image_embedding": image_embedding
         }
 
     def generate_narrative_metrics(self, user_id: str, user_posts: List[Dict]) -> Dict[str, Any]:
-        """
-        Executes the temporal graph building sequence and calculates structural
-        narrative metrics.
+        from datetime import timedelta
+        from dreamsApp.core.graph.builder import build_emotion_timeline
+        from dreamsApp.core.graph.episode_segmentation import segment_timeline_to_episodes
+        from dreamsApp.core.graph.temporal_narrative_graph import build_narrative_graph
+        from dreamsApp.core.graph.graph_analysis import analyze_narrative_graph
 
-        Threshold parameters are read from ``self.config``:
-
-        * ``config.gap_threshold_hours`` — session-break gap between emotion events
-        * ``config.adjacency_threshold_days`` — max distance for adjacent graph edges
-
-        Returns a dictionary containing the graph analytics results.
-        """
         gap_threshold = timedelta(hours=self.config.gap_threshold_hours)
         adjacency_threshold = timedelta(days=self.config.adjacency_threshold_days)
 

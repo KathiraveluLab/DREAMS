@@ -11,7 +11,7 @@ import base64
 import threading
 from flask_login import login_required, current_user
 from wordcloud import WordCloud
-from dreamsApp.core.llms import generate
+from dreamsApp.core.extra.llms import generate
 from flask import jsonify
 import datetime
 from bson.objectid import ObjectId

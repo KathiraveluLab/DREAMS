@@ -9,8 +9,8 @@ from flask_login import login_required
 from werkzeug.utils import secure_filename
 
 from . import bp
-from dreamsApp.core.clustering import cluster_keywords_for_all_users
-from dreamsApp.core.location_extractor import enrich_location
+from dreamsApp.core.extra.clustering import cluster_keywords_for_all_users
+from dreamsApp.core.extra.location_extractor import enrich_location
 from dreamsApp.core.vector_store import vector_store
 
 from sentence_transformers import SentenceTransformer

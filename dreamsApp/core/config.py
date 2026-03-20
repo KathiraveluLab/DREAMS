@@ -52,8 +52,6 @@ class PipelineConfig:
     enable_image_embedding:
         When True, CLIP image embeddings are computed during analyze_entry().
         Set False to skip image encoding (e.g. text-only research datasets).
-    enable_location_extraction:
-        When True, GPS EXIF data is extracted from images during analyze_entry().
     """
 
     # ── Graph / segmentation ───────────────────────────────────────────────────
@@ -67,7 +65,6 @@ class PipelineConfig:
 
     # ── Feature flags ──────────────────────────────────────────────────────────
     enable_image_embedding: bool = True
-    enable_location_extraction: bool = True
 
     # ──────────────────────────────────────────────────────────────────────────
     # Constructors

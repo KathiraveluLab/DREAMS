@@ -36,6 +36,3 @@ image_embedding_model_id: "clip-ViT-B-32"
 
 # Set to false to skip CLIP image encoding (e.g. text-only diary datasets).
 enable_image_embedding: true
-
-# Set to false to skip GPS EXIF extraction from images.
-enable_location_extraction: true
