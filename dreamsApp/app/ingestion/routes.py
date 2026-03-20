@@ -2,13 +2,17 @@ from flask import request, jsonify
 from werkzeug.utils import secure_filename
 from datetime import datetime
 import os
+import logging
 from flask import current_app
 from .  import bp
+
+logger = logging.getLogger(__name__)
 
 
 from ..utils.sentiment import get_image_caption_and_sentiment, get_chime_category, select_text_for_analysis
 from ..utils.keywords import extract_keywords_and_vectors
 from ..utils.clustering import cluster_keywords_for_all_users
+from ..utils.places365_classifier import classify_scene
 
 from sentence_transformers import SentenceTransformer
 model = SentenceTransformer("all-MiniLM-L6-V2")
@@ -71,6 +75,19 @@ def upload_post():
             )
     
 
+    # Scene classification — Basic integration
+    # Fine-tuning on Alaska imagery and CLIP secondary verification planned for GSoC coding period
+    try:
+        scene_result = classify_scene(image_path)
+        scene_type = scene_result.get("scene_type", "unknown")
+        scene_confidence = scene_result.get("scene_confidence", 0.0)
+        scene_raw_top3 = scene_result.get("scene_raw_top3", [])
+    except Exception as e:
+        logger.warning(f"Scene classification failed for {image_path}: {e}")
+        scene_type = "unknown"
+        scene_confidence = 0.0
+        scene_raw_top3 = []
+
     post_doc = {
         'user_id': user_id,
         'caption': caption,
@@ -78,7 +95,10 @@ def upload_post():
         'image_path': image_path,
         'generated_caption': generated_caption,
         'sentiment' : sentiment,
-        'chime_analysis': chime_result  # Store the new object
+        'chime_analysis': chime_result,  # Store the new object
+        'scene_type': scene_type,
+        'scene_confidence': scene_confidence,
+        'scene_raw_top3': scene_raw_top3,
     }
 
     mongo = current_app.mongo
