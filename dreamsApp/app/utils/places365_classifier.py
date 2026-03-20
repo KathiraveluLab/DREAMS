@@ -1,0 +1,261 @@
+# Basic integration — fine-tuning on Alaska imagery and CLIP secondary verification planned for GSoC coding period
+
+"""
+Places365 Scene Classification for DREAMS
+
+Classifies images into recovery-relevant scene categories using the
+Places365 ResNet50 pretrained model. Scene types are mapped from
+365 raw place categories into 6 DREAMS-specific categories.
+"""
+
+import os
+import logging
+import torch
+import numpy as np
+from PIL import Image
+from torchvision import transforms
+
+logger = logging.getLogger(__name__)
+
+# Module-level cache for model and labels
+_model = None
+_labels = None
+
+# The 6 DREAMS scene categories
+VALID_SCENE_TYPES = {
+    "clinical_or_institutional",
+    "faith_community",
+    "recovery_support",
+    "residential_or_transitional",
+    "shelter_or_dropin",
+    "outdoor_or_wilderness",
+}
+
+# Mapping from raw Places365 labels to DREAMS categories.
+# Labels not present here will not contribute to any category.
+CATEGORY_MAPPING = {
+    # clinical_or_institutional
+    "hospital": "clinical_or_institutional",
+    "hospital_room": "clinical_or_institutional",
+    "clinic": "clinical_or_institutional",
+    "pharmacy": "clinical_or_institutional",
+    "dentists_office": "clinical_or_institutional",
+    "operating_room": "clinical_or_institutional",
+    "waiting_room": "clinical_or_institutional",
+    "laboratory": "clinical_or_institutional",
+    "nursing_home": "clinical_or_institutional",
+
+    # faith_community
+    "church/indoor": "faith_community",
+    "church/outdoor": "faith_community",
+    "mosque/indoor": "faith_community",
+    "mosque/outdoor": "faith_community",
+    "temple/east_asia": "faith_community",
+    "temple/south_asia": "faith_community",
+    "synagogue/indoor": "faith_community",
+    "chapel": "faith_community",
+    "cathedral/indoor": "faith_community",
+    "cathedral/outdoor": "faith_community",
+    "abbey": "faith_community",
+
+    # recovery_support
+    "community_center": "recovery_support",
+    "recreation_room": "recovery_support",
+    "conference_room": "recovery_support",
+    "meeting_room": "recovery_support",
+    "classroom": "recovery_support",
+    "lecture_room": "recovery_support",
+    "office": "recovery_support",
+    "gym/indoor": "recovery_support",
+
+    # residential_or_transitional
+    "bedroom": "residential_or_transitional",
+    "living_room": "residential_or_transitional",
+    "house": "residential_or_transitional",
+    "apartment_building/outdoor": "residential_or_transitional",
+    "kitchen": "residential_or_transitional",
+    "dining_room": "residential_or_transitional",
+    "bathroom": "residential_or_transitional",
+    "home_office": "residential_or_transitional",
+    "porch": "residential_or_transitional",
+    "yard": "residential_or_transitional",
+    "balcony/interior": "residential_or_transitional",
+    "balcony/exterior": "residential_or_transitional",
+    "garage/indoor": "residential_or_transitional",
+    "residential_neighborhood": "residential_or_transitional",
+
+    # shelter_or_dropin
+    "tent/outdoor": "shelter_or_dropin",
+    "dormitory": "shelter_or_dropin",
+    "youth_hostel": "shelter_or_dropin",
+    "motel": "shelter_or_dropin",
+    "locker_room": "shelter_or_dropin",
+    "campsite": "shelter_or_dropin",
+
+    # outdoor_or_wilderness
+    "park": "outdoor_or_wilderness",
+    "forest_path": "outdoor_or_wilderness",
+    "forest/broadleaf": "outdoor_or_wilderness",
+    "forest/needleleaf": "outdoor_or_wilderness",
+    "mountain": "outdoor_or_wilderness",
+    "mountain_path": "outdoor_or_wilderness",
+    "mountain_snowy": "outdoor_or_wilderness",
+    "field/cultivated": "outdoor_or_wilderness",
+    "field/wild": "outdoor_or_wilderness",
+    "lake/natural": "outdoor_or_wilderness",
+    "river": "outdoor_or_wilderness",
+    "ocean": "outdoor_or_wilderness",
+    "beach": "outdoor_or_wilderness",
+    "creek": "outdoor_or_wilderness",
+    "sky": "outdoor_or_wilderness",
+    "valley": "outdoor_or_wilderness",
+    "snowfield": "outdoor_or_wilderness",
+    "glacier": "outdoor_or_wilderness",
+    "trail": "outdoor_or_wilderness",
+    "swamp": "outdoor_or_wilderness",
+    "waterfall": "outdoor_or_wilderness",
+}
+
+
+# Image preprocessing: resize to 256, center crop to 224, normalize with ImageNet stats
+preprocess = transforms.Compose([
+    transforms.Resize(256),
+    transforms.CenterCrop(224),
+    transforms.ToTensor(),
+    transforms.Normalize(
+        mean=[0.485, 0.456, 0.406],
+        std=[0.229, 0.224, 0.225]
+    ),
+])
+
+
+def _load_model():
+    """
+    Load the Places365 ResNet50 model and category labels.
+
+    Downloads the pretrained weights from the Places365 project and
+    the category label file on first call, then caches them at module
+    level for subsequent calls.
+
+    Returns:
+        tuple: (model, labels) where model is the ResNet50 with Places365
+               weights and labels is a list of 365 scene category strings.
+    """
+    global _model, _labels
+
+    if _model is not None and _labels is not None:
+        return _model, _labels
+
+    logger.info("Loading Places365 ResNet50 model...")
+
+    # Use the Places365 pretrained ResNet50
+    model_file = "resnet50_places365.pth.tar"
+    model_url = "http://places2.csail.mit.edu/models_places365/" + model_file
+
+    # Download model weights if not cached
+    cache_dir = os.path.join(torch.hub.get_dir(), "places365")
+    os.makedirs(cache_dir, exist_ok=True)
+    model_path = os.path.join(cache_dir, model_file)
+
+    if not os.path.exists(model_path):
+        logger.info("Downloading Places365 weights...")
+        torch.hub.download_url_to_file(model_url, model_path)
+
+    # Build ResNet50 architecture with 365 output classes
+    from torchvision.models import resnet50
+    model = resnet50(num_classes=365)
+    checkpoint = torch.load(model_path, map_location="cpu", weights_only=False)
+    state_dict = {k.replace("module.", ""): v for k, v in checkpoint["state_dict"].items()}
+    model.load_state_dict(state_dict)
+    model.eval()
+
+    # Download category labels
+    labels_file = "categories_places365.txt"
+    labels_url = "https://raw.githubusercontent.com/csailvision/places365/master/" + labels_file
+    labels_path = os.path.join(cache_dir, labels_file)
+
+    if not os.path.exists(labels_path):
+        logger.info("Downloading Places365 labels...")
+        torch.hub.download_url_to_file(labels_url, labels_path)
+
+    labels = []
+    with open(labels_path, "r") as f:
+        for line in f:
+            # Format: /a/airfield 0  or  /c/church/indoor 0
+            # Split on "/" and rejoin everything after the prefix letter
+            label = line.strip().split(" ")[0]
+            label = "/".join(label.split("/")[2:])
+            labels.append(label)
+
+    _model = model
+    _labels = labels
+    logger.info("Places365 model loaded successfully.")
+    return _model, _labels
+
+
+def classify_scene(image_path):
+    """
+    Classify the scene type of an image using Places365 ResNet50.
+
+    Takes an image file path, runs it through the pretrained Places365
+    model, and maps the top prediction to one of 6 DREAMS recovery
+    categories. If the model's confidence is below 0.4, returns
+    "unknown" as the scene type.
+
+    Args:
+        image_path (str): Absolute or relative path to the image file.
+
+    Returns:
+        dict: A dictionary with the following keys:
+            - scene_type (str): One of the 6 DREAMS categories or "unknown".
+            - scene_confidence (float): Confidence score between 0 and 1.
+            - scene_raw_top3 (list): Top 3 raw Places365 labels with
+              their confidence scores, each as
+              {"label": str, "confidence": float}.
+    """
+    model, labels = _load_model()
+
+    # Load and preprocess the image
+    img = Image.open(image_path).convert("RGB")
+    input_tensor = preprocess(img).unsqueeze(0)  # add batch dimension
+
+    # Run inference
+    with torch.no_grad():
+        output = model(input_tensor)
+        probabilities = torch.nn.functional.softmax(output[0], dim=0)
+
+    # Get top 3 predictions
+    top3_prob, top3_idx = torch.topk(probabilities, 3)
+    scene_raw_top3 = []
+    for i in range(3):
+        scene_raw_top3.append({
+            "label": labels[top3_idx[i].item()],
+            "confidence": round(float(top3_prob[i].item()), 4),
+        })
+
+    # Determine DREAMS scene category from top predictions
+    # Walk through top predictions and use the first one that maps
+    scene_type = "unknown"
+    scene_confidence = round(float(top3_prob[0].item()), 4)
+
+    # Check confidence threshold
+    if scene_confidence < 0.4:
+        return {
+            "scene_type": "unknown",
+            "scene_confidence": scene_confidence,
+            "scene_raw_top3": scene_raw_top3,
+        }
+
+    # Try to map top predictions to a DREAMS category
+    for i in range(3):
+        raw_label = labels[top3_idx[i].item()]
+        if raw_label in CATEGORY_MAPPING:
+            scene_type = CATEGORY_MAPPING[raw_label]
+            scene_confidence = round(float(top3_prob[i].item()), 4)
+            break
+
+    return {
+        "scene_type": scene_type,
+        "scene_confidence": scene_confidence,
+        "scene_raw_top3": scene_raw_top3,
+    }
