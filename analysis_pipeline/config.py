@@ -61,6 +61,7 @@ DISCRETE_EMOTIONS = [
 
 # ── Processing parameters ────────────────────────────────────────────────────
 BATCH_SIZE = 16                   # records per processing batch
+SQL_CHUNK_SIZE = 500              # max records per SQL statement (SQLite limit safety)
 MAX_RETRIES = 3                   # per-record retry limit
 IMAGE_HASH_SIZE = 16              # perceptual hash grid size (16 → 256 bits)
 SIMILARITY_THRESHOLD = 0.90       # cosine threshold for duplicate detection

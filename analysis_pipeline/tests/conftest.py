@@ -97,11 +97,11 @@ def _clear_state(db_conn):
     db_conn.execute("PRAGMA foreign_keys = OFF")
     # Clear main pipeline tables
     for table in ("processing_state", "emotion_scores",
-                  "temporal_features", "pipeline_runs", "memories"):
+                  "temporal_features", "pipeline_runs", "memories", "ingest_queue"):
         db_conn.execute(f"DELETE FROM {table}")
     db_conn.commit()
     db_conn.execute("PRAGMA foreign_keys = ON")
-
+ 
     # ChromaDB — delete all items from every collection
     from analysis_pipeline.db import get_chroma_client
     chroma = get_chroma_client()

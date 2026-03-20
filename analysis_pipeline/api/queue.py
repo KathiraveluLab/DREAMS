@@ -9,11 +9,15 @@ All functions create their own DB connections so they are safe to call
 from any thread.
 """
 
+import logging
 import sqlite3
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
+logger = logging.getLogger(__name__)
+
+from ..config import SQL_CHUNK_SIZE
 from ..db import get_db
 
 # ── Schema ────────────────────────────────────────────────────────────────────
@@ -21,6 +25,7 @@ from ..db import get_db
 _QUEUE_SCHEMA = """
 CREATE TABLE IF NOT EXISTS ingest_queue (
     job_id          TEXT PRIMARY KEY,
+    batch_id        TEXT,
     memory_id       TEXT NOT NULL,
     status          TEXT NOT NULL DEFAULT 'queued',
     current_step    TEXT,
@@ -31,6 +36,11 @@ CREATE TABLE IF NOT EXISTS ingest_queue (
 );
 CREATE INDEX IF NOT EXISTS idx_iq_status ON ingest_queue(status);
 CREATE INDEX IF NOT EXISTS idx_iq_memory ON ingest_queue(memory_id);
+-- Partial unique index: prevents duplicate active jobs for the same memory_id.
+-- SQLite enforces this atomically, eliminating the SELECT→INSERT race condition.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_iq_active_memory
+    ON ingest_queue(memory_id)
+    WHERE status IN ('queued', 'processing');
 """
 
 
@@ -38,6 +48,11 @@ def init_queue() -> None:
     """Create the ``ingest_queue`` table if it does not exist."""
     with get_db() as conn:
         conn.executescript(_QUEUE_SCHEMA)
+        # Migrate existing tables
+        try:
+            conn.execute("ALTER TABLE ingest_queue ADD COLUMN batch_id TEXT")
+        except sqlite3.OperationalError as e:
+            logger.debug("Migration skipped (already applied): %s", e)
 
 
 # ── Enqueue / dequeue ─────────────────────────────────────────────────────────
@@ -47,27 +62,80 @@ def enqueue(memory_id: str) -> str:
 
     If a *queued* or *processing* job already exists for the same
     ``memory_id``, the existing ``job_id`` is returned (idempotent).
+
+    Uses INSERT OR IGNORE backed by ``uq_iq_active_memory`` to prevent
+    race conditions on concurrent calls.
     """
-    job_id = uuid.uuid4().hex[:12]
+    job_id = uuid.uuid4().hex
     now = datetime.now(timezone.utc).isoformat()
     conn = get_db()
     try:
-        existing = conn.execute(
-            "SELECT job_id FROM ingest_queue "
-            "WHERE memory_id = ? AND status IN ('queued', 'processing')",
-            (memory_id,),
-        ).fetchone()
-        if existing:
-            return existing["job_id"]
-
         conn.execute(
-            "INSERT INTO ingest_queue "
+            "INSERT OR IGNORE INTO ingest_queue "
             "(job_id, memory_id, status, created_at, updated_at) "
             "VALUES (?, ?, 'queued', ?, ?)",
             (job_id, memory_id, now, now),
         )
+
+        # SELECT before commit: both operations share the same transaction.
+        # The unique index guarantees exactly one active row exists.
+        row = conn.execute(
+            "SELECT job_id FROM ingest_queue "
+            "WHERE memory_id = ? AND status IN ('queued', 'processing')",
+            (memory_id,),
+        ).fetchone()
         conn.commit()
-        return job_id
+        return row["job_id"]
+    except sqlite3.Error:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def enqueue_batch(memory_ids: list[str], batch_id: str) -> list[str]:
+    """Bulk-insert a batch of memories into the processing queue.
+
+    Returns the list of ``job_id``s that were actually created
+    (excludes duplicates that were already queued/processing).
+
+    Atomicity: uses INSERT OR IGNORE backed by a partial unique index
+    (uq_iq_active_memory) — no SELECT pre-check needed, race-condition safe.
+    """
+    if not memory_ids:
+        return []
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_db()
+    created_job_ids: list[str] = []
+    try:
+        for i in range(0, len(memory_ids), SQL_CHUNK_SIZE):
+            chunk = memory_ids[i:i + SQL_CHUNK_SIZE]
+
+            # Generate deterministic job_ids we can track
+            chunk_jobs = [(uuid.uuid4().hex, batch_id, mid, "queued", now, now) for mid in chunk]
+            generated_jids = [row[0] for row in chunk_jobs]
+
+            # INSERT OR IGNORE: the partial unique index on (memory_id) WHERE
+            # status IN ('queued','processing') silently skips duplicates.
+            conn.executemany(
+                "INSERT OR IGNORE INTO ingest_queue "
+                "(job_id, batch_id, memory_id, status, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                chunk_jobs,
+            )
+            # Retrieve only the job_ids we generated that actually landed
+            placeholders = ",".join("?" for _ in generated_jids)
+            rows = conn.execute(
+                f"SELECT job_id FROM ingest_queue WHERE job_id IN ({placeholders})",
+                generated_jids,
+            ).fetchall()
+            created_job_ids.extend(r["job_id"] for r in rows)
+
+        conn.commit()
+        return created_job_ids
+    except sqlite3.Error:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 
@@ -76,27 +144,38 @@ def dequeue_batch() -> list[dict]:
     """Atomically move all *queued* jobs to *processing* and return them.
 
     Returns a list of ``{"job_id": ..., "memory_id": ...}`` dicts.
+
+    Uses BEGIN IMMEDIATE to acquire a write lock before reading,
+    preventing TOCTOU races where new jobs are inserted between
+    SELECT and UPDATE.
     """
     now = datetime.now(timezone.utc).isoformat()
     conn = get_db()
     try:
+        conn.execute("BEGIN IMMEDIATE")
         jobs = conn.execute(
             "SELECT job_id, memory_id FROM ingest_queue "
             "WHERE status = 'queued' ORDER BY created_at",
         ).fetchall()
         if not jobs:
+            conn.commit()
             return []
 
         job_ids = [j["job_id"] for j in jobs]
-        placeholders = ",".join("?" for _ in job_ids)
-        conn.execute(
-            f"UPDATE ingest_queue SET status = 'processing', "
-            f"updated_at = ? WHERE job_id IN ({placeholders})",
-            [now] + job_ids,
-        )
+        for i in range(0, len(job_ids), SQL_CHUNK_SIZE):
+            chunk = job_ids[i:i + SQL_CHUNK_SIZE]
+            placeholders = ",".join("?" for _ in chunk)
+            conn.execute(
+                f"UPDATE ingest_queue SET status = 'processing', "
+                f"updated_at = ? WHERE job_id IN ({placeholders})",
+                [now] + chunk,
+            )
         conn.commit()
         return [{"job_id": j["job_id"], "memory_id": j["memory_id"]}
                 for j in jobs]
+    except sqlite3.Error:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 
@@ -156,6 +235,28 @@ def get_job(job_id: str) -> Optional[dict]:
             "SELECT * FROM ingest_queue WHERE job_id = ?", (job_id,),
         ).fetchone()
         return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def get_batch_status(batch_id: str) -> dict:
+    """Return counts of jobs in different states for a given batch."""
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT status, COUNT(*) as cnt FROM ingest_queue WHERE batch_id = ? GROUP BY status",
+            (batch_id,),
+        ).fetchall()
+        status_counts = {r["status"]: r["cnt"] for r in rows}
+        total = sum(status_counts.values())
+        return {
+            "batch_id": batch_id,
+            "total": total,
+            "queued": status_counts.get("queued", 0),
+            "processing": status_counts.get("processing", 0),
+            "done": status_counts.get("done", 0),
+            "error": status_counts.get("error", 0),
+        }
     finally:
         conn.close()
 
