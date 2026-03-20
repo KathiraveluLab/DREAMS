@@ -100,3 +100,103 @@ class DreamsPipeline:
         metrics = analyze_narrative_graph(narrative_graph)
         
         return metrics
+
+    def ingest_csv(self, csv_path: str) -> None:
+        """
+        Ingests a CSV dataset, processes it through the ML pipeline, and stores 
+        results synchronously into SQLite and ChromaDB.
+        """
+        import pandas as pd
+        import os
+        from tqdm import tqdm
+        from dreamsApp.core.database import db_manager
+        from dreamsApp.core.vector_store import vector_store
+
+        if not os.path.exists(csv_path):
+            logger.error(f"CSV file not found: {csv_path}")
+            return
+
+        logger.info(f"Loading dataset from {csv_path}")
+        df = pd.read_csv(csv_path)
+
+        required_cols = {"user_id", "image_path", "caption"}
+        if not required_cols.issubset(df.columns):
+            logger.error(f"CSV missing required columns. Expected at least: {required_cols}")
+            return
+
+        success_count = 0
+        for idx, row in tqdm(df.iterrows(), total=len(df), desc="Ingesting Posts"):
+            user_id = str(row["user_id"])
+            image_path = str(row["image_path"])
+            caption = str(row["caption"])
+            
+            timestamp_iso = None
+            if "timestamp" in df.columns and pd.notna(row["timestamp"]):
+                timestamp_iso = str(row["timestamp"])
+            
+            try:
+                result = self.process_new_post(
+                    user_id=user_id,
+                    image_path=image_path,
+                    caption=caption,
+                    timestamp_iso=timestamp_iso
+                )
+            except Exception as e:
+                logger.error(f"Pipeline error on row {idx}: {e}")
+                continue
+
+            post_doc = result["post_doc"]
+            sentiment = post_doc.get("sentiment", {})
+            
+            # Store metadata in SQLite
+            post_id = db_manager.insert_post(
+                user_id=user_id,
+                image_path=image_path,
+                caption=caption,
+                timestamp=post_doc["timestamp"],
+                sentiment_label=sentiment.get("label", "neutral"),
+                sentiment_score=sentiment.get("score", 0.0)
+            )
+
+            if post_id == -1:
+                logger.error(f"Failed to insert row {idx} into SQLite. Skipping vector storage.")
+                continue
+
+            # Store embeddings in ChromaDB using SQLite's ID
+            doc_id = str(post_id)
+            
+            if result.get("caption_embedding"):
+                vector_store.store_vector(
+                    collection_name="text_embeddings",
+                    doc_id=doc_id,
+                    embedding=result["caption_embedding"],
+                    metadata={"user_id": user_id, "type": "caption"}
+                )
+                
+            if result.get("image_embedding"):
+                vector_store.store_vector(
+                    collection_name="image_embeddings",
+                    doc_id=doc_id,
+                    embedding=result["image_embedding"],
+                    metadata={"user_id": user_id, "type": "image"}
+                )
+                
+            success_count += 1
+
+        logger.info(f"Ingestion complete. Successfully processed {success_count}/{len(df)} rows.")
+
+if __name__ == "__main__":
+    import argparse
+    import os
+    parser = argparse.ArgumentParser(description="Ingest CSV dataset using DREAMS pipeline.")
+    parser.add_argument("csv_path", help="Path to the CSV file.")
+    parser.add_argument("--config", dest="config_path", default=None, help="Path to the override YAML config.")
+    args = parser.parse_args()
+
+    if args.config_path and os.path.exists(args.config_path):
+        config = PipelineConfig.from_yaml(args.config_path)
+    else:
+        config = PipelineConfig()
+        
+    pipeline = DreamsPipeline(config=config)
+    pipeline.ingest_csv(args.csv_path)
