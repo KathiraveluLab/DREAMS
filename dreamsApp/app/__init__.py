@@ -32,6 +32,9 @@ def create_app(test_config=None):
     client = MongoClient(app.config["MONGO_URI"])
     app.mongo = client[app.config["MONGO_DB_NAME"]]
 
+    # Indexes for query performance
+    app.mongo['posts'].create_index('scene_type')
+
     
     login_manager = LoginManager()
     login_manager.init_app(app)
