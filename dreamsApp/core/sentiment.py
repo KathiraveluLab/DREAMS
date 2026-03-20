@@ -137,7 +137,13 @@ class SentimentAnalyzer:
 
         try:
             results = classifier(text)
-            top_result = max(results[0], key=lambda x: x['score'])
+            
+            # HuggingFace pipelines can return [dict] or [[dict]] depending on configuration
+            if len(results) > 0 and isinstance(results[0], list):
+                top_result = max(results[0], key=lambda x: x.get('score', 0))
+            else:
+                top_result = max(results, key=lambda x: x.get('score', 0))
+                
             return top_result
         except Exception as e:
             print(f"Inference error: {e}")
