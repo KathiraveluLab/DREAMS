@@ -70,12 +70,12 @@ def upload_post():
     
     post_doc = pipeline_result["post_doc"]
     keyword_type = pipeline_result.get("keyword_type")
-    keywords_for_mongo = pipeline_result.get("keywords_for_db")
+    keywords_for_db = pipeline_result.get("keywords_for_db")
     keywords_with_vectors = pipeline_result.get("keywords_with_vectors")
     gps_data = pipeline_result.get("gps_data")
 
     # Handle keywords via SQLite arrays
-    if keywords_for_mongo and keyword_type:
+    if keywords_for_db and keyword_type:
         col = f"{keyword_type}_json"
         with sqlite3.connect(db_manager.db_path) as conn:
             conn.row_factory = sqlite3.Row
@@ -86,7 +86,7 @@ def upload_post():
             if row and row[col]:
                 new_kw = json.loads(row[col])
             
-            new_kw.extend(keywords_for_mongo)
+            new_kw.extend(keywords_for_db)
             
             if row:
                 cursor.execute(f"UPDATE keywords SET {col} = ? WHERE user_id = ?", (json.dumps(new_kw), user_id))

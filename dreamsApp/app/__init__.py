@@ -1,5 +1,4 @@
 from flask import Flask
-from pymongo import MongoClient
 import os
 from flask_login import LoginManager
 from dreamsApp.core.config import PipelineConfig
