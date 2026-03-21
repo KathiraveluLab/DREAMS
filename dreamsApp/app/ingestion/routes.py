@@ -1,6 +1,8 @@
 import logging
 import os
 import uuid
+import json
+import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
@@ -12,72 +14,45 @@ from . import bp
 from dreamsApp.core.extra.clustering import cluster_keywords_for_all_users
 from dreamsApp.core.extra.location_extractor import enrich_location
 from dreamsApp.core.vector_store import vector_store
+from dreamsApp.core.database import db_manager
 
 from sentence_transformers import SentenceTransformer
 
 logger = logging.getLogger(__name__)
 model = SentenceTransformer("all-MiniLM-L6-V2")
 
-# Background thread pool for non-blocking location enrichment.
-# A single worker ensures Nominatim rate-limiting is respected naturally.
 _enrichment_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="loc-enrich")
 
-
-def _enrich_location_background(post_id, lat, lon, mongo_uri, db_name):
-    """Run reverse-geocoding + embedding in a background thread and
-    update the MongoDB post document with the enrichment results.
-
-    Runs outside the Flask request context, so it receives the raw
-    connection parameters instead of ``current_app.mongo``.
-    """
+def _enrich_location_background(post_id, lat, lon):
     try:
-        from pymongo import MongoClient
-        with MongoClient(mongo_uri) as client:
-            db = client[db_name]
-
-            enrichment = enrich_location(lat, lon, model=model)
-            if enrichment:
-                # Strip the heavy semantic embedding before updating MongoDB
-                mongo_enrichment = dict(enrichment)
-                mongo_enrichment.pop("location_embedding", None)
-                
-                db["posts"].update_one(
-                    {"_id": post_id},
-                    {"$set": {f"location.{k}": v for k, v in mongo_enrichment.items()}},
-                )
-                
-                # Push semantic location embedding to ChromaDB Multiplex Layer 2
-                if "location_embedding" in enrichment:
-                    vector_store.store_vector(
-                        collection_name="layer_2_semantic",
-                        doc_id=str(post_id),
-                        embedding=enrichment["location_embedding"],
-                        metadata={"location_text": enrichment.get("location_text", "")}
-                    )
-                
-                logger.info("Location enrichment complete for post %s", post_id)
+        enrichment = enrich_location(lat, lon, model=model)
+        if enrichment and "location_embedding" in enrichment:
+            vector_store.store_vector(
+                collection_name="layer_2_semantic",
+                doc_id=str(post_id),
+                embedding=enrichment["location_embedding"],
+                metadata={"location_text": enrichment.get("location_text", "")}
+            )
+            logger.info("Location enrichment complete for post %s", post_id)
     except Exception:
         logger.exception("Background location enrichment failed for post %s", post_id)
 
-
 def _store_keywords_background(user_id, post_id, keywords_with_vectors):
-    """Push keywords to ChromaDB in background thread with error handling."""
     try:
         result = vector_store.store_keywords(user_id, post_id, keywords_with_vectors)
         if result:
             logger.info("Keywords stored in ChromaDB for post %s", post_id)
         else:
-            logger.error("Failed to store keywords in ChromaDB for post %s (store_keywords returned False)", post_id)
+            logger.error("Failed to store keywords in ChromaDB for post %s", post_id)
     except Exception:
         logger.exception("Background keyword storage failed for post %s", post_id)
-
 
 @bp.route('/upload', methods=['POST'])
 @login_required
 def upload_post():
     user_id = request.form.get('user_id')
     caption = request.form.get('caption')
-    timestamp = request.form.get('timestamp', datetime.now().isoformat())
+    timestamp_str = request.form.get('timestamp', datetime.now().isoformat())
     image = request.files.get('image')
 
     missing = [k for k, v in {'caption': caption, 'image': image,'user_id': user_id}.items() if not v]
@@ -90,80 +65,78 @@ def upload_post():
     image_path = os.path.join(upload_path, unique_filename)
     image.save(image_path)
 
-    # Delegate the heavy AI extraction sequence to the global pipeline
     pipeline = current_app.dreams_pipeline
-    pipeline_result = pipeline.process_new_post(user_id, image_path, caption, timestamp)
+    pipeline_result = pipeline.process_new_post(user_id, image_path, caption, timestamp_str)
     
     post_doc = pipeline_result["post_doc"]
     keyword_type = pipeline_result.get("keyword_type")
     keywords_for_mongo = pipeline_result.get("keywords_for_db")
-    keywords_with_vectors = pipeline_result.get("keywords_with_vectors") # Needed for ChromaDB
-    gps_data = pipeline_result.get("gps_data") # Needed for background enrichment
+    keywords_with_vectors = pipeline_result.get("keywords_with_vectors")
+    gps_data = pipeline_result.get("gps_data")
 
-    mongo = current_app.mongo
+    # Handle keywords via SQLite arrays
     if keywords_for_mongo and keyword_type:
-        kw_update_result = mongo['keywords'].update_one(
-            {'user_id': user_id},
-            {'$push': {keyword_type: {'$each': keywords_for_mongo}}},
-            upsert=True
-        )
-
-        if kw_update_result.upserted_id:
-            if keyword_type == 'negative_keywords':
-                mongo['keywords'].update_one(
-                    {'_id': kw_update_result.upserted_id},
-                    {'$set': {'positive_keywords': []}}
-                )
-            elif keyword_type == 'positive_keywords':
-                mongo['keywords'].update_one(
-                    {'_id': kw_update_result.upserted_id},
-                    {'$set': {'negative_keywords': []}}
-                )
+        col = f"{keyword_type}_json"
+        with sqlite3.connect(db_manager.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            row = cursor.execute("SELECT * FROM keywords WHERE user_id = ?", (user_id,)).fetchone()
+            new_kw = []
+            if row and row[col]:
+                new_kw = json.loads(row[col])
+            
+            new_kw.extend(keywords_for_mongo)
+            
+            if row:
+                cursor.execute(f"UPDATE keywords SET {col} = ? WHERE user_id = ?", (json.dumps(new_kw), user_id))
+            else:
+                cursor.execute(f"INSERT INTO keywords (user_id, {col}) VALUES (?, ?)", (user_id, json.dumps(new_kw)))
                 
-    # We will defer pushing keywords to ChromaDB until we have the post_id
+            conn.commit()
 
-    mongo = current_app.mongo
-    insert_result = mongo['posts'].insert_one(post_doc)
+    # Insert post into SQLite
+    timestamp_dt = datetime.fromisoformat(post_doc['timestamp']) if isinstance(post_doc['timestamp'], str) else post_doc['timestamp']
+    inserted_id = db_manager.insert_post(
+        user_id=post_doc['user_id'],
+        image_path=post_doc['image_path'],
+        caption=post_doc['caption'],
+        timestamp=timestamp_dt,
+        sentiment_label=post_doc['sentiment']['label'],
+        sentiment_score=post_doc['sentiment']['score']
+    )
 
-    if not insert_result.acknowledged:
+    if inserted_id == -1:
         return jsonify({'error': 'Failed to create post'}), 500
 
-    # Fire-and-forget: enrich location in a background thread so the
-    # response is not blocked by Nominatim rate-limiting (~1.1 s).
     if gps_data:
-        mongo_uri = current_app.config.get("MONGO_URI", "mongodb://localhost:27017")
-        db_name = mongo.name
         _enrichment_executor.submit(
             _enrich_location_background,
-            insert_result.inserted_id,
+            inserted_id,
             gps_data["lat"],
-            gps_data["lon"],
-            mongo_uri,
-            db_name,
+            gps_data["lon"]
         )
 
-    # Fire-and-forget: push extracted keywords into ChromaDB
     if keywords_with_vectors:
         _enrichment_executor.submit(
             _store_keywords_background,
             user_id,
-            str(insert_result.inserted_id),
+            str(inserted_id),
             keywords_with_vectors
         )
 
     return jsonify({
         'message': 'Post created successfully',
-        'post_id': str(insert_result.inserted_id),
+        'post_id': str(inserted_id),
         'user_id': user_id,
         'caption': caption,
-        'timestamp': post_doc['timestamp'].isoformat(),
+        'timestamp': timestamp_dt.isoformat(),
         'image_path': image_path,
         'sentiment': post_doc['sentiment'],
         'generated_caption': post_doc.get('generated_caption', ''),
     }), 201
 
-    
 @bp.route("/run_clustering")
 def manual_cluster():
-    cluster_keywords_for_all_users(current_app.mongo['keywords'])
-    return "Clustering done"
+    # Deprecated for SQLite context unless clustering logic is rewritten, leaving as a stub
+    return "Clustering API endpoint is disabled during SQLite migration pending rewrite.", 403

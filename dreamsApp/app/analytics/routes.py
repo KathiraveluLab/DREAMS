@@ -41,12 +41,20 @@ def graph_metrics(user_id: str):
             logger.warning(f"Invalid user_id format: {user_id}")
             return jsonify({'error': 'Invalid user_id format'}), 400
 
-        mongo = current_app.mongo['posts']
-
-        # Fetch posts sorted chronologically
-        user_posts = list(
-            mongo.find({'user_id': user_id}).sort('timestamp', 1)
-        )
+        import sqlite3
+        from dreamsApp.core.database import db_manager
+        
+        with sqlite3.connect(db_manager.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            rows = cursor.execute("SELECT * FROM posts WHERE user_id = ? ORDER BY timestamp ASC", (user_id,)).fetchall()
+            
+            user_posts = []
+            for r in rows:
+                post = dict(r)
+                post['_id'] = str(post['id'])
+                post['sentiment'] = {'label': post['sentiment_label'], 'score': post['sentiment_score']}
+                user_posts.append(post)
 
         if not user_posts:
             return jsonify({

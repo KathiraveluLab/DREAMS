@@ -28,6 +28,43 @@ class SQLiteManager:
                         sentiment_score REAL
                     )
                 """)
+                
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS users (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        username TEXT UNIQUE,
+                        email TEXT UNIQUE,
+                        password_hash TEXT
+                    )
+                """)
+                
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS thematic_analysis (
+                        user_id TEXT PRIMARY KEY,
+                        data_json TEXT
+                    )
+                """)
+                
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS keywords (
+                        user_id TEXT PRIMARY KEY,
+                        positive_keywords_json TEXT,
+                        negative_keywords_json TEXT,
+                        clustered_keywords_json TEXT
+                    )
+                """)
+                
+                # Attempt to add new columns to existing posts table if it was created before this update
+                try:
+                    cursor.execute("ALTER TABLE posts ADD COLUMN corrected_label TEXT")
+                except sqlite3.OperationalError:
+                    pass
+                    
+                try:
+                    cursor.execute("ALTER TABLE posts ADD COLUMN chime_analysis_json TEXT")
+                except sqlite3.OperationalError:
+                    pass
+                    
                 conn.commit()
                 logger.info(f"Initialized SQLite database at {self.db_path}")
         except Exception as e:

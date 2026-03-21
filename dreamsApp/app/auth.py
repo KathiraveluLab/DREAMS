@@ -2,6 +2,8 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from flask_login import login_user, logout_user, login_required
 from .models import User
 from werkzeug.security import generate_password_hash
+import sqlite3
+from dreamsApp.core.database import db_manager
 
 bp = Blueprint('auth', __name__)
 
@@ -12,26 +14,26 @@ def register():
         email = request.form.get('email')
         password = request.form.get('password')
         
-        mongo = current_app.mongo
-
         if not username or not email or not password:
             flash('Please fill in all fields.')
             return redirect(url_for('auth.register'))
 
-        if mongo.users.find_one({"username": username}):
-            flash('Please use a different username.')
-            return redirect(url_for('auth.register'))
+        with sqlite3.connect(db_manager.db_path) as conn:
+            cursor = conn.cursor()
 
-        if mongo.users.find_one({"email": email}):
-            flash('Please use a different email address.')
-            return redirect(url_for('auth.register'))
+            if cursor.execute("SELECT 1 FROM users WHERE username = ?", (username,)).fetchone():
+                flash('Please use a different username.')
+                return redirect(url_for('auth.register'))
 
-        
-        mongo.users.insert_one({
-            "username": username,
-            "email": email,
-            "password_hash": generate_password_hash(password)
-        })
+            if cursor.execute("SELECT 1 FROM users WHERE email = ?", (email,)).fetchone():
+                flash('Please use a different email address.')
+                return redirect(url_for('auth.register'))
+
+            cursor.execute(
+                "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)",
+                (username, email, generate_password_hash(password))
+            )
+            conn.commit()
 
         flash('Congratulations, you are now a registered user!')
         return redirect(url_for('auth.login'))
@@ -44,13 +46,13 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password')
         
-        
+        with sqlite3.connect(db_manager.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            user_row = cursor.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
 
-        mongo = current_app.mongo
-        user_data = mongo.users.find_one({"username": username})
-
-        if user_data:
-            user = User(user_data)
+        if user_row:
+            user = User(dict(user_row))
             
             is_password_correct = user.check_password(password)
             

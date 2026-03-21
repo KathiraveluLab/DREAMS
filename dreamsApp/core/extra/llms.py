@@ -9,7 +9,7 @@ import re
 load_dotenv()
 
 
-def generate(user_id, positive_keywords, negative_keywords, thematic_analysis_collection):
+def generate(user_id, positive_keywords, negative_keywords):
     client = genai.Client(
         api_key=os.environ.get("GEMINI_API_KEY"),
     )
@@ -61,20 +61,32 @@ Your task:
         config=generate_content_config,
     ):
         full_response += chunk.text
+        
+    # Try to find JSON block using backticks first
     match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', full_response, re.DOTALL)
     if match:
         cleaned_response = match.group(1)
     else:
-        cleaned_response = full_response 
+        # Fallback to finding the outermost curly braces
+        match = re.search(r'(\{.*\})', full_response, re.DOTALL)
+        if match:
+            cleaned_response = match.group(1)
+        else:
+            cleaned_response = full_response 
 
     try:
         data = json.loads(cleaned_response)
         
-        thematic_analysis_collection.update_one(
-            {"user_id": str(user_id)},
-            {"$set": {"data": data}},
-            upsert=True
-        )
+        import sqlite3
+        from dreamsApp.core.database import db_manager
+        
+        with sqlite3.connect(db_manager.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO thematic_analysis (user_id, data_json) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET data_json=excluded.data_json",
+                (str(user_id), json.dumps(data))
+            )
+            conn.commit()
 
         return data
 

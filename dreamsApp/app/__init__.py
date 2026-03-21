@@ -30,10 +30,6 @@ def create_app(test_config=None):
     if not os.path.exists(app.config["UPLOAD_FOLDER"]):
         os.makedirs(app.config["UPLOAD_FOLDER"])
 
-    # MongoDB connection
-    client = MongoClient(app.config["MONGO_URI"])
-    app.mongo = client[app.config["MONGO_DB_NAME"]]
-
     # Globally attach our core AI pipeline so we don't boot models per request
     app.dreams_pipeline = DreamsPipeline(config=PipelineConfig())
 
@@ -46,10 +42,17 @@ def create_app(test_config=None):
     def load_user(user_id):
         """Checks if user is logged-in on every page load."""
         if user_id is not None:
-            # Query the user by their MongoDB _id
-            user_data = app.mongo.users.find_one({'_id': ObjectId(user_id)})
-            if user_data:
-                return User(user_data)
+            import sqlite3
+            from dreamsApp.core.database import db_manager
+            try:
+                with sqlite3.connect(db_manager.db_path) as conn:
+                    conn.row_factory = sqlite3.Row
+                    cursor = conn.cursor()
+                    user_row = cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+                    if user_row:
+                        return User(dict(user_row))
+            except Exception as e:
+                app.logger.error(f"Error loading user: {e}")
         return None
 
     from .auth import bp as auth_bp
