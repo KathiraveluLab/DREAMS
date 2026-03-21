@@ -3,20 +3,25 @@ Flask application for the analysis pipeline REST API.
 
 Endpoints
 ---------
-POST /api/ingest              Upload an image for processing
-GET  /api/status/<job_id>     Poll job status
-GET  /api/analysis/<memory_id> Full analysis JSON for one record
-GET  /api/analysis             Paginated list of completed records
+POST /api/ingest                  Upload an image for processing
+POST /api/ingest/batch            Bulk upload (CSV + ZIP)
+GET  /api/status/<job_id>         Poll single job status
+GET  /api/batch/<batch_id>/status Poll bulk status
+GET  /api/analysis/<memory_id>    Full analysis JSON for one record
+GET  /api/analysis                Paginated list of completed records
 """
 
 import logging
+import shutil
+import uuid
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
 from flask import Flask, Blueprint, request, jsonify
 from PIL import Image
 
-from ..config import IMAGE_EXTENSIONS, PROCESSED_DIR
+from ..config import IMAGE_EXTENSIONS, PROCESSED_DIR , DATA_DIR
 from ..db import get_db, get_collection, init_db
 from ..utils import (
     make_memory_id,
@@ -26,6 +31,7 @@ from ..utils import (
     validate_safe_path,
 )
 from . import queue
+from ..steps import ingest as ingest_step
 
 logger = logging.getLogger(__name__)
 
@@ -189,6 +195,90 @@ def ingest():
         "memory_id": memory_id,
         "status": "queued",
     }), 202
+
+
+# ── POST /api/ingest/batch ────────────────────────────────────────────────────
+
+@bp.route("/ingest/batch", methods=["POST"])
+def ingest_batch():
+    """Accept a CSV and a ZIP file of images for bulk ingestion.
+    
+    Returns 202 with ``{batch_id, enqueued_count, status}`` on success.
+    """
+    if "csv" not in request.files or "images" not in request.files:
+        return jsonify({"error": "Missing 'csv' or 'images' file"}), 400
+
+    csv_file = request.files["csv"]
+    images_file = request.files["images"]
+
+    if not csv_file.filename or not images_file.filename:
+        return jsonify({"error": "No file selected"}), 400
+
+    if not images_file.filename.lower().endswith(".zip"):
+        return jsonify({"error": "Images file must be a .zip archive"}), 400
+
+    batch_id = uuid.uuid4().hex
+
+    
+    staging_dir = DATA_DIR / "staging" / batch_id
+    staging_dir.mkdir(parents=True, exist_ok=True)
+
+    csv_path = staging_dir / Path(csv_file.filename).name
+    csv_file.save(str(csv_path))
+
+    zip_path = staging_dir / Path(images_file.filename).name
+    images_file.save(str(zip_path))
+
+    # Extract ZIP securely (prevent Zip Slip vulnerability)
+    try:
+        images_dir = staging_dir / "images"
+        images_dir.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(str(zip_path), 'r') as zip_ref:
+            for member in zip_ref.infolist():
+                if member.is_dir():
+                    continue
+                # Extract only the base filename to prevent path traversal
+                base_name = Path(member.filename).name
+                if not base_name:
+                    continue
+                target_path = images_dir / base_name
+                with zip_ref.open(member) as source, open(target_path, "wb") as target:
+                    shutil.copyfileobj(source, target)
+    except zipfile.BadZipFile:
+        shutil.rmtree(staging_dir, ignore_errors=True)
+        return jsonify({"error": "Invalid zip file"}), 400
+
+    try:
+        memory_ids = ingest_step.run(str(csv_path), logger=logger)
+    except Exception as e:
+        logger.error("Batch ingest failed", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+    finally:
+        shutil.rmtree(staging_dir, ignore_errors=True)
+    
+    if memory_ids:
+        queue.enqueue_batch(memory_ids, batch_id)
+        # Wake the worker
+        from .worker import worker
+        worker.wake()
+
+    return jsonify({
+        "batch_id": batch_id,
+        "enqueued_count": len(memory_ids),
+        "status": "accepted"
+    }), 202
+
+
+# ── GET /api/batch/<batch_id>/status ──────────────────────────────────────────
+
+@bp.route("/batch/<batch_id>/status", methods=["GET"])
+def batch_status(batch_id: str):
+    """Return the aggregated status of a batch."""
+    status_counts = queue.get_batch_status(batch_id)
+    return jsonify({
+        "batch_id": batch_id,
+        "status": status_counts
+    }), 200
 
 
 # ── GET /api/status/<job_id> ──────────────────────────────────────────────────

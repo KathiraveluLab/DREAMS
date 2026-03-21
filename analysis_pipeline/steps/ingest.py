@@ -67,13 +67,13 @@ def _detect_duplicates(existing_hashes: list[dict], phash: str) -> tuple[bool, s
     return False, None
 
 
-def run(source_path: str, logger: logging.Logger | None = None) -> int:
+def run(source_path: str, logger: logging.Logger | None = None) -> list[str]:
     """Ingest data from a CSV file.
 
     Expected CSV columns:
         id, user_id, image_filename, category, date, caption
 
-    Returns the number of records imported.
+    Returns the list of successfully imported (and non-duplicate) memory_ids.
     """
     _log = logger or logging.getLogger(__name__)
 
@@ -99,7 +99,7 @@ def run(source_path: str, logger: logging.Logger | None = None) -> int:
     shutil.copy2(str(source), str(snap_dir / source.name))
     _log.info("Snapshot saved to %s", snap_dir)
 
-    imported = 0
+    imported_mids = []
     skipped_dup = 0
     skipped_exists = 0
     errors = 0
@@ -189,7 +189,8 @@ def run(source_path: str, logger: logging.Logger | None = None) -> int:
                             dup_of,
                         ),
                     )
-                    imported += 1
+                    if not is_dup:
+                        imported_mids.append(memory_id)
 
                 except Exception as e:
                     _log.error("Error ingesting row %s: %s", row.get("id", "?"), e)
@@ -201,6 +202,6 @@ def run(source_path: str, logger: logging.Logger | None = None) -> int:
 
     _log.info(
         "Ingestion complete: %d imported, %d duplicates, %d already existed, %d errors",
-        imported, skipped_dup, skipped_exists, errors,
+        len(imported_mids), skipped_dup, skipped_exists, errors,
     )
-    return imported
+    return imported_mids

@@ -225,6 +225,47 @@ def mark_error(job_id: str, error_msg: str) -> None:
         conn.close()
 
 
+def mark_jobs_done(job_ids: list[str]) -> None:
+    """Bulk mark multiple jobs as done."""
+    if not job_ids:
+        return
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_db()
+    try:
+        for i in range(0, len(job_ids), SQL_CHUNK_SIZE):
+            chunk = job_ids[i:i + SQL_CHUNK_SIZE]
+            placeholders = ",".join("?" for _ in chunk)
+            conn.execute(
+                f"UPDATE ingest_queue SET status = 'done', current_step = NULL, "
+                f"updated_at = ? WHERE job_id IN ({placeholders})",
+                [now] + chunk,
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def mark_jobs_error(job_errors: list[tuple[str, str]]) -> None:
+    """Bulk mark multiple jobs as error.
+    
+    Args:
+        job_errors: List of (job_id, error_message) tuples.
+    """
+    if not job_errors:
+        return
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_db()
+    try:
+        conn.executemany(
+            "UPDATE ingest_queue SET status = 'error', error_message = ?, "
+            "updated_at = ? WHERE job_id = ?",
+            [(msg, now, jid) for jid, msg in job_errors],
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 # ── Queries ───────────────────────────────────────────────────────────────────
 
 def get_job(job_id: str) -> Optional[dict]:

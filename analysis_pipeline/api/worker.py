@@ -18,6 +18,9 @@ import threading
 from ..db import init_db, get_db
 from . import queue
 
+from ..config import SQL_CHUNK_SIZE
+from collections import defaultdict
+
 logger = logging.getLogger(__name__)
 
 # Pipeline steps to run for each uploaded record.
@@ -132,9 +135,6 @@ class PipelineWorker:
         """Mark each job as *done* or *error* based on processing_state."""
         if not jobs:
             return
-
-        from ..config import SQL_CHUNK_SIZE
-        from collections import defaultdict
         
         conn = get_db()
         try:
