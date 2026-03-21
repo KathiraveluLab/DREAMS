@@ -1,178 +1,257 @@
 # Analysis Pipeline API (Async Ingestion + Feature Extraction)
 
-End-to-end documentation for the DREAMS analysis pipeline service that accepts real-world image uploads, runs feature extraction asynchronously, and exposes a JSON “analysis manifest” per memory for downstream research (Phase 1/2/3).
+Documentation for the DREAMS analysis pipeline service that accepts images uploads, runs feature extraction asynchronously, and exposes analysis JSON per memory for downstream tasks (Phase 1/2/3).
 
 ---
 
 ## Table of Contents
 
 1. [What This Service Does](#what-this-service-does)
-2. [Why This Runs Separately on Port 5001](#why-this-runs-separately-on-port-5001)
-3. [Pipeline Overview](#pipeline-overview)
-4. [Data Flow (Upload → Job → JSON)](#data-flow-upload--job--json)
-5. [Storage Model (SQLite + ChromaDB)](#storage-model-sqlite--chromadb)
-6. [API Reference](#api-reference)
-7. [Analysis JSON Schema](#analysis-json-schema)
-8. [Configuration](#configuration)
-9. [File Map](#file-map)
-10. [Running and Testing](#running-and-testing)
-11. [Resetting State (Start Fresh)](#resetting-state-start-fresh)
-12. [Known Limitations and Troubleshooting](#known-limitations-and-troubleshooting)
-13. [Future Roadmap (Phase 1/2/3)](#future-roadmap-phase-123)
+2. [Why It Runs in the Background](#why-it-runs-in-the-background)
+3. [How It Works](#how-it-works)
+4. [What Happens to Your Photos](#what-happens-to-your-photos)
+5. [How Data is Stored](#how-data-is-stored)
+6. [API Endpoints](#api-endpoints--how-to-use-it)
+7. [The JSON You Get Back](#the-json-you-get-back)
+8. [Settings and Configuration](#settings-and-configuration)
+9. [File Organization](#file-organization)
+10. [Starting and Testing](#starting-and-testing)
+11. [Cleaning Everything Up](#cleaning-everything-up)
+12. [Common Problems and Solutions](#common-problems-and-solutions)
+13. [What's Being Built Next](#whats-being-built-next)
 
 ---
 
 ## What This Service Does
 
-This service provides a production-oriented workflow for “memory” ingestion:
+This service processes batches of memories (photos with captions and timestamps):
 
-- Accept an image upload (optionally including caption, timestamp, GPS)
-- Store the memory in SQLite
-- Enqueue a background job immediately (fast HTTP response)
-- Run feature extraction asynchronously in a worker thread
-- Persist embeddings to ChromaDB and structured features to SQLite
-- Expose a single JSON response per memory via `GET /api/analysis/<memory_id>`
+- Accept batch uploads (CSV metadata + ZIP of photos)
+- Extract and validate all metadata from CSV
+- Store memories in SQLite
+- Enqueue background processing immediately (fast response)
+- Extract features asynchronously (images, captions, emotions, temporal)
+- Store vectors in ChromaDB and structured data in SQLite
+- Expose complete analysis JSON for each memory
 
-The output JSON is designed to be the stable interface for later research modules:
-
-- Phase 1: clustering / concept discovery (multimodal)
-- Phase 2: sequential pattern analysis (temporal / transitions)
-- Phase 3: prediction (future emotional/behavioral signals)
-
----
-
-## Why This Runs Separately on Port 5001
-
-DREAMS already contains an application server (commonly run on port 5000). This analysis pipeline runs separately (port 5001) for practical reasons:
-
-1. Long-running ML steps (captioning, embeddings, multiple NLP models, geocoding) can take seconds to minutes on CPU, especially on first run when models download.
-2. Keeping ML workloads separate avoids blocking user-facing request handling.
-3. Failure isolation: memory pressure or model-download issues should not take down the main app.
-4. Clean service boundary: this API’s contract is “upload → job status → analysis JSON”, which maps naturally to an async worker architecture.
-
-Important note: running on a separate port is a deployment choice, not a hard requirement. The same blueprint could be mounted into the main app later; the async job model would remain.
+Each photo becomes a complete record with:
+- Image and caption vectors (for similarity search)
+- Emotion analysis (7 emotions + sentiment + recovery category)
+- Temporal features (hour, day, season, cyclical patterns)
+- Processing status and metadata
 
 ---
 
-## Pipeline Overview
+## Why It Runs in the Background
+
+Processing batches takes time. Running embeddings, emotion analysis, and temporal feature extraction on many photos can take several seconds per photo.
+
+The API:
+- Accepts your batch and returns immediately with a batch ID
+- Does all processing in the background
+- Lets you check progress anytime
+- Provides results when complete
+
+This means you can upload large batches without waiting for each one to finish.
+
+---
+
+## How It Works
+
+![alt text](image.jpg)
+
+---
+
+## Data Flow (Batch Processing → Jobs → JSON)
+
+### Step 1 — Batch Upload and Validation
+
+**Primary Endpoint:** `POST /api/ingest/batch`
 
 ```
-Client (Postman / UI)
-  │
-  │  POST /api/ingest  (multipart image + metadata)
-  ▼
-Flask API (analysis_pipeline/api/app.py)
-  │
-  ├─ writes memory row to SQLite: analysis_pipeline/data/pipeline.db
-  ├─ enqueues job row to SQLite ingest_queue
-  └─ signals worker via threading.Event
-  ▼
-Background worker (analysis_pipeline/api/worker.py)
-  │
-  ├─ caption             (BLIP only if no user caption)
-  ├─ image_embeddings    (CLIP → ChromaDB)
-  ├─ caption_embeddings  (MiniLM → ChromaDB)
-  ├─ emotions            (discrete + sentiment + CHIME; sequential model load)
-  ├─ location            (reverse geocode with cache)
-  └─ temporal            (cyclical time + relative day)
-  ▼
-Client polls status and fetches JSON
-  │
-  ├─ GET /api/status/<job_id>
-  └─ GET /api/analysis/<memory_id>
+CSV metadata arrives    → Rows validated (user_id, caption, timestamp ALL required)
+ZIP photos arrive      → Extracted and checked (JPG, PNG, supported formats)
+                       → All files checked for size limits (max 1GB total)
+                       → Photos saved to: analysis_pipeline/data/processed/
 ```
-
----
-
-## Data Flow (Upload → Job → JSON)
-
-### Step 1 — Upload and Validation
-
-**Endpoint:** `POST /api/ingest`
 
 The API validates:
+- CSV has required columns: `filename`, `user_id`, `caption`, `timestamp`
+- Each row's file exists in the ZIP
+- All image files have supported extensions (.jpg, .png, .webp, .bmp, .tiff)
+- Total uncompressed size is within limit (1 GB max for batch, max 1000 files per batch)
 
-- `image` file exists and has a supported extension
-- upload size is within the service limit (10 MB)
-- `user_id` is present
+### Step 2 — Memory ID Creation and Batch Queuing
 
-The image is written to:
+For each photo in the batch, the system creates a unique memory ID from its user ID and filename. 
 
-- `analysis_pipeline/data/processed/<memory_id>.<ext>`
+- If you upload the exact same file twice, it's recognized as a duplicate
+- Each valid file from the CSV gets queued as a separate processing job
+- The API returns immediately with `batch_id` and `enqueued_count`
 
-Path traversal is prevented by validating output paths under allowed roots.
-
-### Step 2 — Memory ID and Idempotency
-
-This service generates a deterministic `memory_id` from:
-
-- `user_id` and the uploaded filename
-
-This means re-uploading the same filename for the same user can return `{"status": "already_exists"}`.
-
-If you want a new `memory_id` for a repeated upload, change the filename (or extend the API later to incorporate a client-provided nonce).
+To treat a repeat upload as new, just rename the file in your CSV/ZIP before re-uploading.
 
 ### Step 3 — Duplicate Detection
 
-A perceptual hash (average-hash) is computed from the image. If the new hash is within a small Hamming distance of an existing hash, the record is marked as a duplicate and is not processed.
+For each photo in the batch, the system creates a "perceptual hash"—a fingerprint based on what the photo looks like:
 
-### Step 4 — Enqueue and Background Processing
+- If this photo is too similar to an existing one, it's marked as a duplicate
+- Duplicates are recorded but not processed  
+- You'll see which photo it's a copy of
 
-The API creates a queue row in the `ingest_queue` table (SQLite). It returns immediately:
+### Step 4 — Background Worker Processing
 
-- HTTP 202 with `{job_id, memory_id, status: "queued"}`
+The queue manager picks up jobs from the batch and distributes them to the background worker:
 
-The worker thread sleeps when idle and wakes when signaled.
+- Worker runs processing steps for each photo independently
+- Multiple photos can be processed in parallel (worker pool)
+- HTTP 202 response means batch was accepted; processing happens in background
 
-### Step 5 — Fetch the Analysis JSON
+You check progress with:
+- `GET /api/batch/<batch_id>/status` for overall batch progress
+- `GET /api/status/<job_id>` for individual photo progress
 
-When the job finishes, request:
+### Step 5 — Worker Processing
+
+The background worker runs these steps in order:
+1. Image embeddings — Convert photo to a vector
+2. Caption embeddings — Convert description to a vector  
+3. Emotions — Analyze feelings
+4. Temporal — Extract time patterns
+
+Each step saves results to the database.
+
+### Step 6 — Fetch Complete Analysis Results
+
+When a photo's processing is done, request its complete analysis:
 
 - `GET /api/analysis/<memory_id>`
 
-This assembles fields from:
+This assembles all results (emotions, embeddings, temporal features) into one JSON object ready to use.
 
-- `memories`
-- `emotion_scores`
-- `location_info`
-- `temporal_features`
-- `processing_state`
-- ChromaDB collections for embeddings
+You can also fetch a paginated list of all analyses:
+
+- `GET /api/analysis` with optional filters (`user_id`, `page`, `per_page`)
 
 ---
 
 ## Storage Model (SQLite + ChromaDB)
 
-### SQLite
+### The Database (SQLite)
 
-SQLite is used for structured, queryable data and job state:
+All structured information lives in: `analysis_pipeline/data/pipeline.db`
 
-- DB path: `analysis_pipeline/data/pipeline.db`
+**Main tables:**
+- **memories** — The core record for each photo (filename, caption, when it was taken, duplicate status)
+- **emotion_scores** — All the feeling analysis (7 discrete emotions, mood, sentiment, CHIME recovery category)
+- **temporal_features** — Time-based information (hour, day of week, season, special patterns)
+- **processing_state** — Tracks what's been done and what's not (completed steps, errors, timestamps)
 
-Key tables:
+### Vector Storage (ChromaDB)
 
-- `memories`: one row per uploaded memory (image path, caption, GPS, timestamp, duplicates)
-- `ingest_queue`: one row per processing job (queued / processing / done / error)
-- `processing_state`: per-memory, per-step state (pending / done / error)
-- `emotion_scores`: combined output of emotion models
-- `location_info`: reverse geocode results
-- `temporal_features`: cyclical and relative-day features
+Numerical representations of photos and text live in: `analysis_pipeline/data/chromadb/`
 
-### ChromaDB
+Two collections:
+- **image_embeddings** — Photos converted to 512-number vectors (CLIP model)
+- **caption_embeddings** — Written descriptions converted to 384-number vectors (MiniLM model)
 
-ChromaDB stores embedding vectors:
+These vectors let the system find similar memories without reading text or looking at images directly.
 
-- Directory: `analysis_pipeline/data/chromadb/`
+---
 
-Collections used:
+## API Endpoints — How to Use It
 
-- `image_embeddings` (512D CLIP vectors)
-- `caption_embeddings` (384D MiniLM vectors)
+### Base URL
 
-The analysis JSON includes either:
+When running locally: `http://localhost:5001`
 
-- references to collections and dimensions (default), or
-- raw embedding vectors when requested with `?include_embeddings=true`
+### Upload Many Photos (Recommended)
+
+**Endpoint:** `POST /api/ingest/batch`
+
+Upload a CSV file and a ZIP of photos together for bulk processing.
+
+- `csv` (required) — CSV file with columns: `filename`, `user_id`, `caption`, `category` (optional), `timestamp`
+- `images` (required) — ZIP archive containing the photo files
+
+Response:
+```json
+{
+  "status": "accepted",
+  "batch_id": "batch_abc123xyz",
+  "enqueued_count": 50
+}
+```
+
+### Upload a Single Photo (Legacy)
+
+**Endpoint:** `POST /api/ingest`
+
+For single photo uploads (now primarily used for testing):
+
+- `image` (required) — The photo file
+- `user_id` (required) — Your identifier (e.g., "anishhhh")
+- `caption` (required) — Your description of the photo
+- `category` (optional) — A label like "park", "hospital", "home"
+- `timestamp` (required) — When the photo was taken (ISO-8601 format)
+
+### Check if a Job is Done
+
+**Endpoint:** `GET /api/status/<job_id>`
+
+Response:
+```json
+{
+  "job_id": "a1b2c3d4e5f6g7h8",
+  "memory_id": "uniqueid123",
+  "status": "processing",
+  "current_step": "emotions",
+  "error_message": null
+}
+```
+
+Possible statuses:
+- `queued` — Waiting to start
+- `processing` — Currently running
+- `done` — All finished
+- `error` — Something went wrong
+
+### Check a Batch Upload Status
+
+**Endpoint:** `GET /api/batch/<batch_id>/status`
+
+Shows counts for queued, processing, done, and error statuses.
+
+### Get the Complete Analysis for One Photo
+
+**Endpoint:** `GET /api/analysis/<memory_id>`
+
+Optional query:
+- `include_embeddings=true` or `false` (default is `true`)
+  - `true` = includes the actual number arrays
+  - `false` = just tells you where to find them
+
+### Get a List of All Photos
+
+**Endpoint:** `GET /api/analysis`
+
+Optional query parameters:
+- `user_id=anishhhh` — Filter to just your photos
+- `page=2` — Which page of results
+- `per_page=20` — How many per page (max 100)
+
+Response:
+```json
+{
+  "total": 250,
+  "page": 1,
+  "per_page": 20,
+  "records": [
+    { ... full analysis for first photo ... },
+    { ... full analysis for second photo ... }
+  ]
+}
+```
 
 ---
 
@@ -190,11 +269,9 @@ Upload a memory and enqueue background processing.
 - Form fields:
   - `image` (file, required)
   - `user_id` (string, required)
-  - `caption` (string, optional)
-  - `latitude` (float, optional)
-  - `longitude` (float, optional)
+  - `caption` (string, required)
   - `category` (string, optional)
-  - `timestamp` (string, optional; ISO-8601 recommended)
+  - `timestamp` (string, required; ISO-8601 recommended)
 
 **Responses**
 
@@ -225,7 +302,7 @@ Fetch the full analysis JSON for one memory.
 
 **Query parameters**
 
-- `include_embeddings` (boolean; default `false`)
+- `include_embeddings` (boolean; default `true`)
 
 ### GET /api/analysis
 
@@ -239,186 +316,214 @@ Paginated list of analysis records.
 
 ---
 
-## Analysis JSON Schema
+## The JSON You Get Back
 
-The analysis response is designed to be a single, self-contained object that downstream analytics can consume without joining multiple tables.
-
-Key fields:
-
-- Identity: `memory_id`, `user_id`, `captured_at`, `category`
-- Content: `caption`, `generated_caption`, `caption_source`
-- Embeddings: either raw vectors or collection references
-- Emotions:
-  - discrete emotions (7-class probabilities)
-  - sentiment (pos/neg/neutral)
-  - CHIME category and confidence
-- Location:
-  - original GPS plus reverse-geocoded fields (address + place type)
-- Temporal:
-  - hour/dow/month/year + cyclical sin/cos + `recovery_day`
-- Status:
-  - `processing_status` and optional `processing_errors`
-
-Example (abridged):
+When you fetch `GET /api/analysis/<memory_id>`, you get one complete object with everything about that memory:
 
 ```json
 {
-  "memory_id": "7d52af1678e2557b",
+  "memory_id": "uniqueid123",
   "user_id": "anishhhh",
-  "captured_at": "2026-03-01T11:33:43.292329+00:00",
+  "image_path": "/path/to/photo.jpg",
+  "category": "park",
+  "caption": "I wrote this myself",
   "caption_source": "user",
+  "captured_at": "2026-03-01T14:30:00+00:00",
+  "is_duplicate": false,
+  
   "emotions": {
+    "discrete": {
+      "anger": 0.02,
+      "disgust": 0.01,
+      "fear": 0.03,
+      "joy": 0.80,
+      "neutral": 0.05,
+      "sadness": 0.05,
+      "surprise": 0.04
+    },
     "dominant_emotion": "joy",
-    "discrete": { "joy": 0.94, "neutral": 0.03 },
-    "sentiment": { "label": "positive", "positive": 0.98 },
-    "chime": { "category": "Hope", "confidence": 0.997 }
+    "valence": 0.72,
+    "arousal": 0.45,
+    "sentiment": {
+      "label": "positive",
+      "positive": 0.92,
+      "negative": 0.03,
+      "neutral": 0.05
+    },
+    "chime": {
+      "category": "Hope",
+      "confidence": 0.95
+    }
   },
-  "location": {
-    "latitude": 61.2181,
-    "longitude": -149.9003,
-    "place_type": "post_box",
-    "address": { "city": "Anchorage", "state": "Alaska", "country": "United States" }
-  },
+  
   "temporal": {
-    "hour": 11,
-    "day_of_week": 6,
+    "hour": 14,
+    "day_of_week": 2,
+    "month": 3,
+    "year": 2026,
     "season": "spring",
-    "recovery_day": 0.0,
-    "cyclical": { "sin_hour": 0.26, "cos_hour": -0.97 }
+    "time_of_day": "afternoon",
+    "recovery_day": 125.5,
+    "cyclical": {
+      "sin_hour": 0.34,
+      "cos_hour": -0.94,
+      "sin_dow": 0.95,
+      "cos_dow": 0.31,
+      "sin_month": 0.50,
+      "cos_month": 0.87
+    }
   },
+  
   "embeddings": {
-    "image": { "collection": "image_embeddings", "dimensions": 512 },
-    "caption": { "collection": "caption_embeddings", "dimensions": 384 }
+    "image": {
+      "collection": "image_embeddings",
+      "dimensions": 512
+    },
+    "caption": {
+      "collection": "caption_embeddings",
+      "dimensions": 384
+    }
   },
-  "processing_status": "complete"
+  
+  "processing_status": "complete",
+  "steps_completed": ["image_embeddings", "caption_embeddings", "emotions", "temporal"]
 }
+```
+
+### Understanding the Fields
+
+**Emotions section:**
+- **discrete** — Scores (0 to 1) for each of 7 basic feelings. Higher = more of that feeling
+- **dominant_emotion** — Whichever emotion scored highest
+- **valence** — Scale from -1 (unhappy) to +1 (happy). How pleasant is this moment?
+- **arousal** — Scale from 0 (calm) to 1 (energetic). How active is this emotion?
+- **sentiment** — Overall: positive, negative, or neutral? With confidence scores for each
+- **chime** — Recovery category from DREAMS's model (Hope, Anxiety, Sadness, Acceptance, etc.)
+
+**Temporal section:**
+- **hour, day_of_week, month, year** — Straightforward time information
+- **season** — winter, spring, summer, or fall  
+- **time_of_day** — morning, afternoon, evening, or night
+- **recovery_day** — How many days since your first memory? (Useful for tracking progress)
+- **cyclical** — Mathematical transformations that make time patterns circular
+  - Hour 23 and hour 1 are treated as close together
+  - Same logic for days, weeks, months
+  - These numbers are used by algorithms to understand repeating patterns
+
+**Embeddings section:**
+- These vectors are mathematical representations of your photo and its description
+- Used to find similar memories later
+- Image vectors are 512 numbers, captions are 384 numbers
+- Can be expensive to transmit, so by default you just get metadata about where they're stored
+
+---
+
+## Settings and Configuration
+
+Core settings live in: `analysis_pipeline/config.py`
+
+**Models used:**
+- **Image vectors:** OpenAI CLIP ViT-B/32 (about 340 MB)
+- **Caption vectors:** MiniLM-L6-v2 (about 80 MB)
+- **Emotion analysis:** Multiple models, loaded one at a time
+
+**Key limits:**
+- Single photo: max 10 MB
+- Batch: max 1 GB total
+
+---
+
+## File Organization
+
+```
+analysis_pipeline/
+├── api/
+│   ├── app.py              ← Flask app with endpoints
+│   ├── worker.py           ← Background worker
+│   ├── queue.py            ← Queue management
+│   └── server.py           ← Starts service on port 5001
+│
+├── steps/
+│   ├── image_embeddings.py ← CLIP image vectors
+│   ├── caption_embeddings.py ← MiniLM text vectors
+│   ├── emotions.py         ← Emotion analysis
+│   ├── temporal.py         ← Time patterns
+│   └── ingest.py           ← CSV/folder import
+│
+└── data/
+    ├── processed/          ← Uploaded photos
+    ├── chromadb/           ← Vector storage
+    └── pipeline.db         ← SQLite database
 ```
 
 ---
 
-## Configuration
-
-Core configuration lives in `analysis_pipeline/config.py`.
-
-Notable settings:
-
-- `SQLITE_DB_PATH`: `analysis_pipeline/data/pipeline.db`
-- `CHROMA_DB_DIR`: `analysis_pipeline/data/chromadb`
-- `BLIP_MODEL_NAME`: captioning model
-  - The pipeline uses `Salesforce/blip-image-captioning-base` by default to reduce memory pressure.
-- `IMAGE_EXTENSIONS`: allowed upload extensions
-
-Operational behavior:
-
-- Captioning is designed to be “lightweight by default”:
-  - If a user caption exists, BLIP is not loaded.
-  - The user caption is copied to `generated_caption` for downstream text steps.
-
----
-
-## File Map
-
-API layer:
-
-- `analysis_pipeline/api/app.py`
-  - Flask blueprint and `create_app()` factory
-  - endpoints: ingest/status/analysis
-
-- `analysis_pipeline/api/queue.py`
-  - SQLite-backed queue table `ingest_queue`
-  - `enqueue()`, `dequeue_batch()`, `recover_stale_jobs()`
-
-- `analysis_pipeline/api/worker.py`
-  - background worker thread
-  - sleeps on `threading.Event` when queue is empty
-
-- `analysis_pipeline/api/server.py`
-  - entry point; configures logging; runs on port 5001
-
-Pipeline steps:
-
-- `analysis_pipeline/steps/caption.py`
-- `analysis_pipeline/steps/image_embeddings.py`
-- `analysis_pipeline/steps/caption_embeddings.py`
-- `analysis_pipeline/steps/emotions.py`
-- `analysis_pipeline/steps/location.py`
-- `analysis_pipeline/steps/temporal.py`
-
-Storage:
-
-- `analysis_pipeline/db.py` (SQLite schema and helpers; ChromaDB helpers)
-- `analysis_pipeline/utils.py` (timestamp parsing, hashing, path validation)
-
----
-
-## Running and Testing
+## Starting and Testing
 
 ### Start the service
 
-From the repository root:
+**From the repository root:**
 
 ```bash
 python -m analysis_pipeline.api
 ```
 
-The worker is started automatically.
+You should see:
+```
+INFO: Server running on http://0.0.0.0:5001
+```
 
-### Test with Postman
+The worker and API start automatically.
 
-1. Create `POST http://localhost:5001/api/ingest`
-2. Body: `form-data`
-3. Set:
-   - `image` (File)
-   - `user_id` (Text)
-   - `caption` (Text, optional but recommended)
-   - `latitude` / `longitude` (optional)
-   - `timestamp` (optional)
+### Quick test with a sample photo
 
-Then poll:
+**Using any HTTP client (Postman, curl, etc.):**
 
-- `GET http://localhost:5001/api/status/<job_id>`
+```
+POST http://localhost:5001/api/ingest
 
-Finally fetch:
+Form fields:
+  image: [select any JPG or PNG file]
+  user_id: test_user
+  caption: A brief description
+  timestamp: 2026-03-01T14:30:00Z
+```
 
-- `GET http://localhost:5001/api/analysis/<memory_id>`
+You'll get back a `job_id`. Check progress:
 
-### Notes on first run
+```
+GET http://localhost:5001/api/status/<job_id>
+```
 
-On the first run for a model, HuggingFace will download weights. This can take time and may retry on network timeouts.
+Once done, fetch results:
 
-Once cached, subsequent runs do not re-download.
+```
+GET http://localhost:5001/api/analysis/<memory_id>
+```
+
+### First time setup notes
+
+On the first run, some models download from the internet (50 MB to 1 GB):
+- This might take 1-3 minutes
+- Subsequent runs use the cached version
+- If network is slow, the pipeline retries automatically
 
 ---
 
-## Resetting State (Start Fresh)
+## Cleaning Everything Up
 
-To wipe the pipeline state (SQLite + ChromaDB + uploaded/processed images), run:
+To start from scratch:
 
 ```bash
 python -m analysis_pipeline.erase_past_rec
 ```
 
-This deletes the database and vector store directories and recreates the minimal folder structure.
+Deletes database, vectors, and photos. Folder structure is recreated.
 
 ---
 
-## Known Limitations and Troubleshooting
+## Common Problems and Solutions
 
-### Memory / paging-file errors (Windows)
-
-Symptom:
-
-- `OSError: The paging file is too small for this operation to complete. (os error 1455)`
-
-Root cause:
-
-- Multiple large models loaded simultaneously.
-
-Mitigations implemented:
-
-- BLIP “base” is used instead of “large”.
-- Models are unloaded after each step.
-- Emotion models are loaded sequentially.
 
 ### Upload returns `already_exists`
 
@@ -430,40 +535,19 @@ Fix:
 
 - Rename the file before uploading if you want it to be treated as a new memory.
 
-### Geocoding is slow
-
-Cause:
-
-- Reverse geocoding is rate limited.
-
-Fix:
-
-- Results are cached in `analysis_pipeline/data/cache/geocode_cache.db`.
-- Subsequent requests for the same rounded coordinates are fast.
-
 ### Timestamp parsing
 
 The pipeline accepts many common timestamp formats. ISO-8601 is recommended.
 
 ---
 
-## Future Roadmap (Phase 1/2/3)
+## What's Being Built Next
 
-1. **Phase 1** (multimodal clustering) will consume the per-memory JSON produced here.
+### Phase 2: Similarity Modeling & Semantic Clustering
+While Phase 1 focused on extracting raw features, Phase 2 implements the "Sense of Place" logic.
+- **Semantic Similarity Mapping**: Utilizing ChromaDB distance metrics to group memories into visually and contextually similar "Place Groups".
 
-Key design considerations:
-
-- multimodal normalization and weighting when fusing image/text/location/time signals
-- dimensionality reduction (e.g., PCA/UMAP) prior to clustering
-- density-based clustering (e.g., HDBSCAN) for variable-density, noisy real-world data
-
-The service’s primary goal is to provide stable, queryable feature extraction outputs so research can iterate independently of ingestion mechanics.
-
-
-2. **Phase 2** : **Sequential Pattern Analysis (Order of Visits)**
-
-Recovery is not a collection of isolated moments , it is a sequence. I want to take the discovered place concepts and the emotion labels, arrange them chronologically for each user, and analyze transition patterns. For example: "Does visiting an anxiety-inducing environment followed by a calming environment show a different emotional outcome than two anxiety-inducing visits in a row?" This would surface coping behaviors and risk patterns that are invisible when looking at individual photos independently.
-
-3. **Phase 3** : **Emotional Prediction from Location Sequences**
-
-Building on the first two phases, I want to train a lightweight sequence prediction model that learns the relationship between place-visit sequences and emotional outcomes. The goal is not clinical-grade diagnosis, but a proof of concept that shows: "Given a user's recent pattern of visiting certain types of places, can we estimate the likely emotional direction?"
+### Phase 3: Temporal Analysis of Emotional Trajectories
+This phase moves from static snapshots to dynamic recovery patterns.
+- **Sequence Modeling**: Analyzing the transitions between emotional states. 
+- **Path Visualization**: Mapping the user's emotional movement over days and weeks to visualize progress in their recovery journey.
