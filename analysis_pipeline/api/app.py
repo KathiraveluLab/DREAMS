@@ -43,6 +43,10 @@ _MAX_UPLOAD_BYTES = _MAX_UPLOAD_MB * 1024 * 1024
 _MAX_BATCH_UPLOAD_MB = 1024
 _MAX_BATCH_UPLOAD_BYTES = _MAX_BATCH_UPLOAD_MB * 1024 * 1024
 
+_MAX_BATCH_FILES = 1000
+_MAX_BATCH_UNCOMPRESSED_MB = 1024 # 1 GB
+_MAX_BATCH_TOTAL_SIZE = _MAX_BATCH_UNCOMPRESSED_MB * 1024 * 1024
+
 # Perceptual-hash Hamming-distance threshold (same as steps/ingest.py)
 _DUPLICATE_THRESHOLD = 10
 
@@ -239,17 +243,12 @@ def ingest_batch():
         with zipfile.ZipFile(str(zip_path), 'r') as zip_ref:
             infolist = zip_ref.infolist()
             
-            # Define limits to prevent zip bomb attacks
-            MAX_FILES = 1000
-            MAX_UNCOMPRESSED_SIZE_MB = 1024 # 1 GB
-            MAX_TOTAL_SIZE = MAX_UNCOMPRESSED_SIZE_MB * 1024 * 1024
-            
-            if len(infolist) > MAX_FILES:
-                raise ValueError(f"Exceeded maximum number of files ({MAX_FILES}) in zip archive")
+            if len(infolist) > _MAX_BATCH_FILES:
+                raise ValueError(f"Exceeded maximum number of files ({_MAX_BATCH_FILES}) in zip archive")
             
             total_size = sum(member.file_size for member in infolist)
-            if total_size > MAX_TOTAL_SIZE:
-                raise ValueError(f"Exceeded maximum total uncompressed size ({MAX_UNCOMPRESSED_SIZE_MB} MB) in zip archive")
+            if total_size > _MAX_BATCH_TOTAL_SIZE:
+                raise ValueError(f"Exceeded maximum total uncompressed size ({_MAX_BATCH_UNCOMPRESSED_MB} MB) in zip archive")
 
             for member in infolist:
                 if member.is_dir():
