@@ -266,18 +266,18 @@
                 <div class="mt-4 p-3 border rounded border-secondary bg-secondary bg-opacity-10">
                     <div class="d-flex align-items-center mb-3">
                         <span class="text-light me-2">AI Classification:</span>
-                        {% set current_label = latest_post.corrected_label if latest_post.corrected_label else latest_post.chime_analysis.label %}
+                        {% set current_label = latest_post.get('corrected_label') or latest_post.get('chime_analysis', {}).get('label', 'Unclassified') %}
                         <span class="badge bg-info text-dark fs-5">
                             {{ current_label }}
                         </span>
-                        {% if latest_post.corrected_label %}
+                        {% if latest_post.get('corrected_label') %}
                             <span class="badge bg-success text-white ms-2">Verified ✓</span>
                         {% endif %}
                     </div>
 
-                    {% if not latest_post.corrected_label %}
+                    {% if not latest_post.get('corrected_label') %}
                     <div class="d-flex gap-2" id="action-buttons-{{ latest_post._id }}">
-                        <button class="btn btn-success" onclick="acceptPrediction('{{ latest_post._id }}', '{{ latest_post.chime_analysis.label }}')">
+                        <button class="btn btn-success" onclick="acceptPrediction('{{ latest_post._id }}', '{{ current_label }}')">
                             Accept Prediction
                         </button>
                         <button class="btn btn-outline-light" onclick="toggleEdit('{{ latest_post._id }}')">

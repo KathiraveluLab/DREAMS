@@ -95,10 +95,10 @@ def upload_post():
     pipeline_result = pipeline.process_new_post(user_id, image_path, caption, timestamp)
     
     post_doc = pipeline_result["post_doc"]
-    keyword_type = pipeline_result["keyword_type"]
-    keywords_for_mongo = pipeline_result["keywords_for_db"]
-    keywords_with_vectors = pipeline_result["keywords_with_vectors"] # Needed for ChromaDB
-    gps_data = pipeline_result["gps_data"] # Needed for background enrichment
+    keyword_type = pipeline_result.get("keyword_type")
+    keywords_for_mongo = pipeline_result.get("keywords_for_db")
+    keywords_with_vectors = pipeline_result.get("keywords_with_vectors") # Needed for ChromaDB
+    gps_data = pipeline_result.get("gps_data") # Needed for background enrichment
 
     mongo = current_app.mongo
     if keywords_for_mongo and keyword_type:
@@ -159,7 +159,7 @@ def upload_post():
         'timestamp': post_doc['timestamp'].isoformat(),
         'image_path': image_path,
         'sentiment': post_doc['sentiment'],
-        'generated_caption': post_doc['generated_caption'],
+        'generated_caption': post_doc.get('generated_caption', ''),
     }), 201
 
     
