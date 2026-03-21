@@ -40,6 +40,9 @@ logger = logging.getLogger(__name__)
 _MAX_UPLOAD_MB = 10
 _MAX_UPLOAD_BYTES = _MAX_UPLOAD_MB * 1024 * 1024
 
+_MAX_BATCH_UPLOAD_MB = 1024
+_MAX_BATCH_UPLOAD_BYTES = _MAX_BATCH_UPLOAD_MB * 1024 * 1024
+
 # Perceptual-hash Hamming-distance threshold (same as steps/ingest.py)
 _DUPLICATE_THRESHOLD = 10
 
@@ -229,12 +232,26 @@ def ingest_batch():
     zip_path = staging_dir / Path(images_file.filename).name
     images_file.save(str(zip_path))
 
-    # Extract ZIP securely (prevent Zip Slip vulnerability)
+    # Extract ZIP securely (prevent Zip Slip vulnerability and Zip Bombs)
     try:
         images_dir = staging_dir / "images"
         images_dir.mkdir(parents=True, exist_ok=True)
         with zipfile.ZipFile(str(zip_path), 'r') as zip_ref:
-            for member in zip_ref.infolist():
+            infolist = zip_ref.infolist()
+            
+            # Define limits to prevent zip bomb attacks
+            MAX_FILES = 1000
+            MAX_UNCOMPRESSED_SIZE_MB = 1024 # 1 GB
+            MAX_TOTAL_SIZE = MAX_UNCOMPRESSED_SIZE_MB * 1024 * 1024
+            
+            if len(infolist) > MAX_FILES:
+                raise ValueError(f"Exceeded maximum number of files ({MAX_FILES}) in zip archive")
+            
+            total_size = sum(member.file_size for member in infolist)
+            if total_size > MAX_TOTAL_SIZE:
+                raise ValueError(f"Exceeded maximum total uncompressed size ({MAX_UNCOMPRESSED_SIZE_MB} MB) in zip archive")
+
+            for member in infolist:
                 if member.is_dir():
                     continue
                 # Extract only the base filename to prevent path traversal
@@ -244,9 +261,9 @@ def ingest_batch():
                 target_path = images_dir / base_name
                 with zip_ref.open(member) as source, open(target_path, "wb") as target:
                     shutil.copyfileobj(source, target)
-    except zipfile.BadZipFile:
+    except (zipfile.BadZipFile, ValueError) as e:
         shutil.rmtree(staging_dir, ignore_errors=True)
-        return jsonify({"error": "Invalid zip file"}), 400
+        return jsonify({"error": f"Invalid zip file: {e}"}), 400
 
     try:
         memory_ids = ingest_step.run(str(csv_path), logger=logger)
@@ -561,7 +578,9 @@ def _build_analysis(
 def create_app() -> Flask:
     """Create and configure the Flask application."""
     app = Flask(__name__)
-    app.config["MAX_CONTENT_LENGTH"] = _MAX_UPLOAD_BYTES
+    # Global HTTP request limit set to 1GB to support large ZIP batches.
+    # Individual file limits (like 10MB for single images) are enforced in routes.
+    app.config["MAX_CONTENT_LENGTH"] = _MAX_BATCH_UPLOAD_BYTES
 
     # Register the API blueprint
     app.register_blueprint(bp)

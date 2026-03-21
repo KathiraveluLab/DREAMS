@@ -35,14 +35,20 @@ _DUPLICATE_THRESHOLD = 10
 
 
 def _find_image(filename: str, search_dirs: list[Path]) -> Path | None:
-    """Search for an image file across multiple directories."""
+    """Search for an image file across multiple directories. 
+    Protects against path traversal by forcing extraction of the base filename.
+    """
+    safe_filename = Path(filename).name
+    if not safe_filename:
+        return None
+
     for d in search_dirs:
-        candidate = d / filename
+        candidate = d / safe_filename
         if candidate.exists():
             return candidate
         # also try case-insensitive match
         for f in d.iterdir():
-            if f.name.lower() == filename.lower() and f.is_file():
+            if f.name.lower() == safe_filename.lower() and f.is_file():
                 return f
     return None
 
@@ -155,14 +161,15 @@ def run(source_path: str, logger: logging.Logger | None = None) -> list[str]:
                             else:
                                 # Add to cache for intra-batch deduplication
                                 existing_hashes.append({"memory_id": memory_id, "perceptual_hash": phash})
-                        except Exception as e:
-                            _log.warning("Could not hash image %s: %s", image_filename, e)
 
-                        # copy to processed dir
-                        try:
-                            processed_path = _copy_image_to_processed(img_path, memory_id)
+                            # Only copy to processed dir if it successfully loaded as an image
+                            try:
+                                processed_path = _copy_image_to_processed(img_path, memory_id)
+                            except Exception as e:
+                                _log.warning("Could not copy image %s: %s", image_filename, e)
+
                         except Exception as e:
-                            _log.warning("Could not copy image %s: %s", image_filename, e)
+                            _log.warning("Could not hash/load image %s (skipping copy): %s", image_filename, e)
                     else:
                         _log.warning("Image not found: %s", image_filename)
 
