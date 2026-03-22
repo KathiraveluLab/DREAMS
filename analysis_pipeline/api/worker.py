@@ -18,6 +18,9 @@ import threading
 from ..db import init_db, get_db
 from . import queue
 
+from ..config import SQL_CHUNK_SIZE
+from collections import defaultdict
+
 logger = logging.getLogger(__name__)
 
 # Pipeline steps to run for each uploaded record.
@@ -130,24 +133,41 @@ class PipelineWorker:
 
     def _finalize_jobs(self, jobs: list[dict]) -> None:
         """Mark each job as *done* or *error* based on processing_state."""
+        if not jobs:
+            return
+        
         conn = get_db()
         try:
+            memory_ids = [job["memory_id"] for job in jobs]
+            
+            # Fetch all processing_state rows for the entire batch in chunks
+            all_states = []
+            for i in range(0, len(memory_ids), SQL_CHUNK_SIZE):
+                chunk = memory_ids[i:i + SQL_CHUNK_SIZE]
+                placeholders = ",".join("?" for _ in chunk)
+                rows = conn.execute(
+                    f"SELECT memory_id, step_name, status, error_msg FROM processing_state "
+                    f"WHERE memory_id IN ({placeholders})",
+                    chunk,
+                ).fetchall()
+                all_states.extend(rows)
+
+            # Group states by memory_id locally
+            states_by_mid = defaultdict(list)
+            for r in all_states:
+                states_by_mid[r["memory_id"]].append(r)
+
+            jobs_done = []
+            jobs_error = []
+
             for job in jobs:
                 memory_id = job["memory_id"]
                 job_id = job["job_id"]
-
-                done_rows = conn.execute(
-                    "SELECT step_name FROM processing_state "
-                    "WHERE memory_id = ? AND status = 'done'",
-                    (memory_id,),
-                ).fetchall()
-                done_steps = {r["step_name"] for r in done_rows}
-
-                error_rows = conn.execute(
-                    "SELECT step_name, error_msg FROM processing_state "
-                    "WHERE memory_id = ? AND status = 'error'",
-                    (memory_id,),
-                ).fetchall()
+                
+                states = states_by_mid.get(memory_id, [])
+                
+                done_steps = {s["step_name"] for s in states if s["status"] == "done"}
+                error_rows = [s for s in states if s["status"] == "error"]
 
                 missing_steps = [
                     step_name
@@ -159,17 +179,23 @@ class PipelineWorker:
                     msgs = "; ".join(
                         f"{r['step_name']}: {r['error_msg']}" for r in error_rows
                     )
-                    queue.mark_error(job_id, msgs)
-                    logger.warning("Job %s completed with errors: %s",
-                                   job_id, msgs)
+                    jobs_error.append((job_id, msgs))
+                    logger.warning("Job %s completed with errors: %s", job_id, msgs)
                 elif missing_steps:
                     msg = "Incomplete processing: missing steps " + ", ".join(missing_steps)
-                    queue.mark_error(job_id, msg)
+                    jobs_error.append((job_id, msg))
                     logger.warning("Job %s incomplete: %s", job_id, msg)
                 else:
-                    queue.mark_done(job_id)
-                    logger.info("Job %s completed successfully "
-                                "(%d steps done).", job_id, len(done_steps))
+                    jobs_done.append(job_id)
+                    logger.info("Job %s completed successfully (%d steps done).", 
+                                job_id, len(done_steps))
+            
+            # Finalize queue statuses in bulk
+            if jobs_done:
+                queue.mark_jobs_done(jobs_done)
+            if jobs_error:
+                queue.mark_jobs_error(jobs_error)
+
         finally:
             conn.close()
 

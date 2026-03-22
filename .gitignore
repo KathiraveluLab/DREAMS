@@ -195,9 +195,10 @@ Other
 analysis_pipeline/data/cache/
 analysis_pipeline/data/chromadb/
 analysis_pipeline/data/processed/
-analysis_pipeline/data/pipeline.db
-analysis_pipeline/data/raw/*.csv
-analysis_pipeline/data/raw/*.jsonl
+analysis_pipeline/data/pipeline.db*
+analysis_pipeline/data/snapshots/
+analysis_pipeline/data/staging/
+analysis_pipeline/data/raw/
 images/download_*.jpg
 
 # --- ML Experiments Outputs ---
