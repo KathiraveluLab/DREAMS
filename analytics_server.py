@@ -43,7 +43,7 @@ try:
 except ImportError as e:
     _PERCEPTUAL_DEPS_AVAILABLE = False
     _PERCEPTUAL_DEPS_ERROR = str(e)
-    print(f"⚠️  WARNING: Perceptual emotion analysis dependencies not available: {e}")
+    print(f"WARNING: Perceptual emotion analysis dependencies not available: {e}")
     print("   The /api/perceptual-emotion and /api/compare-images endpoints will return fallback data.")
 
 # Check for text sentiment analysis dependencies
@@ -54,7 +54,7 @@ try:
 except ImportError as e:
     _TEXT_SENTIMENT_AVAILABLE = False
     _TEXT_SENTIMENT_ERROR = str(e)
-    print(f"⚠️  WARNING: Text sentiment analysis not available: {e}")
+    print(f"WARNING: Text sentiment analysis not available: {e}")
 
 # Simulated users with emotion data
 SAMPLE_USERS = {
@@ -85,7 +85,7 @@ try:
         BOB_SMITH_CAPTIONS[img_path] = photo.get("description", "")
     print(f"✅ Loaded bob-smith sample data: {len(BOB_SMITH_IMAGES)} images")
 except (FileNotFoundError, json.JSONDecodeError) as e:
-    print(f"⚠️  Could not load or parse bob-smith.json: {e}")
+    print(f"Could not load or parse bob-smith.json: {e}")
 
 def generate_sample_posts(user_id: str) -> list:
     """Generate sample posts with emotions for a user."""
@@ -198,7 +198,7 @@ MAIN_TEMPLATE = """
 </head>
 <body>
     <div class="container py-5">
-        <h1 class="text-center mb-4">📊 DREAMS Analytics Demo</h1>
+        <h1 class="text-center mb-4">DREAMS Analytics Demo</h1>
         
         <div class="row justify-content-center">
             {% for user_id, name in users.items() %}
@@ -207,7 +207,7 @@ MAIN_TEMPLATE = """
                     <h5 class="text-white">{{ name }}</h5>
                     <p class="text-white small">{{ user_id }}</p>
                     <div class="d-grid gap-2">
-                        <a href="{{ url_for('narrative_view', user_id=user_id) }}" class="btn btn-narrative text-white">📊 View Narrative</a>
+                        <a href="{{ url_for('narrative_view', user_id=user_id) }}" class="btn btn-narrative text-white">View Narrative</a>
                         <a href="{{ url_for('api_timeline', user_id=user_id) }}" class="btn btn-outline-secondary btn-sm">API: Timeline</a>
                         <a href="{{ url_for('api_frontend_payload', user_id=user_id) }}" class="btn btn-outline-secondary btn-sm">API: Frontend Payload</a>
                     </div>
@@ -299,7 +299,7 @@ NARRATIVE_TEMPLATE = """
 <body>
     <div class="container py-4">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2>📊 Temporal Narrative: {{ user_id }}</h2>
+            <h2>Temporal Narrative: {{ user_id }}</h2>
             <a href="/" class="btn btn-back text-white">← Back</a>
         </div>
 
@@ -362,19 +362,19 @@ NARRATIVE_TEMPLATE = """
             <div class="prob-section-title">Emotion Analysis <span class="perceptual-badge" id="modal-badge">🔬 PERCEPTUAL</span></div>
             <div id="prob-display">
                 <div class="prob-row">
-                    <span class="prob-label" style="color: #4ad974;">😊 Happy</span>
+                    <span class="prob-label" style="color: #4ad974;">Happy</span>
                     <div class="prob-bar-container">
                         <div id="prob-bar-positive" class="prob-bar prob-positive" style="width: 0%;">0%</div>
                     </div>
                 </div>
                 <div class="prob-row">
-                    <span class="prob-label" style="color: #4a90d9;">😐 Neutral</span>
+                    <span class="prob-label" style="color: #4a90d9;">Neutral</span>
                     <div class="prob-bar-container">
                         <div id="prob-bar-neutral" class="prob-bar prob-neutral" style="width: 0%;">0%</div>
                     </div>
                 </div>
                 <div class="prob-row">
-                    <span class="prob-label" style="color: #d94a4a;">😢 Sad</span>
+                    <span class="prob-label" style="color: #d94a4a;">Sad</span>
                     <div class="prob-bar-container">
                         <div id="prob-bar-negative" class="prob-bar prob-negative" style="width: 0%;">0%</div>
                     </div>
@@ -384,7 +384,7 @@ NARRATIVE_TEMPLATE = """
             <div id="notes-text" class="small text-muted mt-2"></div>
             
             <div class="disclaimer">
-                ⚠️ This is a probabilistic estimate. No confidence is ever 100%.
+                Note: This is a probabilistic estimate. No confidence is ever 100%.
             </div>
         </div>
     </div>
@@ -730,7 +730,7 @@ NARRATIVE_TEMPLATE = """
                     labels: labels,
                     datasets: [
                         {
-                            label: '😊 Happy',
+                            label: 'Happy',
                             data: emotionGraphData.map(d => d.happy),
                             backgroundColor: 'rgba(74, 217, 116, 0.85)',
                             borderColor: '#4ad974',
@@ -738,7 +738,7 @@ NARRATIVE_TEMPLATE = """
                             borderRadius: 4,
                         },
                         {
-                            label: '😐 Neutral',
+                            label: 'Neutral',
                             data: emotionGraphData.map(d => d.neutral),
                             backgroundColor: 'rgba(74, 144, 217, 0.85)',
                             borderColor: '#4a90d9',
@@ -746,7 +746,7 @@ NARRATIVE_TEMPLATE = """
                             borderRadius: 4,
                         },
                         {
-                            label: '😢 Sad',
+                            label: 'Sad',
                             data: emotionGraphData.map(d => d.sad),
                             backgroundColor: 'rgba(217, 74, 74, 0.85)',
                             borderColor: '#d94a4a',
