@@ -13,13 +13,77 @@ Example:
 
 import argparse
 import json
+import logging
 import sys
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 from .reporter import ValidationReport, Severity
 from .schema_validator import validate_schema
 from .path_validator import validate_paths
 from .temporal_validator import validate_temporal
+
+
+logger = logging.getLogger(__name__)
+
+
+# Dependency validation — extends Data Integrity Layer from PR #38
+def validate_dependencies() -> dict:
+    """Check required distributions from requirements.txt and report missing ones.
+
+    This function reads requirements from the project root, extracts package
+    names while ignoring version specifiers/comments, and verifies installation
+    using importlib.metadata.version(). It never raises for missing packages;
+    instead it logs warnings and returns a status dictionary.
+    """
+   
+    requirements_path = Path(__file__).resolve().parent.parent / "requirements.txt"
+    if not requirements_path.exists():
+        logger.warning(
+            "requirements.txt not found at %s. Skipping dependency validation.",
+            requirements_path,
+        )
+        return {"valid": True, "missing": []}
+
+    missing_packages = []
+
+    with requirements_path.open("r", encoding="utf-8") as requirements_file:
+        for raw_line in requirements_file:
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
+
+            # Remove inline comments and environment markers.
+            line = line.split("#", 1)[0].strip()
+            line = line.split(";", 1)[0].strip()
+            if not line:
+                continue
+
+            # Ignore pip options and nested requirements directives.
+            if line.startswith("-"):
+                continue
+
+            package_name = line
+            for separator in ("@", "==", ">=", "<=", "~=", "!=", ">", "<"):
+                if separator in package_name:
+                    package_name = package_name.split(separator, 1)[0].strip()
+                    break
+
+            # Ignore extras in requirement specifiers (e.g., package[extra]).
+            package_name = package_name.split("[", 1)[0].strip()
+            if not package_name:
+                continue
+
+            try:
+                version(package_name)
+            except PackageNotFoundError:
+                missing_packages.append(package_name)
+                logger.warning(
+                    "WARNING: Required package %s is not installed. Run pip install -r requirements.txt",
+                    package_name,
+                )
+
+    return {"valid": len(missing_packages) == 0, "missing": missing_packages}
 
 
 def main():
