@@ -40,7 +40,7 @@ def validate_dependencies() -> dict:
     requirements_path = Path(__file__).resolve().parent.parent / "requirements.txt"
     if not requirements_path.exists():
         logger.warning(
-            "WARNING: requirements.txt not found at %s. Skipping dependency validation.",
+            "requirements.txt not found at %s. Skipping dependency validation.",
             requirements_path,
         )
         return {"valid": True, "missing": []}
