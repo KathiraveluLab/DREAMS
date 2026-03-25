@@ -64,7 +64,7 @@ def validate_dependencies() -> dict:
                 continue
 
             package_name = line
-            for separator in ("==", ">=", "<=", "~=", "!=", ">", "<"):
+            for separator in ("@", "==", ">=", "<=", "~=", "!=", ">", "<"):
                 if separator in package_name:
                     package_name = package_name.split(separator, 1)[0].strip()
                     break
