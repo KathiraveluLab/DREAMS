@@ -31,8 +31,9 @@ def run(log: logging.Logger | None = None) -> int:
 
     _log.info("Loading sentence model: %s", SENTENCE_MODEL_NAME)
     model = None
-    conn = get_db()
+    conn = None
     try:
+        conn = get_db()
         model = SentenceTransformer(SENTENCE_MODEL_NAME)
         _log.info("Sentence model loaded.")
 
