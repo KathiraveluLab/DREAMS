@@ -49,8 +49,9 @@ def run(log: logging.Logger | None = None) -> int:
 
     model = None
     processor = None
-    conn = get_db()
+    conn = None
     try:
+        conn = get_db()
         model = CLIPModel.from_pretrained(_HF_CLIP_MODEL).to(device)
         processor = CLIPProcessor.from_pretrained(_HF_CLIP_MODEL)
         model.eval()
