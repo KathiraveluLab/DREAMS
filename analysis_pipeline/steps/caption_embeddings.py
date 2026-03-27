@@ -109,6 +109,6 @@ def run(log: logging.Logger | None = None) -> int:
             import torch
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-        except Exception:
-            pass
+        except Exception as e:
+            _log.warning("Failed to empty CUDA cache: %s", e)
         _log.info("Sentence model unloaded or skipped.")
