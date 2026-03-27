@@ -34,6 +34,11 @@ def run(log: logging.Logger | None = None) -> int:
     """Encode images with CLIP and upsert into ChromaDB."""
     _log = log or logger
 
+    pending = get_pending_ids("image_embeddings")
+    if not pending:
+        _log.info("All images already have embeddings.")
+        return 0
+
     # lazy-load heavy dependencies
     import torch
     from PIL import Image
@@ -41,20 +46,17 @@ def run(log: logging.Logger | None = None) -> int:
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     _log.info("Loading CLIP model '%s' on %s", _HF_CLIP_MODEL, device)
-    model = CLIPModel.from_pretrained(_HF_CLIP_MODEL).to(device)
-    processor = CLIPProcessor.from_pretrained(_HF_CLIP_MODEL)
-    model.eval()
-    _log.info("CLIP loaded.")
 
-    collection = get_collection("image_embeddings")
-    pending = get_pending_ids("image_embeddings")
-
-    if not pending:
-        _log.info("All images already have embeddings.")
-        return 0
-
+    model = None
+    processor = None
     conn = get_db()
     try:
+        model = CLIPModel.from_pretrained(_HF_CLIP_MODEL).to(device)
+        processor = CLIPProcessor.from_pretrained(_HF_CLIP_MODEL)
+        model.eval()
+        _log.info("CLIP loaded.")
+
+        collection = get_collection("image_embeddings")
         # fetch image paths for pending records
         placeholders = ",".join("?" for _ in pending)
         rows = conn.execute(
@@ -135,10 +137,15 @@ def run(log: logging.Logger | None = None) -> int:
     finally:
         conn.close()
         # Free CLIP from RAM
-        del model, processor
+        if model is not None:
+            del model
+        if processor is not None:
+            del processor
         gc.collect()
         try:
-            torch.cuda.empty_cache()
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
         except Exception:
             pass
-        _log.info("CLIP model unloaded.")
+        _log.info("CLIP model unloaded or skipped.")
