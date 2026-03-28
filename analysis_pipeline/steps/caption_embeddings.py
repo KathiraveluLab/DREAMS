@@ -22,21 +22,22 @@ def run(log: logging.Logger | None = None) -> int:
     """Encode captions with MiniLM and upsert into ChromaDB."""
     _log = log or logger
 
-    from sentence_transformers import SentenceTransformer
-
-    _log.info("Loading sentence model: %s", SENTENCE_MODEL_NAME)
-    model = SentenceTransformer(SENTENCE_MODEL_NAME)
-    _log.info("Sentence model loaded.")
-
-    collection = get_collection("caption_embeddings")
     pending = get_pending_ids("caption_embeddings")
-
     if not pending:
         _log.info("All captions already have embeddings.")
         return 0
 
-    conn = get_db()
+    from sentence_transformers import SentenceTransformer
+
+    _log.info("Loading sentence model: %s", SENTENCE_MODEL_NAME)
+    model = None
+    conn = None
     try:
+        conn = get_db()
+        model = SentenceTransformer(SENTENCE_MODEL_NAME)
+        _log.info("Sentence model loaded.")
+
+        collection = get_collection("caption_embeddings")
         placeholders = ",".join("?" for _ in pending)
         rows = conn.execute(
             f"""SELECT memory_id, caption, generated_caption, user_id
@@ -101,6 +102,13 @@ def run(log: logging.Logger | None = None) -> int:
     finally:
         conn.close()
         # Free MiniLM from RAM
-        del model
+        if model is not None:
+            del model
         gc.collect()
-        _log.info("Sentence model unloaded.")
+        try:
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except Exception as e:
+            _log.warning("Failed to empty CUDA cache: %s", e)
+        _log.info("Sentence model unloaded or skipped.")
