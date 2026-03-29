@@ -31,6 +31,13 @@ VALID_SCENE_TYPES = {
     "outdoor_or_wilderness",
 }
 
+# Pipeline stability improvement: default fallback result for scene classification failures
+_DEFAULT_SCENE_RESULT = {
+    "scene_type": "unknown",
+    "scene_confidence": 0.0,
+    "scene_raw_top3": [],
+}
+
 # Mapping from raw Places365 labels to DREAMS categories.
 # Labels not present here will not contribute to any category.
 CATEGORY_MAPPING = {
@@ -140,6 +147,9 @@ def _load_model():
     Returns:
         tuple: (model, labels) where model is the ResNet50 with Places365
                weights and labels is a list of 365 scene category strings.
+
+    Pipeline stability improvement: raises on failure so callers can
+    fall back to the default unknown-scene result.
     """
     global _model, _labels
 
@@ -212,17 +222,33 @@ def classify_scene(image_path):
             - scene_raw_top3 (list): Top 3 raw Places365 labels with
               their confidence scores, each as
               {"label": str, "confidence": float}.
+
+    Pipeline stability improvement: returns default unknown-scene result
+    on any failure (model loading, image preprocessing, inference).
     """
-    model, labels = _load_model()
+    # Pipeline stability improvement: model loading failure fallback
+    try:
+        model, labels = _load_model()
+    except Exception as e:
+        logger.warning("Scene classification model loading failed: %s — returning unknown fallback", e)
+        return _DEFAULT_SCENE_RESULT.copy()
 
-    # Load and preprocess the image
-    img = Image.open(image_path).convert("RGB")
-    input_tensor = preprocess(img).unsqueeze(0)  # add batch dimension
+    # Pipeline stability improvement: image preprocessing failure fallback
+    try:
+        img = Image.open(image_path).convert("RGB")
+        input_tensor = preprocess(img).unsqueeze(0)  # add batch dimension
+    except Exception as e:
+        logger.warning("Scene classification image preprocessing failed for %s: %s — returning unknown fallback", image_path, e)
+        return _DEFAULT_SCENE_RESULT.copy()
 
-    # Run inference
-    with torch.no_grad():
-        output = model(input_tensor)
-        probabilities = torch.nn.functional.softmax(output[0], dim=0)
+    # Pipeline stability improvement: inference failure fallback
+    try:
+        with torch.no_grad():
+            output = model(input_tensor)
+            probabilities = torch.nn.functional.softmax(output[0], dim=0)
+    except Exception as e:
+        logger.warning("Scene classification inference failed for %s: %s — returning unknown fallback", image_path, e)
+        return _DEFAULT_SCENE_RESULT.copy()
 
     # Get top 3 predictions
     top3_prob, top3_idx = torch.topk(probabilities, 3)
@@ -240,6 +266,11 @@ def classify_scene(image_path):
 
     # Check confidence threshold
     if scene_confidence < 0.4:
+        # Pipeline stability improvement: log low-confidence fallback
+        logger.warning(
+            "Scene classification confidence %.4f below threshold for %s — returning unknown",
+            scene_confidence, image_path
+        )
         return {
             "scene_type": "unknown",
             "scene_confidence": scene_confidence,

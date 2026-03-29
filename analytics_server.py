@@ -166,14 +166,19 @@ def generate_sample_posts(user_id: str) -> list:
 
 
 def build_timeline_from_posts(user_posts: list, user_id: str) -> EmotionTimeline:
-    """Convert posts to EmotionTimeline."""
+    """Convert posts to EmotionTimeline.
+
+    Pipeline stability improvement: handles posts with missing or
+    malformed sentiment dicts by defaulting to neutral / 0.0.
+    """
     events = []
     for post in user_posts:
-        sentiment = post.get('sentiment', {})
+        # Pipeline stability improvement: default sentiment for missing data
+        sentiment = post.get('sentiment') or {}
         events.append(EmotionEvent(
             timestamp=post['timestamp'],
             emotion_label=sentiment.get('label', 'neutral'),
-            score=sentiment.get('score'),
+            score=sentiment.get('score', 0.0),
             source_id=str(post.get('_id', '')),
         ))
     
@@ -947,53 +952,59 @@ def api_frontend_payload(user_id: str):
             node_data['images'] = episode_images
 
     # Add captions and text emotion analysis for all users
+    # Pipeline stability improvement: per-node try/except so one bad node
+    # does not crash the entire frontend payload
     for node_data in result['nodes']:
         if 'images' not in node_data:
             continue
 
-        start = datetime.fromisoformat(node_data['start_time_iso'])
-        end = datetime.fromisoformat(node_data['end_time_iso'])
-        captions = {}
-        text_emotions = {}
+        try:
+            start = datetime.fromisoformat(node_data['start_time_iso'])
+            end = datetime.fromisoformat(node_data['end_time_iso'])
+            captions = {}
+            text_emotions = {}
 
-        for img_path in node_data['images']:
-            caption = ""
+            for img_path in node_data['images']:
+                caption = ""
 
-            # Prefer bob-smith.json captions for Bob
-            if user_id == "user_002":
-                caption = BOB_SMITH_CAPTIONS.get(img_path, "")
+                # Prefer bob-smith.json captions for Bob
+                if user_id == "user_002":
+                    caption = BOB_SMITH_CAPTIONS.get(img_path, "")
 
-            # Fallback: use post caption for this image within episode range
-            if not caption:
-                matching_post = next(
-                    (
-                        p for p in posts
-                        if start <= p['timestamp'] < end
-                        and p.get('image') == img_path
-                        and isinstance(p.get('caption'), str)
-                        and p['caption'].strip()
-                    ),
-                    None,
-                )
-                caption = matching_post['caption'] if matching_post else ""
+                # Fallback: use post caption for this image within episode range
+                if not caption:
+                    matching_post = next(
+                        (
+                            p for p in posts
+                            if start <= p['timestamp'] < end
+                            and p.get('image') == img_path
+                            and isinstance(p.get('caption'), str)
+                            and p['caption'].strip()
+                        ),
+                        None,
+                    )
+                    caption = matching_post['caption'] if matching_post else ""
 
-            if caption:
-                captions[img_path] = caption
-                if _TEXT_SENTIMENT_AVAILABLE:
-                    try:
-                        text_emotions[img_path] = analyze_text_sentiment(caption)
-                    except Exception as e:
-                        text_emotions[img_path] = {
-                            'positive': 0.33, 'negative': 0.33, 'neutral': 0.34,
-                            'uncertainty_margin': 0.20,
-                            'notes': f'Analysis error: {e}',
-                            'disclaimer': 'Error during analysis.',
-                        }
+                if caption:
+                    captions[img_path] = caption
+                    if _TEXT_SENTIMENT_AVAILABLE:
+                        try:
+                            text_emotions[img_path] = analyze_text_sentiment(caption)
+                        except Exception as e:
+                            text_emotions[img_path] = {
+                                'positive': 0.33, 'negative': 0.33, 'neutral': 0.34,
+                                'uncertainty_margin': 0.20,
+                                'notes': f'Analysis error: {e}',
+                                'disclaimer': 'Error during analysis.',
+                            }
 
-        if captions:
-            node_data['captions'] = captions
-        if text_emotions:
-            node_data['text_emotions'] = text_emotions
+            if captions:
+                node_data['captions'] = captions
+            if text_emotions:
+                node_data['text_emotions'] = text_emotions
+        except Exception as e:
+            # Pipeline stability improvement: skip this node on error
+            print(f"WARNING: Failed to process captions/emotions for node: {e}")
 
     return jsonify(result)
 
