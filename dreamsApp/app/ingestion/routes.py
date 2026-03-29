@@ -30,10 +30,9 @@ def upload_post():
     image = request.files.get('image')
 
     # Pipeline stability improvement: caption defaults to empty string if missing
-    caption = request.form.get('caption', '')
-    if not caption or not caption.strip():
+    caption = request.form.get('caption', '').strip()
+    if not caption:
         logger.warning("Missing or empty caption for upload by user_id=%s — defaulting to empty string", user_id)
-        caption = caption or ""
 
     if not all([user_id, timestamp, image]):
         return jsonify({'error': 'Missing required fields (user_id, timestamp, image)'}), 400
