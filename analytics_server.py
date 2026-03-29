@@ -1004,7 +1004,7 @@ def api_frontend_payload(user_id: str):
                 node_data['text_emotions'] = text_emotions
         except Exception as e:
             # Pipeline stability improvement: skip this node on error
-            print(f"WARNING: Failed to process captions/emotions for node: {e}")
+            app.logger.warning(f"WARNING: Failed to process captions/emotions for node: {e}")
 
     return jsonify(result)
 
