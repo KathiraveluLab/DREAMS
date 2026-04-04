@@ -1,15 +1,10 @@
 from flask import render_template, request, url_for
 from flask import current_app
 from . import bp
-import matplotlib.pyplot as plt
-import pandas as pd
-import numpy as np
 import io
 import base64
 import threading
 from flask_login import login_required, current_user
-from wordcloud import WordCloud
-from ..utils.llms import generate
 from flask import jsonify
 import datetime
 from bson.objectid import ObjectId
@@ -25,6 +20,8 @@ def generate_wordcloud_b64(keywords, colormap):
     """Refactor: Helper to generate base64 encoded word cloud image."""
     if not keywords:
         return None
+    from wordcloud import WordCloud
+
     wordcloud = WordCloud(
         width=800, 
         height=400, 
@@ -49,6 +46,10 @@ def main():
 @bp.route('/user/<string:target>', methods =['GET'])
 @login_required
 def profile(target):
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import pandas as pd
+
     mongo = current_app.mongo['posts']
     
 
@@ -183,6 +184,7 @@ def profile(target):
     thematics_data = current_app.mongo['thematic_analysis'].find_one({'user_id': str(target_user_id)})
     
     if not thematics_data or "data" not in thematics_data:
+        from ..utils.llms import generate
         thematics = generate(str(target_user_id), positive_keywords, negative_keywords)
     else:
         thematics = thematics_data["data"]
@@ -244,6 +246,8 @@ def show_clusters(user_id):
 @login_required
 def thematic_refresh(user_id):
     try:
+        from ..utils.llms import generate
+
         keywords_data = current_app.mongo['keywords'].find_one({'user_id': str(user_id)})
         positive_keywords = [item['keyword'] for item in keywords_data.get('positive_keywords', [])] if keywords_data else []
 

@@ -1,9 +1,11 @@
 import logging
 import os
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
 from flask import current_app, jsonify, request
+from PIL import Image, UnidentifiedImageError
 from werkzeug.utils import secure_filename
 
 from . import bp
@@ -16,10 +18,13 @@ from ..utils.sentiment import (
     select_text_for_analysis,
 )
 
-from sentence_transformers import SentenceTransformer
+try:
+    from sentence_transformers import SentenceTransformer
+except ImportError:  # pragma: no cover - optional heavy dependency
+    SentenceTransformer = None
 
 logger = logging.getLogger(__name__)
-model = SentenceTransformer("all-MiniLM-L6-V2")
+model = SentenceTransformer("all-MiniLM-L6-V2") if SentenceTransformer else None
 
 # Background thread pool for non-blocking location enrichment.
 # A single worker ensures Nominatim rate-limiting is respected naturally.
@@ -60,9 +65,22 @@ def upload_post():
         return jsonify({'error': 'Missing required fields'}), 400
     
     filename = secure_filename(image.filename)
+    allowed = current_app.config.get('ALLOWED_EXTENSIONS', {'png', 'jpg', 'jpeg', 'gif'})
+    if '.' not in filename or filename.rsplit('.', 1)[1].lower() not in allowed:
+        return jsonify({'error': 'Unsupported file extension'}), 400
+
     upload_path = current_app.config['UPLOAD_FOLDER']
-    image_path = os.path.join(upload_path, filename)
+    unique_filename = f"{uuid.uuid4().hex}_{filename}"
+    image_path = os.path.join(upload_path, unique_filename)
     image.save(image_path)
+
+    try:
+        with Image.open(image_path) as img:
+            img.verify()
+    except (UnidentifiedImageError, OSError, ValueError):
+        if os.path.exists(image_path):
+            os.remove(image_path)
+        return jsonify({'error': 'Uploaded file is not a valid image'}), 400
 
     # Extract GPS from EXIF if available
     gps_data = extract_gps_from_image(image_path)

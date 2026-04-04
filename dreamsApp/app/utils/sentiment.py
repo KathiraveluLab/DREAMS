@@ -1,14 +1,34 @@
 import os
-import torch
 import logging
 from PIL import Image
-from transformers import BlipProcessor, BlipForConditionalGeneration
-from transformers import AutoModelForSequenceClassification, AutoTokenizer, AutoConfig
 import numpy as np
-from scipy.special import softmax
 import requests
 from flask import Blueprint, request, jsonify
-from transformers import pipeline
+
+try:
+    from scipy.special import softmax
+except ImportError:  # pragma: no cover - optional in lightweight test envs
+    def softmax(x):
+        x = np.asarray(x)
+        e_x = np.exp(x - np.max(x))
+        return e_x / e_x.sum(axis=0)
+
+try:
+    from transformers import BlipProcessor, BlipForConditionalGeneration
+    from transformers import AutoModelForSequenceClassification, AutoTokenizer, AutoConfig
+    from transformers import pipeline
+except ImportError:  # pragma: no cover - optional in lightweight test envs
+    BlipProcessor = None
+    BlipForConditionalGeneration = None
+    AutoModelForSequenceClassification = None
+    AutoTokenizer = None
+    AutoConfig = None
+    pipeline = None
+
+try:
+    import torch
+except ImportError:  # pragma: no cover - optional in lightweight test envs
+    torch = None
 
 HF_MODEL_ID = "ashh007/dreams-chime-bert"
 
@@ -45,6 +65,8 @@ class SentimentAnalyzer:
         self._chime_classifier = None
 
     def get_blip_models(self):
+        if BlipProcessor is None or BlipForConditionalGeneration is None:
+            raise RuntimeError("transformers is required for BLIP captioning")
         if self._blip_processor is None or self._blip_model is None:
             print("Loading Blip models...")
             self._blip_processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-large")
@@ -52,6 +74,8 @@ class SentimentAnalyzer:
         return self._blip_processor, self._blip_model
 
     def get_sentiment_models(self):
+        if AutoTokenizer is None or AutoConfig is None or AutoModelForSequenceClassification is None:
+            raise RuntimeError("transformers is required for sentiment inference")
         if self._sentiment_model is None:
             print("Loading Sentiment models...")
             sentiment_model_name = "cardiffnlp/twitter-roberta-base-sentiment-latest"
@@ -79,14 +103,19 @@ class SentimentAnalyzer:
     def get_chime_classifier(self):
         if self._chime_classifier is None:
             try:
+                if pipeline is None:
+                    raise RuntimeError("transformers is required for CHIME inference")
                 # Check for locally fine-tuned model (Self-Correcting Feature)
                 # sentiment.py is in dreamsApp/app/utils, so ../../models is the path
-                from flask import current_app
-                local_model_path = os.path.join(current_app.root_path, "models", "production_chime_model")
+                from flask import current_app, has_app_context
+
+                local_model_path = None
+                if has_app_context():
+                    local_model_path = os.path.join(current_app.root_path, "models", "production_chime_model")
                 
                 model_path = HF_MODEL_ID
                 
-                if os.path.exists(local_model_path):
+                if local_model_path and os.path.exists(local_model_path):
                     logging.info(f">>> SELF-CORRECTION: Learned model found at {local_model_path}. Loading...")
                     model_path = local_model_path
                 else:
@@ -135,6 +164,9 @@ class SentimentAnalyzer:
             return []
 
     def get_image_caption_and_sentiment(self, image_path_or_url: str, caption: str, prompt: str = "a photography of"):
+        if torch is None:
+            raise RuntimeError("torch is required for image caption and sentiment inference")
+
         raw_image = load_image(image_path_or_url)
         
         blip_proc, blip_mod = self.get_blip_models()

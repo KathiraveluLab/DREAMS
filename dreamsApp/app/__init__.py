@@ -20,6 +20,14 @@ def create_app(test_config=None):
     else:
         app.config.update(test_config)
 
+    if app.config.get("MAX_CONTENT_LENGTH") is None:
+        app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
+
+    flask_env = os.getenv('FLASK_ENV', app.config.get('FLASK_ENV', 'development'))
+    secret = app.config.get('SECRET_KEY')
+    if flask_env != 'development' and (not secret or secret == 'dev'):
+        raise RuntimeError('SECRET_KEY must be set to a secure value in production')
+
     try:
         os.makedirs(app.instance_path)
     except OSError:

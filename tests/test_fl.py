@@ -1,6 +1,8 @@
 import sys
 import os
 import datetime
+import pytest
+from pymongo.errors import ServerSelectionTimeoutError
 from bson.objectid import ObjectId
 
 # Add the project root to the python path so imports work
@@ -56,7 +58,10 @@ def test_fl_loop():
         })
 
         # Insert
-        result = collection.insert_many(mock_posts)
+        try:
+            result = collection.insert_many(mock_posts)
+        except ServerSelectionTimeoutError:
+            pytest.skip("MongoDB is not running on localhost:27017")
         test_ids = result.inserted_ids
         print(f">>> TEST: Inserted {len(test_ids)} mock documents.")
 
