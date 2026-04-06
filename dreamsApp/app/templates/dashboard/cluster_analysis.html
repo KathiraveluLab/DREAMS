@@ -1,0 +1,561 @@
+{% extends 'base.html' %}
+{% block title %}Cluster Analysis – {{ user_id }}{% endblock %}
+
+{% block content %}
+<style>
+    body {
+        background-color: #121212;
+        color: #e0e0e0;
+    }
+
+    h2.section-title {
+        font-weight: 600;
+        margin-bottom: 1rem;
+        color: #ffffff;
+    }
+
+    p.section-description {
+        font-size: 1rem;
+        color: #cccccc;
+        margin-bottom: 2rem;
+    }
+
+    .section {
+        padding: 3rem 0;
+        border-top: 1px solid #333;
+    }
+
+    .section-first {
+        border-top: none;
+        padding-top: 0;
+    }
+
+    /* ── Back Link ── */
+    .back-link {
+        color: #90caf9;
+        text-decoration: none;
+        font-size: 0.95rem;
+    }
+
+    .back-link:hover {
+        color: #bbdefb;
+        text-decoration: underline;
+    }
+
+    .page-title {
+        color: #fff;
+        font-weight: 700;
+    }
+
+    .page-intro {
+        max-width: 760px;
+    }
+
+    /* ── Summary Cards ── */
+    .metric-card {
+        background-color: #1e1e1e;
+        border: 1px solid #333;
+        border-radius: 1rem;
+        padding: 1.5rem;
+        text-align: center;
+        transition: transform 0.2s;
+    }
+
+    .metric-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 0.5rem 1rem rgba(255, 255, 255, 0.05);
+    }
+
+    .metric-card .metric-value {
+        font-size: 2.2rem;
+        font-weight: 700;
+        color: #90caf9;
+    }
+
+    .metric-card .metric-label {
+        font-size: 0.85rem;
+        color: #aaa;
+        margin-top: 0.3rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    /* ── Cluster Cards ── */
+    .cluster-card {
+        background-color: #1a1a1a;
+        border: 1px solid #333;
+        border-radius: 1rem;
+        padding: 1.5rem;
+        transition: transform 0.2s, box-shadow 0.2s;
+        height: 100%;
+    }
+
+    .cluster-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    .cluster-badge {
+        display: inline-block;
+        padding: 4px 14px;
+        border-radius: 2rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        margin-bottom: 0.9rem;
+    }
+
+    .cluster-card h5 {
+        color: #fff;
+        font-weight: 600;
+        margin-bottom: 0.4rem;
+    }
+
+    .cluster-card p.desc {
+        color: #bbb;
+        font-size: 0.88rem;
+        line-height: 1.6;
+    }
+
+    .emotion-pill {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 2rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        margin: 2px;
+    }
+
+    .tag-list {
+        margin-top: 0.9rem;
+    }
+
+    .place-tag {
+        display: inline-block;
+        background: #252525;
+        border: 1px solid #444;
+        border-radius: 6px;
+        padding: 3px 10px;
+        font-size: 0.78rem;
+        color: #ccc;
+        margin: 2px;
+    }
+
+    .cluster-stat-row {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 1rem;
+        padding-top: 0.8rem;
+        border-top: 1px solid #2a2a2a;
+        font-size: 0.82rem;
+    }
+
+    .cluster-stat-row .stat-key {
+        color: #777;
+    }
+
+    .cluster-stat-row .stat-val {
+        color: #90caf9;
+        font-weight: 600;
+    }
+
+    /* ── Similarity Table ── */
+    .sim-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    .sim-table th {
+        background-color: #252525;
+        color: #aaa;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 10px 16px;
+        border-bottom: 1px solid #333;
+    }
+
+    .sim-table td {
+        padding: 12px 16px;
+        border-bottom: 1px solid #2a2a2a;
+        color: #e0e0e0;
+        font-size: 0.88rem;
+        vertical-align: middle;
+    }
+
+    .sim-table tr:hover td {
+        background-color: #222;
+    }
+
+    .sim-score-bar {
+        height: 8px;
+        border-radius: 4px;
+        background: #2a2a2a;
+        overflow: hidden;
+        width: 100px;
+        display: inline-block;
+        vertical-align: middle;
+        margin-left: 10px;
+    }
+
+    .sim-score-fill {
+        height: 100%;
+        border-radius: 4px;
+    }
+
+    .sim-chip {
+        display: inline-block;
+        padding: 2px 10px;
+        border-radius: 2rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    /* ── Insight Box ── */
+    .insight-box {
+        background: #1a1f2e;
+        border: 1px solid #304070;
+        border-radius: 1rem;
+        padding: 1.5rem 2rem;
+    }
+
+    .insight-box .insight-icon {
+        font-size: 1.6rem;
+        margin-right: 0.8rem;
+    }
+
+    .insight-box .insight-text {
+        color: #cdd;
+        font-size: 0.93rem;
+        line-height: 1.7;
+    }
+
+    .insight-box .insight-text strong {
+        color: #90caf9;
+    }
+
+    .chart-container {
+        background-color: #1e1e1e;
+        border: 1px solid #333;
+        border-radius: 1rem;
+        padding: 1.5rem;
+    }
+
+    .chart-canvas-wrapper {
+        position: relative;
+        height: 280px;
+    }
+
+    .chart-title {
+        color: #fff;
+        margin-bottom: 0.5rem;
+        font-size: 1rem;
+        font-weight: 600;
+    }
+
+    .chart-desc {
+        color: #999;
+        font-size: 0.82rem;
+        margin-bottom: 1rem;
+    }
+</style>
+
+<div class="container py-4">
+
+    <!-- Breadcrumb -->
+    <div class="mb-4">
+        <a href="{{ url_for('dashboard.profile', target=user_id) }}" class="back-link">
+            <i class="fa-solid fa-arrow-left me-1"></i> Back to {{ user_id }}'s Profile
+        </a>
+    </div>
+
+    <h1 class="mb-1 page-title">Cluster Analysis</h1>
+    <p class="section-description page-intro mb-4">
+        A breakdown of <strong>{{ user_id }}</strong>'s memory clusters — what each group represents,
+        the dominant emotional tone within it, and how clusters relate to one another.
+    </p>
+
+    <!-- ═══════════ Summary Cards ═══════════ -->
+    <section class="section section-first">
+        <div class="row g-3" id="summary-cards">
+            <div class="col-6 col-md-3">
+                <div class="metric-card">
+                    <div class="metric-value" id="mc-clusters">–</div>
+                    <div class="metric-label">Life Themes</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="metric-card">
+                    <div class="metric-value" id="mc-memories">–</div>
+                    <div class="metric-label">Memories Analysed</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="metric-card">
+                    <div class="metric-value" id="mc-dominant">–</div>
+                    <div class="metric-label">Dominant Theme</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="metric-card">
+                    <div class="metric-value" id="mc-similar">–</div>
+                    <div class="metric-label">Overlapping Pairs</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════ Key Insights ═══════════ -->
+    <section class="section">
+        <h2 class="section-title">Key Insights</h2>
+        <p class="section-description">High-level observations derived from cross-cluster analysis.</p>
+        <div class="row g-3" id="insights-row"></div>
+    </section>
+
+    <!-- ═══════════ Per-Cluster Breakdown ═══════════ -->
+    <section class="section">
+        <h2 class="section-title">Individual Cluster Profiles</h2>
+        <p class="section-description">
+            Each cluster groups memories that share similar visual scenes and emotional context.
+            Tap a card to see the most representative places and moods.
+        </p>
+        <div class="row g-4" id="cluster-cards-row"></div>
+    </section>
+
+    <!-- ═══════════ Cross-Cluster Similarity ═══════════ -->
+    <section class="section">
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <h2 class="section-title">Inter-Cluster Similarity</h2>
+                <p class="section-description">
+                    Pairs of clusters that share similar emotional profiles or visual context.
+                    High similarity suggests these life domains regularly influence each other.
+                </p>
+                <div class="chart-container p-0 overflow-hidden">
+                    <table class="sim-table" id="sim-table">
+                        <thead>
+                            <tr>
+                                <th style="border-radius: 1rem 0 0 0;">Cluster A</th>
+                                <th>Cluster B</th>
+                                <th>Similarity</th>
+                                <th style="border-radius: 0 1rem 0 0; text-align:right;">Strength</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sim-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <h2 class="section-title">Emotion Mix per Cluster</h2>
+                <p class="section-description">Dominant emotion breakdown.</p>
+                <div class="chart-container">
+                    <div class="chart-canvas-wrapper">
+                        <canvas id="emotionChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
+
+<script>
+    (function () {
+        "use strict";
+
+        // ─────────────────────────── Static Demo Data ────────────────────────────
+        const DATA = {
+            summary: {
+                total_clusters: 5,
+                total_memories: 214,
+                dominant_theme: "Home & Daily",
+                overlapping_pairs: 3
+            },
+            insights: [
+                {
+                    icon: "💡",
+                    text: "<strong>Clusters 1 & 3</strong> (Home and Social) show highly similar emotional patterns — predominantly <strong>Neutral → Joy</strong> transitions. These domains are deeply interlinked for this user."
+                },
+                {
+                    icon: "🔍",
+                    text: "The <strong>Fitness cluster</strong> is the most emotionally <strong>distinct</strong>: it's the only group dominated by a mix of <strong>Fear and Surprise</strong>, suggesting these memories carry a unique challenge-and-achievement arc."
+                },
+                {
+                    icon: "📍",
+                    text: "<strong>Travel</strong> and <strong>Outdoors</strong> clusters overlap significantly in visual context (open landscapes, natural light). Merging them in future phases may yield a cleaner two-theme split."
+                }
+            ],
+            clusters: [
+                {
+                    id: 1,
+                    label: "Home & Daily Life",
+                    color: "#90a4ae",
+                    description: "Memories centered around domestic routines — meals, domestic spaces, self-care, and general daily activities at home.",
+                    dominant_emotion: "Neutral",
+                    emotion_color: "#90a4ae",
+                    places: ["Kitchen", "Living Room", "Bedroom", "Garden"],
+                    count: 68,
+                    cohesion: "High"
+                },
+                {
+                    id: 2,
+                    label: "Work & Study",
+                    color: "#ff6b6b",
+                    description: "Academic or professional settings. Tends to carry tension and anxious energy, with occasional pride or accomplishment after completing tasks.",
+                    dominant_emotion: "Anger / Stress",
+                    emotion_color: "#ff6b6b",
+                    places: ["Desk", "Library", "Office", "Classroom"],
+                    count: 45,
+                    cohesion: "Medium"
+                },
+                {
+                    id: 3,
+                    label: "Social & Community",
+                    color: "#4dd0a1",
+                    description: "Moments shared with others — gatherings, celebrations, volunteering. Associated with a positive shift in emotional valence.",
+                    dominant_emotion: "Joy",
+                    emotion_color: "#4dd0a1",
+                    places: ["Community Hall", "Friend's Home", "Park", "Café"],
+                    count: 51,
+                    cohesion: "High"
+                },
+                {
+                    id: 4,
+                    label: "Travel & Exploration",
+                    color: "#ffb74d",
+                    description: "Journeys away from familiar surroundings. Surprise is the defining emotional note — new sights, unfamiliar places, unexpected discoveries.",
+                    dominant_emotion: "Surprise",
+                    emotion_color: "#ffb74d",
+                    places: ["Airport", "City Centre", "Tourist Spots", "Countryside"],
+                    count: 29,
+                    cohesion: "Medium"
+                },
+                {
+                    id: 5,
+                    label: "Fitness & Challenge",
+                    color: "#9575cd",
+                    description: "Physical activity, sport, and health-focused memories. The emotional arc often moves from fear or effort to satisfaction — a clear challenge–reward pattern.",
+                    dominant_emotion: "Fear → Pride",
+                    emotion_color: "#9575cd",
+                    places: ["Gym", "Trail", "Sports Ground", "Pool"],
+                    count: 21,
+                    cohesion: "High"
+                }
+            ],
+            similarities: [
+                { a: "Home & Daily Life", b: "Social & Community", score: 0.78, reason: "Shared Neutral → Joy emotional arc" },
+                { a: "Travel & Exploration", b: "Outdoors / Nature", score: 0.71, reason: "Similar open-landscape visual context" },
+                { a: "Work & Study", b: "Fitness & Challenge", score: 0.55, reason: "Both carry high-stress cognitive load" }
+            ]
+        };
+
+        // ─────────────────────────── Render Summary Cards ────────────────────────
+        document.getElementById("mc-clusters").textContent = DATA.summary.total_clusters;
+        document.getElementById("mc-memories").textContent = DATA.summary.total_memories;
+        document.getElementById("mc-dominant").textContent = DATA.summary.dominant_theme;
+        document.getElementById("mc-similar").textContent = DATA.summary.overlapping_pairs;
+
+        // ─────────────────────────── Render Insights ─────────────────────────────
+        const insightsRow = document.getElementById("insights-row");
+        DATA.insights.forEach(ins => {
+            const col = document.createElement("div");
+            col.className = "col-12";
+            col.innerHTML = `
+            <div class="insight-box d-flex align-items-start">
+                <span class="insight-icon">${escHtml(ins.icon)}</span>
+                <p class="insight-text mb-0">${DOMPurify.sanitize(ins.text)}</p>
+            </div>`;
+            insightsRow.appendChild(col);
+        });
+
+        // ─────────────────────────── Render Cluster Cards ────────────────────────
+        const cardsRow = document.getElementById("cluster-cards-row");
+        DATA.clusters.forEach(cl => {
+            const col = document.createElement("div");
+            col.className = "col-md-6 col-lg-4";
+            col.innerHTML = `
+            <div class="cluster-card">
+                <span class="cluster-badge" style="background:${cl.color}22; color:${cl.color}; border: 1px solid ${cl.color}55;">
+                    Theme ${cl.id}
+                </span>
+                <h5>${escHtml(cl.label)}</h5>
+                <p class="desc">${escHtml(cl.description)}</p>
+                <div class="tag-list">
+                    <span class="emotion-pill" style="background:${cl.emotion_color}22; color:${cl.emotion_color};">
+                        ● ${escHtml(cl.dominant_emotion)}
+                    </span>
+                    ${cl.places.map(p => `<span class="place-tag">${escHtml(p)}</span>`).join('')}
+                </div>
+                <div class="cluster-stat-row">
+                    <span><span class="stat-key">Memories</span> <span class="stat-val">${cl.count}</span></span>
+                    <span><span class="stat-key">Cohesion</span> <span class="stat-val">${escHtml(cl.cohesion)}</span></span>
+                </div>
+            </div>`;
+            cardsRow.appendChild(col);
+        });
+
+        // ─────────────────────────── Render Similarity Table ─────────────────────
+        const tbody = document.getElementById("sim-table-body");
+        DATA.similarities.forEach(row => {
+            const scorePct = Math.round(row.score * 100);
+            const color = row.score > 0.7 ? "#4dd0a1" : row.score > 0.55 ? "#ffb74d" : "#90a4ae";
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+            <td><strong style="color:#e0e0e0;">${escHtml(row.a)}</strong></td>
+            <td><strong style="color:#e0e0e0;">${escHtml(row.b)}</strong></td>
+            <td style="color:#777; font-size:0.82rem;">${escHtml(row.reason)}</td>
+            <td style="text-align:right;">
+                <span class="sim-chip" style="background:${color}22; color:${color};">${scorePct}%</span>
+                <span class="sim-score-bar">
+                    <span class="sim-score-fill" style="width:${scorePct}%; background:${color};"></span>
+                </span>
+            </td>`;
+            tbody.appendChild(tr);
+        });
+
+        // ─────────────────────────── Emotion Bar Chart ────────────────────────────
+        const ctx = document.getElementById("emotionChart").getContext("2d");
+        new Chart(ctx, {
+            type: "bar",
+            data: {
+                labels: DATA.clusters.map(c => `T${c.id}`),
+                datasets: [{
+                    label: "Memories",
+                    data: DATA.clusters.map(c => c.count),
+                    backgroundColor: DATA.clusters.map(c => c.color + "BB"),
+                    borderColor: DATA.clusters.map(c => c.color),
+                    borderWidth: 1,
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            title: items => DATA.clusters[items[0].dataIndex].label,
+                            label: item => ` ${item.raw} memories`
+                        }
+                    }
+                },
+                scales: {
+                    x: { ticks: { color: "#888" }, grid: { display: false } },
+                    y: { ticks: { color: "#888" }, grid: { color: "#2a2a2a" }, beginAtZero: true }
+                }
+            }
+        });
+
+        function escHtml(s) {
+            return String(s ?? "")
+                .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+                .replace(/'/g, "&#x27;");
+        }
+    })();
+</script>
+{% endblock %}

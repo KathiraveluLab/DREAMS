@@ -1,5 +1,5 @@
 # Thematic Analysis Module
-This module performs thematic analysis of recovery project data using **Google Gemini**. Implemented at - **utils/llms.py**
+This module performs thematic analysis of recovery project data using **Google Gemini**. Implemented at - **core/llms.py**
 
 It takes clusters of positive and negative keywords from participants’ entries and generates high-level themes with warm, empathetic explanations.
 

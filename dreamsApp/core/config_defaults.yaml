@@ -1,0 +1,38 @@
+# DREAMS Pipeline — Default Configuration
+# =========================================
+# Copy this file for each experiment and modify as needed.
+#
+# Load with:
+#   from dreamsApp.core.config import PipelineConfig
+#   config = PipelineConfig.from_yaml("my_experiment.yaml")
+#
+# Save a run's config for reproducibility:
+#   config.to_yaml("results/experiment_01_config.yaml")
+
+# ── Graph / segmentation ──────────────────────────────────────────────────────
+
+# Minimum silence gap (hours) between emotion events that starts a new Episode.
+# Increase for weekly-rhythm studies; decrease for intra-day analysis.
+gap_threshold_hours: 24
+
+# Maximum temporal distance (days) between Episodes to be considered "adjacent"
+# (rather than "disjoint") when building narrative graph edges.
+# Increase to connect episodes separated by weekends or holidays.
+adjacency_threshold_days: 7
+
+# ── Active model IDs ─────────────────────────────────────────────────────────
+# These accept HuggingFace model IDs or absolute local directory paths.
+
+# Text sentiment classification model.
+sentiment_model_id: "cardiffnlp/twitter-roberta-base-sentiment-latest"
+
+# Dense text encoder — embeddings stored in ChromaDB for similarity search.
+text_embedding_model_id: "all-MiniLM-L6-v2"
+
+# CLIP image encoder — embeddings stored in ChromaDB for cross-modal search.
+image_embedding_model_id: "clip-ViT-B-32"
+
+# ── Feature flags ─────────────────────────────────────────────────────────────
+
+# Set to false to skip CLIP image encoding (e.g. text-only diary datasets).
+enable_image_embedding: true

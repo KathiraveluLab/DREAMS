@@ -11,6 +11,8 @@ from bson.objectid import ObjectId
 from bson.errors import InvalidId
 
 try:
+    import matplotlib
+    matplotlib.use('Agg')
     import matplotlib.pyplot as plt
     import numpy as np
     import pandas as pd
@@ -23,6 +25,11 @@ try:
     from wordcloud import WordCloud
 except ImportError:  # pragma: no cover - optional in lightweight environments
     WordCloud = None
+
+try:
+    from dreamsApp.core.extra.llms import generate
+except Exception:  # pragma: no cover - optional in lightweight environments
+    generate = None
 
 # Security: Whitelist of valid CHIME labels
 VALID_CHIME_LABELS = {'Connectedness', 'Hope', 'Identity', 'Meaning', 'Empowerment', 'None'}
@@ -90,41 +97,41 @@ def profile(target):
     df["ema_score"] = df["score"].ewm(span=5, adjust=False).mean()
 
     # Create user-friendly visual
-    plt.style.use('dark_background')
-    plt.figure(figsize=(12, 6), facecolor='#121212')
-    ax = plt.gca()
-    ax.set_facecolor('#1e1e1e')
+    with plt.style.context('dark_background'):
+        fig, ax = plt.subplots(figsize=(12, 6), facecolor='#121212')
+        ax.set_facecolor('#1e1e1e')
 
-    plt.plot(df["timestamp"], df["cumulative_score"],
-            label="Overall Emotional Journey", color="#90caf9", marker="o", alpha=0.5)
+        ax.plot(df["timestamp"], df["cumulative_score"],
+                label="Overall Emotional Journey", color="#90caf9", marker="o", alpha=0.5)
 
-    plt.plot(df["timestamp"], df["rolling_avg"],
-            label="5-Day Emotional Smoothing", color="#ffcc80", linestyle="--", marker="x")
+        ax.plot(df["timestamp"], df["rolling_avg"],
+                label="5-Day Emotional Smoothing", color="#ffcc80", linestyle="--", marker="x")
 
-    plt.plot(df["timestamp"], df["ema_score"],
-            label="Recent Emotional Trend", color="#a5d6a7", linestyle="-", marker="s")
+        ax.plot(df["timestamp"], df["ema_score"],
+                label="Recent Emotional Trend", color="#a5d6a7", linestyle="-", marker="s")
 
-    plt.axhline(0, color="#555555", linestyle="--", linewidth=1)
+        ax.axhline(0, color="#555555", linestyle="--", linewidth=1)
 
-    #  Friendly and interpretive title and axis labels
-    plt.title("How This Person’s Feelings Shifted Over Time", fontsize=14, color='white', fontweight='bold')
-    plt.xlabel("When Posts Were Made", fontsize=12, color='#e0e0e0')
-    plt.ylabel("Mood Score (Higher = Happier)", fontsize=12, color='#e0e0e0')
+        #  Friendly and interpretive title and axis labels
+        ax.set_title("How This Person's Feelings Shifted Over Time", fontsize=14, color='white', fontweight='bold')
+        ax.set_xlabel("When Posts Were Made", fontsize=12, color='#e0e0e0')
+        ax.set_ylabel("Mood Score (Higher = Happier)", fontsize=12, color='#e0e0e0')
 
-    #  Improve legend
-    plt.legend(title="What the Lines Mean", fontsize=10, facecolor='#222', edgecolor='#444')
-    plt.grid(color='#333333', linestyle=':', alpha=0.5)
-    plt.xticks(rotation=45, color='#888888')
-    plt.yticks(color='#888888')
-    plt.tight_layout()
+        #  Improve legend
+        ax.legend(title="What the Lines Mean", fontsize=10, facecolor='#222', edgecolor='#444')
+        ax.grid(color='#333333', linestyle=':', alpha=0.5)
+        ax.tick_params(axis='x', rotation=45, colors='#888888')
+        ax.tick_params(axis='y', colors='#888888')
+        fig.tight_layout()
 
-    #  Save to base64 for embedding
-    buf = io.BytesIO()
-    plt.savefig(buf, format='png', facecolor='#121212')
-    buf.seek(0)
-    plot_data = base64.b64encode(buf.read()).decode('utf-8')
-    buf.close()
-    plt.clf() # Clear timeline plot
+
+        #  Save to base64 for embedding
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', facecolor='#121212')
+        buf.seek(0)
+        plot_data = base64.b64encode(buf.read()).decode('utf-8')
+        buf.close()
+        plt.close(fig) # Clear timeline plot
 
     # --- CHIME Radar Chart ---
     chime_counts = {
@@ -156,35 +163,36 @@ def profile(target):
     angles += angles[:1]
     
     # Setup the plot with dark theme colors to match dashboard
-    plt.style.use('dark_background')
-    fig = plt.figure(figsize=(7, 7), facecolor='#121212') # Deep dark background
-    ax = plt.subplot(111, polar=True)
-    ax.set_facecolor('#1e1e1e') # Slightly lighter plot area
+    with plt.style.context('dark_background'):
+        fig, ax = plt.subplots(figsize=(7, 7), facecolor='#121212', subplot_kw={'projection': 'polar'})
+        ax.set_facecolor('#1e1e1e') # Slightly lighter plot area
     
     # Set radial limits based on data but with a minimum for visual clarity
-    max_val = max(values) if any(values) else 1
-    limit = max(2, max_val + 1)
-    ax.set_ylim(0, limit)
+        max_val = max(values) if any(values) else 1
+        limit = max(2, max_val + 1)
+        ax.set_ylim(0, limit)
     
     # Draw axes and labels
-    plt.xticks(angles[:-1], categories, color='#00d4ff', size=12, fontweight='bold')
-    ax.tick_params(colors='#888888') # Radial scale label color
-    ax.grid(color='#444444', linestyle='--')
+        ax.set_xticks(angles[:-1])
+        ax.set_xticklabels(categories, color='#00d4ff', size=12, fontweight='bold')
+        ax.tick_params(colors='#888888') # Radial scale label color
+        ax.grid(color='#444444', linestyle='--')
 
     # Plot data with vibrant blue fill and markers
-    ax.plot(angles, values, color='#00d4ff', linewidth=3, linestyle='solid', marker='o', markersize=8)
-    ax.fill(angles, values, color='#00d4ff', alpha=0.3)
-    
-    plt.title("Personal Recovery Footprint", size=18, color='white', pad=20, fontweight='bold')
-    
-    buf = io.BytesIO()
+        ax.plot(angles, values, color='#00d4ff', linewidth=3, linestyle='solid', marker='o', markersize=8)
+        ax.fill(angles, values, color='#00d4ff', alpha=0.3)
+
+        ax.set_title("Personal Recovery Footprint", size=18, color='white', pad=20, fontweight='bold')
+        
+        buf = io.BytesIO()
     # Save with specific facecolor to ensure transparency/consistency
-    plt.savefig(buf, format='png', bbox_inches='tight', facecolor='#121212')
-    buf.seek(0)
-    chime_plot_data = base64.b64encode(buf.read()).decode('utf-8')
-    buf.close()
-    plt.clf() # Clean up radar plot
-    plt.style.use('default') # Reset style for next plots
+        fig.savefig(buf, format='png', bbox_inches='tight', facecolor='#121212')
+        buf.seek(0)
+        chime_plot_data = base64.b64encode(buf.read()).decode('utf-8')
+        buf.close()
+        plt.close(fig)
+
+
     
     # Fetch keywords from MongoDB
     keywords_data = current_app.mongo['keywords'].find_one({'user_id': target_user_id})
@@ -196,8 +204,14 @@ def profile(target):
     thematics_data = current_app.mongo['thematic_analysis'].find_one({'user_id': str(target_user_id)})
     
     if not thematics_data or "data" not in thematics_data:
-        from ..utils.llms import generate
-        thematics = generate(str(target_user_id), positive_keywords, negative_keywords)
+        if generate is None:
+            thematics = {}
+        else:
+            try:
+                thematics = generate(str(target_user_id), positive_keywords, negative_keywords, current_app.mongo['thematic_analysis'])
+            except Exception as e:
+                current_app.logger.error(f"Error generating thematics: {e}")
+                thematics = {}
     else:
         thematics = thematics_data["data"]
 
@@ -226,6 +240,11 @@ def narrative(target):
     """Render the Narrative Structure Analysis visualization page."""
     return render_template('dashboard/narrative.html', user_id=target)
 
+@bp.route('/user/<string:target>/cluster_analysis', methods=['GET'])
+@login_required
+def cluster_analysis(target):
+    """Render the Cluster Analysis visualization page."""
+    return render_template('dashboard/cluster_analysis.html', user_id=target)
 
 @bp.route('/clusters/<user_id>')
 @login_required
@@ -258,20 +277,25 @@ def show_clusters(user_id):
 @login_required
 def thematic_refresh(user_id):
     try:
-        from ..utils.llms import generate
+        if generate is None:
+            return jsonify({'error': 'LLM dependency is not available'}), 500
 
         keywords_data = current_app.mongo['keywords'].find_one({'user_id': str(user_id)})
         positive_keywords = [item['keyword'] for item in keywords_data.get('positive_keywords', [])] if keywords_data else []
 
         negative_keywords = [item['keyword'] for item in keywords_data.get('negative_keywords', [])] if keywords_data else []
     
-        thematic_data = generate(str(user_id), positive_keywords, negative_keywords)
-        print("Refresed thematic data:")
-        
-        return jsonify({
-            "success": True,
-            "message": "Thematic updated successfully"
-        })
+        try:
+            thematic_data = generate(str(user_id), positive_keywords, negative_keywords, current_app.mongo['thematic_analysis'])
+            current_app.logger.info("Refreshed thematic data:")
+
+            return jsonify({
+                'message': 'Thematics refreshed successfully',
+                'thematic_data': thematic_data
+            }), 200
+        except Exception as e:
+            current_app.logger.error(f"Error regenerating thematics", exc_info=e)
+            return jsonify({'error': 'Failed to refresh thematics'}), 500
     except Exception as e:
         return jsonify({
             "success": False,
@@ -301,7 +325,7 @@ def correct_chime():
     mongo = current_app.mongo['posts']
     
     # SECURITY: Rate limiting - max corrections per user per hour
-    one_hour_ago = datetime.datetime.utcnow() - datetime.timedelta(hours=1)
+    one_hour_ago = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=1)
     recent_corrections = mongo.count_documents({
         'user_id': current_user.get_id(),
         'correction_timestamp': {'$gte': one_hour_ago}
@@ -311,7 +335,7 @@ def correct_chime():
         return jsonify({'success': False, 'error': 'Rate limit exceeded. Try again later.'}), 429
     
     # Step 1: ALWAYS save the correction to the queue first
-    now = datetime.datetime.utcnow()
+    now = datetime.datetime.now(datetime.timezone.utc)
     result = mongo.update_one(
         {'_id': post_object_id, 'user_id': current_user.get_id()},
         {
@@ -372,16 +396,16 @@ def _maybe_trigger_fl_training(app):
         )
         
         # SECURITY: Check for stale lock (stuck for more than LOCK_TIMEOUT_HOURS)
-        stale_threshold = datetime.datetime.utcnow() - datetime.timedelta(hours=LOCK_TIMEOUT_HOURS)
+        stale_threshold = datetime.datetime.now(datetime.timezone.utc)  - datetime.timedelta(hours=LOCK_TIMEOUT_HOURS)
         lock_collection.update_one(
             {'_id': 'singleton', 'is_running': True, 'started_at': {'$lt': stale_threshold}},
-            {'$set': {'is_running': False, 'stale_reset_at': datetime.datetime.now()}}
+            {'$set': {'is_running': False, 'stale_reset_at': datetime.datetime.now(datetime.timezone.utc)}}
         )
         
         # Atomically try to acquire lock
         lock_result = lock_collection.find_one_and_update(
             {'_id': 'singleton', 'is_running': False},
-            {'$set': {'is_running': True, 'started_at': datetime.datetime.now()}},
+            {'$set': {'is_running': True, 'started_at': datetime.datetime.now(datetime.timezone.utc)}},
             return_document=False  # Return the OLD document
         )
         
@@ -406,7 +430,9 @@ def _maybe_trigger_fl_training(app):
                     # Always release lock when done (success or failure)
                     mongo['fl_training_lock'].update_one(
                         {'_id': 'singleton'},
-                        {'$set': {'is_running': False, 'finished_at': datetime.datetime.now()}}
+                        {'$set': {'is_running': False, 'finished_at':datetime.datetime.now(datetime.timezone.utc)}}
+
+
                     )
         
         thread = threading.Thread(target=run_training_with_lock, daemon=True)

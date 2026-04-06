@@ -37,11 +37,11 @@ DREAMS/
 │   │   │   ├── __init__.py
 │   │   │   └── main.py
 │   │   │
-│   │   └── utils/              # Core ML / NLP utilities
-│   │       ├── sentiment.py    # Caption sentiment analysis
-│   │       ├── keywords.py     # Keyword extraction
-│   │       ├── clustering.py   # Keyword clustering (HDBSCAN)
-│   │       └── llms.py         # LLM (Gemini) integration
+│   ├── core/                   # Decoupled Core ML / NLP Engine
+│   │   ├── pipeline.py         # Standalone ingestion orchestrator
+│   │   ├── graph/              # Temporal narrative modeling & analytics
+│   │   ├── database.py         # SQLite / Vector storage logic
+│   │   └── sentiment.py        # RoBERTa classification logic
 │   │
 │   └── docs/                   # Project documentation
 │
@@ -73,6 +73,10 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 ```bash
 pip install -r requirements.txt
 ```
+#### For CPU-only installations
+```bash
+pip install -r requirements-cpu.txt
+```
 
 ### Run tests to verify everything is working
 ```bash
@@ -83,3 +87,13 @@ pytest
 ```bash
 flask --app "dreamsApp.app:create_app()" run --debug
 ```
+
+### Run the Core Pipeline Standalone
+The ML algorithm layer (`dreamsApp/core/`) is designed to operate completely independently from the Flask API layer. The Flask UI runs on MongoDB, whereas the native standalone pipeline operates safely on embedded SQLite / ChromaDB databases for fast local research testing.
+
+**Note:** A small synthetic dataset for running the pipeline is available in this repository:
+```bash
+git clone git@github.com:ayusrjn/dreams-synthetic-dataset.git
+```
+
+For an in-depth, step-by-step tutorial on how to programmatically execute the DREAMS pipeline and generate visual trajectory plots, please see **`Example.ipynb`**.

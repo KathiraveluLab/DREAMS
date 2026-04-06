@@ -1,17 +1,15 @@
 import os
 import json
-import google.genai as genai
+from google import genai
 from google.genai import types
 from dotenv import load_dotenv
-from flask import jsonify
-from flask  import current_app
 import re
 
 
 load_dotenv()
 
 
-def generate(user_id, positive_keywords, negative_keywords):
+def generate(user_id, positive_keywords, negative_keywords, thematic_analysis_collection):
     client = genai.Client(
         api_key=os.environ.get("GEMINI_API_KEY"),
     )
@@ -71,19 +69,16 @@ Your task:
 
     try:
         data = json.loads(cleaned_response)
-        mongo = current_app.mongo
         
-        result = mongo['thematic_analysis'].update_one(
+        thematic_analysis_collection.update_one(
             {"user_id": str(user_id)},
             {"$set": {"data": data}},
             upsert=True
         )
 
-        return jsonify(data)
+        return data
 
     except json.JSONDecodeError:
-        return jsonify({"error": "Invalid JSON from Gemini", "raw": full_response})
+        raise ValueError(f"Invalid JSON from Gemini: {full_response}")
     except Exception as e:
-        return jsonify({"error": "Unexpected error", "details": str(e)})
-
-
+        raise RuntimeError(f"Unexpected error during thematic generation: {str(e)}")

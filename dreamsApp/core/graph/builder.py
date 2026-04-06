@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from typing import List, Dict, Any, Optional
-from ..analytics.emotion_timeline import EmotionEvent, EmotionTimeline
+from .emotion_timeline import EmotionEvent, EmotionTimeline
 
 
 def build_emotion_timeline(

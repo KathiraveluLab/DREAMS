@@ -3,8 +3,8 @@
 import pytest
 from datetime import datetime, timedelta
 from dataclasses import FrozenInstanceError
-from dreamsApp.analytics.emotion_timeline import EmotionEvent, EmotionTimeline
-from dreamsApp.app.builder import build_emotion_timeline
+from dreamsApp.core.graph.emotion_timeline import EmotionEvent, EmotionTimeline
+from dreamsApp.core.graph.builder import build_emotion_timeline
 
 
 class TestEmotionEventImmutability:

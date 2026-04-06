@@ -3,24 +3,12 @@
 All tests use mocks — no real API calls or model loading.
 """
 
-import sys
 import os
 import pytest
 from unittest.mock import patch, MagicMock
 import numpy as np
 
-# Insert utils dir so we can import location_extractor directly
-# without going through the Flask app factory chain.
-sys.path.insert(
-    0,
-    os.path.join(
-        os.path.dirname(__file__),
-        "..", "dreamsApp", "app", "utils",
-    ),
-)
-
-import location_extractor  # noqa: E402
-
+import dreamsApp.core.location_extractor as location_extractor
 
 # ── Fixtures ──────────────────────────────────────────────────────────────
 
@@ -67,8 +55,8 @@ def _clear_cache():
 class TestReverseGeocode:
     """5 tests for reverse_geocode()."""
 
-    @patch("location_extractor.requests.get")
-    @patch("location_extractor.time.sleep")
+    @patch("dreamsApp.core.location_extractor.requests.get")
+    @patch("dreamsApp.core.location_extractor.time.sleep")
     def test_successful_geocode(self, mock_sleep, mock_get):
         """Successful API call returns expected dict structure."""
         mock_resp = MagicMock()
@@ -83,8 +71,8 @@ class TestReverseGeocode:
         assert result["place_category"] == "place_of_worship"
         assert result["place_type"] == "amenity"
 
-    @patch("location_extractor.requests.get")
-    @patch("location_extractor.time.sleep")
+    @patch("dreamsApp.core.location_extractor.requests.get")
+    @patch("dreamsApp.core.location_extractor.time.sleep")
     def test_cache_deduplication(self, mock_sleep, mock_get):
         """Second call with same coords should hit cache, not API."""
         mock_resp = MagicMock()
@@ -104,8 +92,8 @@ class TestReverseGeocode:
         assert location_extractor.reverse_geocode(0.0, 181.0) is None
         assert location_extractor.reverse_geocode(-91.0, 0.0) is None
 
-    @patch("location_extractor.requests.get")
-    @patch("location_extractor.time.sleep")
+    @patch("dreamsApp.core.location_extractor.requests.get")
+    @patch("dreamsApp.core.location_extractor.time.sleep")
     def test_network_error_returns_none(self, mock_sleep, mock_get):
         """Network failure should return None gracefully."""
         import requests as req_lib
@@ -114,8 +102,8 @@ class TestReverseGeocode:
         result = location_extractor.reverse_geocode(61.2181, -149.9003)
         assert result is None
 
-    @patch("location_extractor.requests.get")
-    @patch("location_extractor.time.sleep")
+    @patch("dreamsApp.core.location_extractor.requests.get")
+    @patch("dreamsApp.core.location_extractor.time.sleep")
     def test_nominatim_error_returns_none(self, mock_sleep, mock_get):
         """Nominatim error response (e.g. 'Unable to geocode') returns None."""
         mock_resp = MagicMock()
@@ -225,7 +213,7 @@ class TestGetLocationEmbedding:
 class TestEnrichLocation:
     """2 tests for enrich_location()."""
 
-    @patch("location_extractor.reverse_geocode")
+    @patch("dreamsApp.core.location_extractor.reverse_geocode")
     def test_success_with_geocode(self, mock_geocode):
         """Successful geocode populates all fields."""
         mock_geocode.return_value = {
@@ -254,7 +242,7 @@ class TestEnrichLocation:
         assert "address" in result
         assert len(result["location_embedding"]) == 384
 
-    @patch("location_extractor.reverse_geocode")
+    @patch("dreamsApp.core.location_extractor.reverse_geocode")
     def test_fallback_when_geocode_fails(self, mock_geocode):
         """When geocoding fails, still returns text + embedding."""
         mock_geocode.return_value = None

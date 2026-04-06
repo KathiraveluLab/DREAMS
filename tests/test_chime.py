@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch, MagicMock
-from dreamsApp.app.utils.sentiment import SentimentAnalyzer
+from dreamsApp.core.sentiment import SentimentAnalyzer
 
 class TestChimeAnalysis(unittest.TestCase):
 
@@ -8,7 +8,7 @@ class TestChimeAnalysis(unittest.TestCase):
         # Create a fresh analyzer for each test to avoid cross-test contamination
         self.analyzer = SentimentAnalyzer()
 
-    @patch('dreamsApp.app.utils.sentiment.pipeline')
+    @patch('dreamsApp.core.sentiment.pipeline')
     def test_get_chime_category_success(self, mock_pipeline):
         # Mock the pipeline return value
         mock_classifier = MagicMock()
@@ -27,13 +27,13 @@ class TestChimeAnalysis(unittest.TestCase):
         self.assertEqual(result['label'], 'Hope')
         self.assertEqual(result['score'], 0.95)
     
-    @patch('dreamsApp.app.utils.sentiment.pipeline')
+    @patch('dreamsApp.core.sentiment.pipeline')
     def test_get_chime_category_empty(self, mock_pipeline):
         result = self.analyzer.analyze_chime("")
         self.assertEqual(result['label'], 'Uncategorized')
         self.assertEqual(result['score'], 0.0)
 
-    @patch('dreamsApp.app.utils.sentiment.pipeline')
+    @patch('dreamsApp.core.sentiment.pipeline')
     def test_get_chime_category_model_fail(self, mock_pipeline):
         # Simulate import error or download fail
         mock_pipeline.side_effect = Exception("Model not found")

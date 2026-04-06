@@ -100,7 +100,7 @@ def test_fl_loop():
         
         # 4. Verify Model Creation & Loading logic
         print("\n>>> TEST: Verifying Inference (End-to-End)...")
-        from dreamsApp.app.utils.sentiment import SentimentAnalyzer
+        from dreamsApp.core.sentiment import SentimentAnalyzer
         
         # Check directory existence
         # Current file is in /tests, so we go up one level to root

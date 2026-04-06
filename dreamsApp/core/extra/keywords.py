@@ -1,12 +1,23 @@
-import spacy
-
-nlp = spacy.load("en_core_web_sm")
 from datetime import datetime
-from sentence_transformers import SentenceTransformer
 
-model = SentenceTransformer("all-MiniLM-L6-v2")  
+try:
+    import spacy
+except ImportError:  # pragma: no cover - optional in lightweight test envs
+    spacy = None
+
+try:
+    from sentence_transformers import SentenceTransformer
+except ImportError:  # pragma: no cover - optional in lightweight test envs
+    SentenceTransformer = None
+
+nlp = spacy.load("en_core_web_sm") if spacy is not None else None
+
+model = SentenceTransformer("all-MiniLM-L6-v2") if SentenceTransformer is not None else None
 
 def extract_keywords_and_vectors(sentence, include_timestamp=True):
+    if nlp is None or model is None:
+        return []
+
     doc = nlp(sentence)
     main_concepts = set()
     custom_excluded_words = {"me", "my", "i", "used", "when", "this", "parents", "bring", "sick", "got", "reminds"}

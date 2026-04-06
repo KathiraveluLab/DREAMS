@@ -10,31 +10,16 @@ Endpoint:
 """
 
 import logging
-from datetime import datetime, timedelta
 import re
 
 from flask import jsonify, current_app
 from flask_login import login_required
 from . import bp
 
-from dreamsApp.app.builder import build_emotion_timeline
-from dreamsApp.analytics.episode_segmentation import segment_timeline_to_episodes
-from dreamsApp.analytics.temporal_narrative_graph import build_narrative_graph
-from dreamsApp.analytics.graph_analysis import analyze_narrative_graph
-
-
 logger = logging.getLogger(__name__)
 
 # Security: only allow reasonable user_id values (letters, digits, _.-@)
 _USER_ID_RE = re.compile(r'^[\w.\-@]{1,64}$')
-
-# Default thresholds — may be made configurable via app.config in the future.
-# gap_threshold:       posts further apart than this form separate episodes.
-# adjacency_threshold: episodes closer than this get connected by an edge.
-#                      Set to 7 days to handle typical real-world posting
-#                      cadences (daily or every few days).
-DEFAULT_GAP_THRESHOLD = timedelta(hours=24)
-DEFAULT_ADJACENCY_THRESHOLD = timedelta(days=7)
 
 
 @bp.route('/graph-metrics/<string:user_id>', methods=['GET'])
@@ -69,35 +54,8 @@ def graph_metrics(user_id: str):
                 'user_id': user_id,
             }), 404
 
-        # Transform MongoDB documents into builder-compatible records
-        records = []
-        for post in user_posts:
-            ts = post['timestamp']
-            if not isinstance(ts, datetime):
-                ts = datetime.fromisoformat(str(ts))
-
-            sentiment = post.get('sentiment', {})
-            records.append({
-                'timestamp': ts,
-                'emotion_label': sentiment.get('label', 'neutral'),
-                'score': sentiment.get('score'),
-                'source_id': str(post.get('_id', '')),
-            })
-
-        # Build the analysis pipeline
-        timeline = build_emotion_timeline(
-            subject_id=user_id,
-            records=records,
-        )
-        episodes = segment_timeline_to_episodes(
-            timeline,
-            gap_threshold=DEFAULT_GAP_THRESHOLD,
-        )
-        narrative_graph = build_narrative_graph(
-            episodes,
-            adjacency_threshold=DEFAULT_ADJACENCY_THRESHOLD,
-        )
-        metrics = analyze_narrative_graph(narrative_graph)
+        # Delegate heavy graph execution to the global pipeline
+        metrics = current_app.dreams_pipeline.generate_narrative_metrics(user_id, user_posts)
 
         return jsonify({
             'user_id': user_id,

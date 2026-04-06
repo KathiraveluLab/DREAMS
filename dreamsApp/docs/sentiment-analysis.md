@@ -36,7 +36,7 @@ This endpoint accepts a POST request from Beehive, processes the data (caption +
 }
 ```
 ## How It works
-- The API calls get_image_caption_and_sentiment() (in utils/sentiment.py).
+- The core sequence calls `get_image_caption_and_sentiment()` (in `core/sentiment.py`).
 
 - This function:
 

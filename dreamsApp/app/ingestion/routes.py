@@ -6,17 +6,16 @@ from datetime import datetime
 
 from flask import current_app, jsonify, request
 from PIL import Image, UnidentifiedImageError
+from flask_login import login_required
 from werkzeug.utils import secure_filename
 
 from . import bp
-from ..utils.keywords import extract_keywords_and_vectors
-from ..utils.clustering import cluster_keywords_for_all_users
-from ..utils.location_extractor import extract_gps_from_image, enrich_location
-from ..utils.sentiment import (
-    get_chime_category,
-    get_image_caption_and_sentiment,
-    select_text_for_analysis,
-)
+from dreamsApp.core.extra.clustering import cluster_keywords_for_all_users
+from dreamsApp.core.extra.location_extractor import enrich_location, extract_gps_from_image
+from dreamsApp.core.extra.advanced_sentiment import get_chime_category
+from dreamsApp.core.extra.keywords import extract_keywords_and_vectors
+from dreamsApp.core.extra.image_captioning import get_image_caption
+from dreamsApp.core.vector_store import vector_store
 
 try:
     from sentence_transformers import SentenceTransformer
@@ -45,32 +44,71 @@ def _enrich_location_background(post_id, lat, lon, mongo_uri, db_name):
 
             enrichment = enrich_location(lat, lon, model=model)
             if enrichment:
+                # Strip the heavy semantic embedding before updating MongoDB
+                mongo_enrichment = dict(enrichment)
+                mongo_enrichment.pop("location_embedding", None)
+
                 db["posts"].update_one(
                     {"_id": post_id},
-                    {"$set": {f"location.{k}": v for k, v in enrichment.items()}},
+                    {"$set": {f"location.{k}": v for k, v in mongo_enrichment.items()}},
                 )
+
+                # Push semantic location embedding to ChromaDB Multiplex Layer 2
+                if "location_embedding" in enrichment:
+                    vector_store.store_vector(
+                        collection_name="layer_2_semantic",
+                        doc_id=str(post_id),
+                        embedding=enrichment["location_embedding"],
+                        metadata={"location_text": enrichment.get("location_text", "")}
+                    )
+
                 logger.info("Location enrichment complete for post %s", post_id)
     except Exception:
         logger.exception("Background location enrichment failed for post %s", post_id)
 
 
+def _store_embeddings_background(post_id, user_id, caption_embedding, image_embedding):
+    """Push document embeddings to ChromaDB in background thread."""
+    try:
+        if caption_embedding:
+            vector_store.store_vector(
+                collection_name="text_embeddings",
+                doc_id=str(post_id),
+                embedding=caption_embedding,
+                metadata={"user_id": user_id, "type": "caption"}
+            )
+        if image_embedding:
+            vector_store.store_vector(
+                collection_name="image_embeddings",
+                doc_id=str(post_id),
+                embedding=image_embedding,
+                metadata={"user_id": user_id, "type": "image"}
+            )
+        logger.info("Embeddings stored in ChromaDB for post %s", post_id)
+
+    except Exception:
+        logger.exception("Background embeddings storage failed for post %s", post_id)
+
+
 @bp.route('/upload', methods=['POST'])
+@login_required
 def upload_post():
     user_id = request.form.get('user_id')
     caption = request.form.get('caption')
     timestamp = request.form.get('timestamp', datetime.now().isoformat())
     image = request.files.get('image')
 
-    if not all([user_id, caption, timestamp, image]):
-        return jsonify({'error': 'Missing required fields'}), 400
-    
+    missing = [k for k, v in {'caption': caption, 'image': image, 'user_id': user_id}.items() if not v]
+    if missing:
+         return jsonify({'error': f"Missing required fields: {', '.join(missing)}"}), 400
+
     filename = secure_filename(image.filename)
     allowed = current_app.config.get('ALLOWED_EXTENSIONS', {'png', 'jpg', 'jpeg', 'gif'})
     if '.' not in filename or filename.rsplit('.', 1)[1].lower() not in allowed:
         return jsonify({'error': 'Unsupported file extension'}), 400
 
-    upload_path = current_app.config['UPLOAD_FOLDER']
     unique_filename = f"{uuid.uuid4().hex}_{filename}"
+    upload_path = current_app.config['UPLOAD_FOLDER']
     image_path = os.path.join(upload_path, unique_filename)
     image.save(image_path)
 
@@ -85,36 +123,64 @@ def upload_post():
             os.remove(image_path)
         return jsonify({'error': 'Uploaded file is not a valid image'}), 400
 
-    # Extract GPS from EXIF if available
+    # Delegate the heavy AI extraction sequence to the global pipeline.
+    # Validation above ensures we only process decodable image files.
+    pipeline = current_app.dreams_pipeline
+    pipeline_result = pipeline.process_new_post(user_id, image_path, caption, timestamp)
+
+    post_doc = pipeline_result["post_doc"]
+    caption_embedding = pipeline_result.get("caption_embedding")
+    image_embedding = pipeline_result.get("image_embedding")
+    sentiment = post_doc.get("sentiment", {})
+
+    # 1. Image Captioning
+    try:
+        generated_caption = get_image_caption(image_path)
+    except Exception as e:
+        logger.error(f"Image captioning failed: {e}")
+        generated_caption = caption
+
+    # 2. CHIME Analysis
+    text_for_analysis = caption if (caption and caption.strip()) else generated_caption
+    try:
+        chime_result = get_chime_category(text_for_analysis)
+    except Exception as e:
+        logger.error(f"CHIME analysis failed: {e}")
+        chime_result = None
+
+    # 3. Keywords Extraction
+    keywords_with_vectors = []
+    keyword_type = None
+    keywords_for_mongo = []
+
+    if sentiment.get('label') in ('positive', 'negative'):
+        try:
+            keywords_with_vectors = extract_keywords_and_vectors(generated_caption)
+            keyword_type = f"{sentiment['label']}_keywords"
+            if keywords_with_vectors:
+                keywords_for_mongo = [
+                    {k: v for k, v in kw.items() if k != "embedding"}
+                    for kw in keywords_with_vectors
+                ]
+        except Exception as e:
+            logger.error(f"Keyword extraction failed: {e}")
+
+    # 4. Location Extraction locally
     gps_data = extract_gps_from_image(image_path)
-    
-    analysis_result = get_image_caption_and_sentiment(image_path, caption)
-    
-    sentiment = analysis_result["sentiment"]
-    generated_caption = analysis_result["imgcaption"]
 
-    # Refactor: Use shared selection logic to determine which text to analyze for recovery
-    text_for_analysis = select_text_for_analysis(caption, generated_caption)
-    chime_result = get_chime_category(text_for_analysis)
-    
-    # keyword generation from the caption
-    
-    # Extract keyword + vector pairs
-    if sentiment['label'] == 'negative':
-        keywords_with_vectors = extract_keywords_and_vectors(generated_caption)
-        keyword_type = 'negative_keywords'
-    elif sentiment['label'] == 'positive':
-        keywords_with_vectors = extract_keywords_and_vectors(generated_caption)
-        keyword_type = 'positive_keywords'
-    else:
-        keywords_with_vectors = []
-        keyword_type = None
+    # Add newly computed fields into the post_doc
+    if gps_data:
+        post_doc['location'] = gps_data
+    post_doc['generated_caption'] = generated_caption
+    post_doc['chime_analysis'] = chime_result
 
-    if keywords_with_vectors:
-        mongo = current_app.mongo
+    mongo = current_app.mongo
+
+    # We maintain previous keyword updating logic so older flask dashboards don't break
+    if keywords_for_mongo and keyword_type:
         kw_update_result = mongo['keywords'].update_one(
             {'user_id': user_id},
-            {'$push': {keyword_type: {'$each': keywords_with_vectors}}},
+            {'$push': {keyword_type: {'$each': keywords_for_mongo}}},
             upsert=True
         )
 
@@ -130,18 +196,6 @@ def upload_post():
                     {'$set': {'negative_keywords': []}}
                 )
 
-    post_doc = {
-        'user_id': user_id,
-        'caption': caption,
-        'timestamp': datetime.fromisoformat(timestamp),
-        'image_path': image_path,
-        'generated_caption': generated_caption,
-        'sentiment' : sentiment,
-        'chime_analysis': chime_result,
-        'location': gps_data,
-    }
-
-    mongo = current_app.mongo
     insert_result = mongo['posts'].insert_one(post_doc)
 
     if not insert_result.acknowledged:
@@ -161,19 +215,29 @@ def upload_post():
             db_name,
         )
 
+    # Fire-and-forget: push document embeddings into ChromaDB
+    if caption_embedding or image_embedding:
+        _enrichment_executor.submit(
+            _store_embeddings_background,
+            str(insert_result.inserted_id),
+            user_id,
+            caption_embedding,
+            image_embedding
+        )
+
     return jsonify({
         'message': 'Post created successfully',
         'post_id': str(insert_result.inserted_id),
         'user_id': user_id,
         'caption': caption,
-        'timestamp': datetime.fromisoformat(timestamp),
+        'timestamp': post_doc['timestamp'].isoformat(),
         'image_path': image_path,
-        'sentiment': sentiment,
-        'generated_caption': generated_caption,
+        'sentiment': post_doc['sentiment'],
+        'generated_caption': post_doc['generated_caption'],
     }), 201
 
-    
+
 @bp.route("/run_clustering")
 def manual_cluster():
-    cluster_keywords_for_all_users()
+    cluster_keywords_for_all_users(current_app.mongo['keywords'])
     return "Clustering done"

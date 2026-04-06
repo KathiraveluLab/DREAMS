@@ -2,7 +2,7 @@ import shutil
 import os
 import datetime
 from dreamsApp.app import create_app
-from dreamsApp.app.utils.logger import setup_logger
+from dreamsApp.core.logger import setup_logger
 
 try:
     import torch

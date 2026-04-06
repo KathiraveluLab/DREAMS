@@ -4,17 +4,17 @@ import pytest
 from datetime import datetime, timedelta
 from dataclasses import FrozenInstanceError
 
-from dreamsApp.analytics.emotion_timeline import EmotionEvent, EmotionTimeline
-from dreamsApp.analytics.emotion_episode import Episode
-from dreamsApp.analytics.episode_segmentation import segment_timeline_to_episodes
-from dreamsApp.analytics.episode_proximity import (
+from dreamsApp.core.graph.emotion_timeline import EmotionEvent, EmotionTimeline
+from dreamsApp.core.graph.emotion_episode import Episode
+from dreamsApp.core.graph.episode_segmentation import segment_timeline_to_episodes
+from dreamsApp.core.graph.episode_proximity import (
     ProximityRelation,
     compute_temporal_overlap,
     compute_temporal_gap,
     are_episodes_adjacent,
     classify_episode_proximity,
 )
-from dreamsApp.analytics.temporal_narrative_graph import (
+from dreamsApp.core.graph.temporal_narrative_graph import (
     NarrativeEdge,
     TemporalNarrativeGraph,
     build_narrative_graph,

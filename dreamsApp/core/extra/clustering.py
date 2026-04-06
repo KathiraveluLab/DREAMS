@@ -1,6 +1,12 @@
-from flask import current_app
+import logging
 import numpy as np
-import hdbscan
+
+try:
+    import hdbscan
+except ImportError:  # pragma: no cover - optional in lightweight test envs
+    hdbscan = None
+
+logger = logging.getLogger(__name__)
 
 def get_vectors_and_metadata(doc):
     vectors = []
@@ -18,9 +24,10 @@ def get_vectors_and_metadata(doc):
 
     return np.array(vectors), metadata
 
-def cluster_keywords_for_all_users():
-    mongo = current_app.mongo
-    keywords_collection = mongo['keywords']
+def cluster_keywords_for_all_users(keywords_collection):
+    if hdbscan is None:
+        logger.warning("hdbscan is not installed; skipping keyword clustering")
+        return
 
     all_users = keywords_collection.find({})
 
@@ -33,16 +40,16 @@ def cluster_keywords_for_all_users():
         if len(vectors) < 2:
             continue  # Skip clustering if insufficient data
 
-        # Debug: Print the shape of the vectors array to check its dimensions
-        print(f"Shape of vectors array: {vectors.shape}")
-        # Debug: Print the first few vectors to inspect their values
-        print(f"First 5 vectors: {vectors[:5]}")
+        # Debug: Log the shape of the vectors array to check its dimensions
+        logger.debug(f"Shape of vectors array: {vectors.shape}")
+        # Debug: Log the first few vectors to inspect their values
+        logger.debug(f"First 5 vectors: {vectors[:5]}")
 
         clusterer = hdbscan.HDBSCAN(min_cluster_size=2, metric='euclidean')
         cluster_labels = clusterer.fit_predict(vectors)
 
-        # Debug: Print the cluster labels to see how the data is being clustered
-        print(f"Cluster labels: {cluster_labels}")
+        # Debug: Log the cluster labels to see how the data is being clustered
+        logger.debug(f"Cluster labels: {cluster_labels}")
 
         clustered_result = []
         for i, label in enumerate(cluster_labels):

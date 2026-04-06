@@ -1,7 +1,7 @@
 # tests/test_graph_analysis.py
 
 """
-Unit tests for dreamsApp.analytics.graph_analysis and
+Unit tests for dreamsApp.core.graph.graph_analysis and
 TemporalNarrativeGraph.to_networkx().
 
 No external services (Flask, MongoDB) are needed — these tests exercise
@@ -11,13 +11,13 @@ the pure-analysis layer only.
 import pytest
 from datetime import datetime, timedelta
 
-from dreamsApp.analytics.emotion_timeline import EmotionEvent
-from dreamsApp.analytics.emotion_episode import Episode
-from dreamsApp.analytics.temporal_narrative_graph import (
+from dreamsApp.core.graph.emotion_timeline import EmotionEvent
+from dreamsApp.core.graph.emotion_episode import Episode
+from dreamsApp.core.graph.temporal_narrative_graph import (
     TemporalNarrativeGraph,
     build_narrative_graph,
 )
-from dreamsApp.analytics.graph_analysis import analyze_narrative_graph
+from dreamsApp.core.graph.graph_analysis import analyze_narrative_graph
 
 
 # ---------------------------------------------------------------------------
