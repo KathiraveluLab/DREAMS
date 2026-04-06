@@ -28,7 +28,7 @@ except ImportError:  # pragma: no cover - optional in lightweight environments
 
 try:
     from dreamsApp.core.extra.llms import generate
-except Exception:  # pragma: no cover - optional in lightweight environments
+except ImportError:  # pragma: no cover - optional in lightweight environments
     generate = None
 
 # Security: Whitelist of valid CHIME labels

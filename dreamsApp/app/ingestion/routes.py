@@ -124,20 +124,23 @@ def upload_post():
     if '.' not in filename or filename.rsplit('.', 1)[1].lower() not in allowed:
         return jsonify({'error': 'Unsupported file extension'}), 400
 
-    unique_filename = f"{uuid.uuid4().hex}_{filename}"
-    upload_path = current_app.config['UPLOAD_FOLDER']
-    image_path = os.path.join(upload_path, unique_filename)
-    image.save(image_path)
-
     try:
-        # Security: Prevent decompression bombs and verify image integrity.
-        with Image.open(image_path) as img:
+        # Security: Validate image from request stream before any disk write.
+        with Image.open(image.stream) as img:
             if img.width * img.height > MAX_IMAGE_PIXELS:
                 raise ValueError("Image dimensions exceed safety limits")
             # Fully decode pixel data to ensure image is valid and not corrupt.
             img.load()
+
+        # Rewind request stream after validation and save validated content.
+        image.stream.seek(0)
+        unique_filename = f"{uuid.uuid4().hex}_{filename}"
+        upload_path = current_app.config['UPLOAD_FOLDER']
+        image_path = os.path.join(upload_path, unique_filename)
+        image.save(image_path)
     except (UnidentifiedImageError, OSError, ValueError, RuntimeError):
-        if os.path.exists(image_path):
+        image_path = locals().get("image_path")
+        if image_path and os.path.exists(image_path):
             os.remove(image_path)
         return jsonify({'error': 'Uploaded file is not a valid image'}), 400
 
