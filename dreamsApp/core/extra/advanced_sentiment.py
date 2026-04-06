@@ -1,5 +1,5 @@
-import os
 import logging
+from dreamsApp.core.chime_classifier import init_chime_classifier, pick_top_chime_result
 
 try:
     import torch
@@ -36,57 +36,12 @@ class AdvancedSentimentAnalyzer:
         return self._absa_model
 
     def get_chime_classifier(self):
-        if self._chime_classifier is None:
-            try:
-                if pipeline is None:
-                    raise RuntimeError("transformers is required for CHIME inference")
-                model_path = HF_MODEL_ID
-
-                # Try to detect Flask context safely
-                try:
-                    from flask import has_app_context, current_app
-
-                    if has_app_context():
-                        local_model_path = os.path.join(
-                            current_app.root_path,
-                            "models",
-                            "production_chime_model"
-                        )
-
-                        if os.path.exists(local_model_path):
-                            logging.info(
-                                f">>> SELF-CORRECTION: Learned model found at {local_model_path}. Loading..."
-                            )
-                            model_path = local_model_path
-                        else:
-                            logging.info(
-                                f"Loading Base CHIME model from Hugging Face: {HF_MODEL_ID}"
-                            )
-
-                    else:
-                        logging.info(
-                            "No Flask context detected. Using default HuggingFace model."
-                        )
-
-                except RuntimeError:
-                    # pytest will land here
-                    logging.info(
-                        "Running outside Flask. Using default HuggingFace model."
-                    )
-
-                self._chime_classifier = pipeline(
-                    "text-classification",
-                    model=model_path,
-                    tokenizer=model_path,
-                    return_all_scores=True
-                )
-
-                logging.info("CHIME model loaded successfully.")
-
-            except Exception as e:
-                logging.error(f"Error loading CHIME model: {e}")
-                return None
-
+        self._chime_classifier = init_chime_classifier(
+            self._chime_classifier,
+            pipeline,
+            HF_MODEL_ID,
+            logging.getLogger(__name__),
+        )
         return self._chime_classifier
 
     def analyze_chime(self, text: str):
@@ -99,14 +54,7 @@ class AdvancedSentimentAnalyzer:
 
         try:
             results = classifier(text)
-            
-            # HuggingFace pipelines can return [dict] or [[dict]] depending on configuration
-            if len(results) > 0 and isinstance(results[0], list):
-                top_result = max(results[0], key=lambda x: x.get('score', 0))
-            else:
-                top_result = max(results, key=lambda x: x.get('score', 0))
-                
-            return top_result
+            return pick_top_chime_result(results)
         except Exception as e:
             logging.error(f"Inference error: {e}")
             return {"label": "Uncategorized", "score": 0.0}

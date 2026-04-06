@@ -1,6 +1,6 @@
 import logging
-import os
 import numpy as np
+from dreamsApp.core.chime_classifier import init_chime_classifier, pick_top_chime_result
 
 try:
     import torch
@@ -78,40 +78,12 @@ class SentimentAnalyzer:
         return top_sentiment
 
     def get_chime_classifier(self):
-        if self._chime_classifier is None:
-            try:
-                if pipeline is None:
-                    raise RuntimeError("transformers is required for CHIME inference")
-                model_path = HF_MODEL_ID
-
-                # Prefer locally learned FL model when available.
-                try:
-                    from flask import has_app_context, current_app
-                    if has_app_context():
-                        local_model_path = os.path.join(
-                            current_app.root_path,
-                            "models",
-                            "production_chime_model",
-                        )
-                        if os.path.exists(local_model_path):
-                            logger.info(
-                                ">>> SELF-CORRECTION: Learned model found at %s. Loading...",
-                                local_model_path,
-                            )
-                            model_path = local_model_path
-                except RuntimeError:
-                    # No active Flask app context (e.g., tests/CLI)
-                    pass
-
-                self._chime_classifier = pipeline(
-                    "text-classification",
-                    model=model_path,
-                    tokenizer=model_path,
-                    top_k=None,
-                )
-            except Exception as e:
-                logger.error(f"Error loading CHIME model: {e}")
-                return None
+        self._chime_classifier = init_chime_classifier(
+            self._chime_classifier,
+            pipeline,
+            HF_MODEL_ID,
+            logger,
+        )
         return self._chime_classifier
 
     def analyze_chime(self, text: str):
@@ -124,19 +96,7 @@ class SentimentAnalyzer:
 
         try:
             results = classifier(text)
-            # Handle both [dict] and [[dict]] return formats from the pipeline.
-            if not results:
-                return {"label": "Uncategorized", "score": 0.0}
-
-            if isinstance(results[0], list):
-                if not results[0]:
-                    return {"label": "Uncategorized", "score": 0.0}
-                return max(results[0], key=lambda x: x.get("score", 0.0))
-
-            if isinstance(results[0], dict):
-                return max(results, key=lambda x: x.get("score", 0.0))
-
-            return {"label": "Uncategorized", "score": 0.0}
+            return pick_top_chime_result(results)
         except Exception as e:
             logger.error(f"CHIME inference error: {e}")
             return {"label": "Uncategorized", "score": 0.0}

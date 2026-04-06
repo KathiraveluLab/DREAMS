@@ -26,6 +26,7 @@ except ImportError:  # pragma: no cover - optional heavy dependency
 logger = logging.getLogger(__name__)
 _location_model = None
 _location_model_lock = threading.Lock()
+MAX_IMAGE_PIXELS = 100_000_000
 
 
 def _get_location_model():
@@ -131,7 +132,7 @@ def upload_post():
     try:
         # Security: Prevent decompression bombs and verify image integrity.
         with Image.open(image_path) as img:
-            if img.width * img.height > 100_000_000:
+            if img.width * img.height > MAX_IMAGE_PIXELS:
                 raise ValueError("Image dimensions exceed safety limits")
             # Fully decode pixel data to ensure image is valid and not corrupt.
             img.load()
