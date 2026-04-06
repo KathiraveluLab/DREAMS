@@ -427,7 +427,7 @@ def _maybe_trigger_fl_training(app):
                 try:
                     # Import here to avoid circular dependency (fl_worker imports create_app)
                     from dreamsApp.app.fl_worker import run_federated_round
-                    run_federated_round()
+                    run_federated_round(app=app)
                 except Exception as e:
                     # Log the error since daemon threads fail silently
                     import logging

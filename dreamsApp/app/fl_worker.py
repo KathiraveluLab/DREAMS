@@ -94,12 +94,14 @@ def validate_model(model, tokenizer, training_samples, label2id):
 
     return True
 
-def run_federated_round():
+def run_federated_round(app=None):
     if torch is None or AutoModelForSequenceClassification is None or AutoTokenizer is None or AutoConfig is None:
         logger.warning("Required ML dependencies are not installed; skipping federated round.")
         return
 
-    app = create_app()
+    if app is None:
+        app = create_app()
+
     with app.app_context():
         mongo = app.mongo
         logger.info("FL WORKER: Waking up...")
