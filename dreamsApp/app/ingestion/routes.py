@@ -13,7 +13,7 @@ from werkzeug.utils import secure_filename
 from . import bp
 from dreamsApp.core.extra.clustering import cluster_keywords_for_all_users
 from dreamsApp.core.extra.location_extractor import enrich_location, extract_gps_from_image
-from dreamsApp.core.extra.advanced_sentiment import get_chime_category
+from dreamsApp.core.sentiment import get_chime_category
 from dreamsApp.core.extra.keywords import extract_keywords_and_vectors
 from dreamsApp.core.extra.image_captioning import get_image_caption
 from dreamsApp.core.vector_store import vector_store

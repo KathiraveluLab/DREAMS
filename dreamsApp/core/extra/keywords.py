@@ -1,5 +1,6 @@
 from datetime import datetime
 import logging
+import threading
 
 try:
     import spacy
@@ -14,22 +15,25 @@ except ImportError:  # pragma: no cover - optional in lightweight test envs
 logger = logging.getLogger(__name__)
 
 _nlp = None
+_nlp_lock = threading.Lock()
 _keyword_model = None
+_keyword_model_lock = threading.Lock()
 
 
 def _get_nlp():
     global _nlp
     if spacy is None:
         return None
-    if _nlp is None:
-        try:
-            _nlp = spacy.load("en_core_web_sm")
-        except OSError as e:
-            logger.warning("spaCy model en_core_web_sm is unavailable: %s", e)
-            _nlp = None
-        except Exception as e:
-            logger.warning("Failed to initialize spaCy: %s", e)
-            _nlp = None
+    with _nlp_lock:
+        if _nlp is None:
+            try:
+                _nlp = spacy.load("en_core_web_sm")
+            except OSError as e:
+                logger.warning("spaCy model en_core_web_sm is unavailable: %s", e)
+                _nlp = None
+            except Exception as e:
+                logger.warning("Failed to initialize spaCy: %s", e)
+                _nlp = None
     return _nlp
 
 
@@ -37,12 +41,13 @@ def _get_keyword_model():
     global _keyword_model
     if SentenceTransformer is None:
         return None
-    if _keyword_model is None:
-        try:
-            _keyword_model = SentenceTransformer("all-MiniLM-L6-v2")
-        except Exception as e:
-            logger.warning("Failed to initialize keyword embedding model: %s", e)
-            _keyword_model = None
+    with _keyword_model_lock:
+        if _keyword_model is None:
+            try:
+                _keyword_model = SentenceTransformer("all-MiniLM-L6-v2")
+            except Exception as e:
+                logger.warning("Failed to initialize keyword embedding model: %s", e)
+                _keyword_model = None
     return _keyword_model
 
 def extract_keywords_and_vectors(sentence, include_timestamp=True):
