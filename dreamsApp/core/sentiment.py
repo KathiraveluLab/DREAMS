@@ -102,7 +102,19 @@ class SentimentAnalyzer:
 
         try:
             results = classifier(text)
-            return max(results[0], key=lambda x: x["score"])
+            # Handle both [dict] and [[dict]] return formats from the pipeline.
+            if not results:
+                return {"label": "Uncategorized", "score": 0.0}
+
+            if isinstance(results[0], list):
+                if not results[0]:
+                    return {"label": "Uncategorized", "score": 0.0}
+                return max(results[0], key=lambda x: x.get("score", 0.0))
+
+            if isinstance(results[0], dict):
+                return max(results, key=lambda x: x.get("score", 0.0))
+
+            return {"label": "Uncategorized", "score": 0.0}
         except Exception as e:
             logger.error(f"CHIME inference error: {e}")
             return {"label": "Uncategorized", "score": 0.0}
