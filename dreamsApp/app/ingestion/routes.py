@@ -75,8 +75,11 @@ def upload_post():
     image.save(image_path)
 
     try:
+        # Verify container/header first, then fully decode pixel data.
         with Image.open(image_path) as img:
             img.verify()
+        with Image.open(image_path) as img:
+            img.load()
     except (UnidentifiedImageError, OSError, ValueError):
         if os.path.exists(image_path):
             os.remove(image_path)

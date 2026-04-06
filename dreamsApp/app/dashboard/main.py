@@ -10,6 +10,20 @@ import datetime
 from bson.objectid import ObjectId
 from bson.errors import InvalidId
 
+try:
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import pandas as pd
+except ImportError:  # pragma: no cover - optional in lightweight environments
+    plt = None
+    np = None
+    pd = None
+
+try:
+    from wordcloud import WordCloud
+except ImportError:  # pragma: no cover - optional in lightweight environments
+    WordCloud = None
+
 # Security: Whitelist of valid CHIME labels
 VALID_CHIME_LABELS = {'Connectedness', 'Hope', 'Identity', 'Meaning', 'Empowerment', 'None'}
 
@@ -18,9 +32,8 @@ MAX_CORRECTIONS_PER_HOUR = 10
 
 def generate_wordcloud_b64(keywords, colormap):
     """Refactor: Helper to generate base64 encoded word cloud image."""
-    if not keywords:
+    if not keywords or WordCloud is None:
         return None
-    from wordcloud import WordCloud
 
     wordcloud = WordCloud(
         width=800, 
@@ -46,9 +59,8 @@ def main():
 @bp.route('/user/<string:target>', methods =['GET'])
 @login_required
 def profile(target):
-    import matplotlib.pyplot as plt
-    import numpy as np
-    import pandas as pd
+    if plt is None or np is None or pd is None:
+        return jsonify({'error': 'Plotting dependencies are not installed'}), 500
 
     mongo = current_app.mongo['posts']
     
