@@ -107,7 +107,7 @@ class SentimentAnalyzer:
                     "text-classification",
                     model=model_path,
                     tokenizer=model_path,
-                    return_all_scores=True,
+                    top_k=None,
                 )
             except Exception as e:
                 logger.error(f"Error loading CHIME model: {e}")
