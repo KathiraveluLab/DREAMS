@@ -1,4 +1,5 @@
 import logging
+import os
 import numpy as np
 
 try:
@@ -81,10 +82,31 @@ class SentimentAnalyzer:
             try:
                 if pipeline is None:
                     raise RuntimeError("transformers is required for CHIME inference")
+                model_path = HF_MODEL_ID
+
+                # Prefer locally learned FL model when available.
+                try:
+                    from flask import has_app_context, current_app
+                    if has_app_context():
+                        local_model_path = os.path.join(
+                            current_app.root_path,
+                            "models",
+                            "production_chime_model",
+                        )
+                        if os.path.exists(local_model_path):
+                            logger.info(
+                                ">>> SELF-CORRECTION: Learned model found at %s. Loading...",
+                                local_model_path,
+                            )
+                            model_path = local_model_path
+                except RuntimeError:
+                    # No active Flask app context (e.g., tests/CLI)
+                    pass
+
                 self._chime_classifier = pipeline(
                     "text-classification",
-                    model=HF_MODEL_ID,
-                    tokenizer=HF_MODEL_ID,
+                    model=model_path,
+                    tokenizer=model_path,
                     return_all_scores=True,
                 )
             except Exception as e:

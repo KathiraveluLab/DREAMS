@@ -3,7 +3,7 @@ import os
 import uuid
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask import current_app, jsonify, request
 from PIL import Image, UnidentifiedImageError
@@ -111,7 +111,7 @@ def _store_embeddings_background(post_id, user_id, caption_embedding, image_embe
 def upload_post():
     user_id = request.form.get('user_id')
     caption = request.form.get('caption')
-    timestamp = request.form.get('timestamp', datetime.now().isoformat())
+    timestamp = request.form.get('timestamp', datetime.now(timezone.utc).isoformat())
     image = request.files.get('image')
 
     missing = [k for k, v in {'caption': caption, 'image': image, 'user_id': user_id}.items() if not v]
@@ -133,6 +133,9 @@ def upload_post():
         with Image.open(image_path) as img:
             img.verify()
         with Image.open(image_path) as img:
+            # Security: Prevent decompression bombs by checking dimensions.
+            if img.width * img.height > 100_000_000:
+                raise ValueError("Image dimensions exceed safety limits")
             img.load()
     except (UnidentifiedImageError, OSError, ValueError, RuntimeError):
         if os.path.exists(image_path):
