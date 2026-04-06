@@ -129,13 +129,11 @@ def upload_post():
     image.save(image_path)
 
     try:
-        # Verify container/header first, then fully decode pixel data.
+        # Security: Prevent decompression bombs and verify image integrity.
         with Image.open(image_path) as img:
-            img.verify()
-        with Image.open(image_path) as img:
-            # Security: Prevent decompression bombs by checking dimensions.
             if img.width * img.height > 100_000_000:
                 raise ValueError("Image dimensions exceed safety limits")
+            # Fully decode pixel data to ensure image is valid and not corrupt.
             img.load()
     except (UnidentifiedImageError, OSError, ValueError, RuntimeError):
         if os.path.exists(image_path):
