@@ -1,6 +1,7 @@
 import logging
 import os
 import uuid
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
@@ -23,7 +24,22 @@ except ImportError:  # pragma: no cover - optional heavy dependency
     SentenceTransformer = None
 
 logger = logging.getLogger(__name__)
-model = SentenceTransformer("all-MiniLM-L6-V2") if SentenceTransformer else None
+_location_model = None
+_location_model_lock = threading.Lock()
+
+
+def _get_location_model():
+    global _location_model
+    if SentenceTransformer is None:
+        return None
+    with _location_model_lock:
+        if _location_model is None:
+            try:
+                _location_model = SentenceTransformer("all-MiniLM-L6-V2")
+            except Exception as e:
+                logger.warning("Failed to load location embedding model: %s", e)
+                _location_model = None
+    return _location_model
 
 # Background thread pool for non-blocking location enrichment.
 # A single worker ensures Nominatim rate-limiting is respected naturally.
@@ -42,7 +58,7 @@ def _enrich_location_background(post_id, lat, lon, mongo_uri, db_name):
         with MongoClient(mongo_uri) as client:
             db = client[db_name]
 
-            enrichment = enrich_location(lat, lon, model=model)
+            enrichment = enrich_location(lat, lon, model=_get_location_model())
             if enrichment:
                 # Strip the heavy semantic embedding before updating MongoDB
                 mongo_enrichment = dict(enrichment)

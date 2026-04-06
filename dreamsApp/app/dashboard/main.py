@@ -67,7 +67,13 @@ def main():
 @login_required
 def profile(target):
     if plt is None or np is None or pd is None:
-        return jsonify({'error': 'Plotting dependencies are not installed'}), 500
+        mongo = current_app.mongo['posts']
+        unique_users = mongo.distinct('user_id')
+        return render_template(
+            'dashboard/main.html',
+            users=unique_users,
+            error_message='Plotting dependencies are not installed.'
+        ), 500
 
     mongo = current_app.mongo['posts']
     

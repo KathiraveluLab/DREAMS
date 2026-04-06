@@ -1,4 +1,5 @@
 from datetime import datetime
+import logging
 
 try:
     import spacy
@@ -10,11 +11,43 @@ try:
 except ImportError:  # pragma: no cover - optional in lightweight test envs
     SentenceTransformer = None
 
-nlp = spacy.load("en_core_web_sm") if spacy is not None else None
+logger = logging.getLogger(__name__)
 
-model = SentenceTransformer("all-MiniLM-L6-v2") if SentenceTransformer is not None else None
+_nlp = None
+_keyword_model = None
+
+
+def _get_nlp():
+    global _nlp
+    if spacy is None:
+        return None
+    if _nlp is None:
+        try:
+            _nlp = spacy.load("en_core_web_sm")
+        except OSError as e:
+            logger.warning("spaCy model en_core_web_sm is unavailable: %s", e)
+            _nlp = None
+        except Exception as e:
+            logger.warning("Failed to initialize spaCy: %s", e)
+            _nlp = None
+    return _nlp
+
+
+def _get_keyword_model():
+    global _keyword_model
+    if SentenceTransformer is None:
+        return None
+    if _keyword_model is None:
+        try:
+            _keyword_model = SentenceTransformer("all-MiniLM-L6-v2")
+        except Exception as e:
+            logger.warning("Failed to initialize keyword embedding model: %s", e)
+            _keyword_model = None
+    return _keyword_model
 
 def extract_keywords_and_vectors(sentence, include_timestamp=True):
+    nlp = _get_nlp()
+    model = _get_keyword_model()
     if nlp is None or model is None:
         return []
 
