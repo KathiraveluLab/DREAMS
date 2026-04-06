@@ -134,7 +134,7 @@ def upload_post():
             img.verify()
         with Image.open(image_path) as img:
             img.load()
-    except (UnidentifiedImageError, OSError, ValueError):
+    except (UnidentifiedImageError, OSError, ValueError, RuntimeError):
         if os.path.exists(image_path):
             os.remove(image_path)
         return jsonify({'error': 'Uploaded file is not a valid image'}), 400
