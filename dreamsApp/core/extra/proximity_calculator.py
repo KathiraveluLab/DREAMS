@@ -5,20 +5,19 @@ extending basic geographic distance with categorical, linguistic, and
 cultural similarity dimensions.
 """
 
+import math
 from typing import Dict, List, Set, Tuple
 
 
 # Categorical proximity mapping based on place type relationships
+# Stored as sorted tuples to avoid redundancy
 CATEGORY_RELATIONSHIPS = {
     ('church', 'church'): 1.0,
     ('hospital', 'hospital'): 1.0,
     ('restaurant', 'restaurant'): 1.0,
     ('park', 'park'): 1.0,
-    ('hospital', 'clinic'): 0.5,
     ('clinic', 'hospital'): 0.5,
     ('church', 'temple'): 0.5,
-    ('temple', 'church'): 0.5,
-    ('restaurant', 'cafe'): 0.5,
     ('cafe', 'restaurant'): 0.5,
 }
 
@@ -52,8 +51,9 @@ def categorical_proximity(type1: str, type2: str) -> float:
     
     if type1_lower == type2_lower:
         return 1.0
-        
-    pair = (type1_lower, type2_lower)
+    
+    # Normalize pair to sorted tuple for symmetric lookup
+    pair = tuple(sorted([type1_lower, type2_lower]))
     return CATEGORY_RELATIONSHIPS.get(pair, 0.0)
 
 
@@ -129,13 +129,14 @@ def composite_proximity(
     """Calculate composite proximity using weighted sum of all dimensions.
     
     Combines geographic, categorical, linguistic, and cultural proximity
-    into a single score. Geographic distance is normalized to [0, 1] range.
+    into a single score.
     
     Args:
-        place1: First location dict with keys: 'type', 'language', 'cultural_tags', 'distance_km'
+        place1: First location dict with keys: 'type', 'language', 'cultural_tags', 'geo_proximity'
         place2: Second location dict with same structure
         weights: Optional weight dict with keys: 'geo', 'cat', 'ling', 'cult'
                  Defaults to α=0.3, β=0.4, γ=0.15, δ=0.15 from TEST_PLAN
+                 Missing keys will use default values.
                  
     Returns:
         Composite proximity score between 0.0 and 1.0
@@ -146,11 +147,10 @@ def composite_proximity(
         >>> composite_proximity(p1, p2)  # Perfect match
         1.0
     """
-    if weights is None:
-        weights = {'geo': 0.3, 'cat': 0.4, 'ling': 0.15, 'cult': 0.15}
+    default_weights = {'geo': 0.3, 'cat': 0.4, 'ling': 0.15, 'cult': 0.15}
+    weights = {**default_weights, **(weights or {})}
     
-    # Geographic proximity (if distance_km provided, normalize it)
-    # Assume distance_km is already normalized to [0, 1] or use default
+    # Geographic proximity from pre-calculated value
     geo_prox = place1.get('geo_proximity', 1.0)
     
     # Categorical proximity
@@ -201,8 +201,6 @@ def normalize_geographic_distance(distance_km: float, max_distance_km: float = 5
         >>> normalize_geographic_distance(500.0)  # doctest: +ELLIPSIS
         0.04...
     """
-    import math
-    
     if distance_km < 0:
         raise ValueError("Distance cannot be negative")
         

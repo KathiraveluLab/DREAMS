@@ -19,7 +19,5 @@ networkx>=3.0
 black>=23.0.0
 flake8>=6.0.0
 
-# Missing dependency that causes test failures
-# pymongo requires bson but it's not explicitly listed
-# This ensures bson is available in test environments
-pymongo[srv]>=4.6.0
+# MongoDB driver with SRV support for testing
+# Includes bson dependency
