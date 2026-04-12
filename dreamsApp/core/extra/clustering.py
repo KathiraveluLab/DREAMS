@@ -48,8 +48,8 @@ def cluster_keywords_for_all_users(keywords_collection):
         cluster_labels = clusterer.fit_predict(vectors)
 
         unique_clusters = len(set(cluster_labels)) - (1 if -1 in cluster_labels else 0)
-        noise_count = np.count_nonzero(cluster_labels == -1)
-        logger.debug(f"HDBSCAN produced {unique_clusters} clusters for user {user_id} ({noise_count} noise points)")
+        noise_count = np.sum(cluster_labels == -1)
+        logger.info(f"HDBSCAN produced {unique_clusters} clusters for user {user_id} ({noise_count} noise points)")
 
         clustered_result = []
         for i, label in enumerate(cluster_labels):
