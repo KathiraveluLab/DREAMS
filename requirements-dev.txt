@@ -1,0 +1,25 @@
+# Development and Testing Dependencies
+# Separate from production requirements.txt to keep deployment lean
+
+# Core test framework
+pytest>=7.0.0
+pytest-cov>=4.0.0
+pytest-mock>=3.12.0
+
+# Flask testing (already in requirements.txt but explicit here for clarity)
+Flask>=3.0.0
+
+# MongoDB testing
+pymongo>=4.6.0
+
+# Graph analysis (already in requirements.txt)
+networkx>=3.0
+
+# Code quality
+black>=23.0.0
+flake8>=6.0.0
+
+# Missing dependency that causes test failures
+# pymongo requires bson but it's not explicitly listed
+# This ensures bson is available in test environments
+pymongo[srv]>=4.6.0

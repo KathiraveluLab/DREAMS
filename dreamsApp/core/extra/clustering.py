@@ -38,18 +38,18 @@ def cluster_keywords_for_all_users(keywords_collection):
 
         vectors, metadata = get_vectors_and_metadata(doc)
         if len(vectors) < 2:
+            logger.debug(f"Skipping user {user_id}: insufficient data ({len(vectors)} vectors)")
             continue  # Skip clustering if insufficient data
 
-        # Debug: Log the shape of the vectors array to check its dimensions
-        logger.debug(f"Shape of vectors array: {vectors.shape}")
-        # Debug: Log the first few vectors to inspect their values
-        logger.debug(f"First 5 vectors: {vectors[:5]}")
+        logger.debug(f"Clustering user {user_id}: vectors shape {vectors.shape}")
+        logger.debug(f"Sample vectors for user {user_id} (first 5): {vectors[:5]}")
 
         clusterer = hdbscan.HDBSCAN(min_cluster_size=2, metric='euclidean')
         cluster_labels = clusterer.fit_predict(vectors)
 
-        # Debug: Log the cluster labels to see how the data is being clustered
-        logger.debug(f"Cluster labels: {cluster_labels}")
+        unique_clusters = len(set(cluster_labels)) - (1 if -1 in cluster_labels else 0)
+        noise_count = np.count_nonzero(cluster_labels == -1)
+        logger.debug(f"HDBSCAN produced {unique_clusters} clusters for user {user_id} ({noise_count} noise points)")
 
         clustered_result = []
         for i, label in enumerate(cluster_labels):
@@ -65,4 +65,4 @@ def cluster_keywords_for_all_users(keywords_collection):
             {'$set': {'clustered_keywords': clustered_result}}
         )
 
-    print("All users clustered.")
+    logger.info("Clustering complete for all users")
