@@ -1,10 +1,19 @@
 import os
 import logging
 import threading
-import torch
 import requests
 from PIL import Image
-from transformers import BlipProcessor, BlipForConditionalGeneration
+
+try:
+    import torch
+except ImportError:  # pragma: no cover - optional in lightweight test envs
+    torch = None
+
+try:
+    from transformers import BlipProcessor, BlipForConditionalGeneration
+except ImportError:  # pragma: no cover - optional in lightweight test envs
+    BlipProcessor = None
+    BlipForConditionalGeneration = None
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +34,8 @@ class ImageCaptioner:
         self._blip_model = None
 
     def get_blip_models(self):
+        if BlipProcessor is None or BlipForConditionalGeneration is None:
+            raise RuntimeError("transformers is required for image captioning")
         if self._blip_processor is None or self._blip_model is None:
             with _blip_model_lock:
                 if self._blip_processor is None or self._blip_model is None:
@@ -34,6 +45,8 @@ class ImageCaptioner:
         return self._blip_processor, self._blip_model
 
     def get_image_caption(self, image_path_or_url: str):
+        if torch is None:
+            raise RuntimeError("torch is required for image captioning")
         raw_image = load_image(image_path_or_url)
         blip_proc, blip_mod = self.get_blip_models()
         inputs = blip_proc(raw_image, return_tensors="pt")

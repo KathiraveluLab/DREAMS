@@ -1,10 +1,20 @@
-import torch
 import shutil
 import os
 import datetime
-from transformers import AutoModelForSequenceClassification, AutoTokenizer, AutoConfig
 from dreamsApp.app import create_app
 from dreamsApp.core.logger import setup_logger
+
+try:
+    import torch
+except ImportError:  # pragma: no cover - optional in lightweight test envs
+    torch = None
+
+try:
+    from transformers import AutoModelForSequenceClassification, AutoTokenizer, AutoConfig
+except ImportError:  # pragma: no cover - optional in lightweight test envs
+    AutoModelForSequenceClassification = None
+    AutoTokenizer = None
+    AutoConfig = None
 
 # Setup Logger
 logger = setup_logger('fl_worker')
@@ -84,8 +94,14 @@ def validate_model(model, tokenizer, training_samples, label2id):
 
     return True
 
-def run_federated_round():
-    app = create_app()
+def run_federated_round(app=None):
+    if torch is None or AutoModelForSequenceClassification is None or AutoTokenizer is None or AutoConfig is None:
+        logger.warning("Required ML dependencies are not installed; skipping federated round.")
+        return
+
+    if app is None:
+        app = create_app()
+
     with app.app_context():
         mongo = app.mongo
         logger.info("FL WORKER: Waking up...")

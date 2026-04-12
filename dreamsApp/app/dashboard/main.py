@@ -1,21 +1,35 @@
 from flask import render_template, request, url_for
 from flask import current_app
 from . import bp
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import pandas as pd
-import numpy as np
 import io
 import base64
 import threading
 from flask_login import login_required, current_user
-from wordcloud import WordCloud
-from dreamsApp.core.extra.llms import generate
 from flask import jsonify
 import datetime
 from bson.objectid import ObjectId
 from bson.errors import InvalidId
+
+try:
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import pandas as pd
+except ImportError:  # pragma: no cover - optional in lightweight environments
+    plt = None
+    np = None
+    pd = None
+
+try:
+    from wordcloud import WordCloud
+except ImportError:  # pragma: no cover - optional in lightweight environments
+    WordCloud = None
+
+try:
+    from dreamsApp.core.extra.llms import generate
+except ImportError:  # pragma: no cover - optional in lightweight environments
+    generate = None
 
 # Security: Whitelist of valid CHIME labels
 VALID_CHIME_LABELS = {'Connectedness', 'Hope', 'Identity', 'Meaning', 'Empowerment', 'None'}
@@ -25,8 +39,9 @@ MAX_CORRECTIONS_PER_HOUR = 10
 
 def generate_wordcloud_b64(keywords, colormap):
     """Refactor: Helper to generate base64 encoded word cloud image."""
-    if not keywords:
+    if not keywords or WordCloud is None:
         return None
+
     wordcloud = WordCloud(
         width=800, 
         height=400, 
@@ -51,6 +66,15 @@ def main():
 @bp.route('/user/<string:target>', methods =['GET'])
 @login_required
 def profile(target):
+    if plt is None or np is None or pd is None:
+        mongo = current_app.mongo['posts']
+        unique_users = mongo.distinct('user_id')
+        return render_template(
+            'dashboard/main.html',
+            users=unique_users,
+            error_message='Plotting dependencies are not installed.'
+        ), 500
+
     mongo = current_app.mongo['posts']
     
 
@@ -186,11 +210,14 @@ def profile(target):
     thematics_data = current_app.mongo['thematic_analysis'].find_one({'user_id': str(target_user_id)})
     
     if not thematics_data or "data" not in thematics_data:
-        try:
-            thematics = generate(str(target_user_id), positive_keywords, negative_keywords, current_app.mongo['thematic_analysis'])
-        except Exception as e:
-            current_app.logger.error(f"Error generating thematics: {e}")
+        if generate is None:
             thematics = {}
+        else:
+            try:
+                thematics = generate(str(target_user_id), positive_keywords, negative_keywords, current_app.mongo['thematic_analysis'])
+            except Exception as e:
+                current_app.logger.error(f"Error generating thematics: {e}")
+                thematics = {}
     else:
         thematics = thematics_data["data"]
 
@@ -256,6 +283,9 @@ def show_clusters(user_id):
 @login_required
 def thematic_refresh(user_id):
     try:
+        if generate is None:
+            return jsonify({'error': 'LLM dependency is not available'}), 500
+
         keywords_data = current_app.mongo['keywords'].find_one({'user_id': str(user_id)})
         positive_keywords = [item['keyword'] for item in keywords_data.get('positive_keywords', [])] if keywords_data else []
 
@@ -397,7 +427,7 @@ def _maybe_trigger_fl_training(app):
                 try:
                     # Import here to avoid circular dependency (fl_worker imports create_app)
                     from dreamsApp.app.fl_worker import run_federated_round
-                    run_federated_round()
+                    run_federated_round(app=app)
                 except Exception as e:
                     # Log the error since daemon threads fail silently
                     import logging
