@@ -8,7 +8,7 @@ MongoDB mocking, and common test utilities.
 import pytest
 import os
 import tempfile
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from dreamsApp.app import create_app
 
 
@@ -39,14 +39,16 @@ def app():
         'MONGO_DB_NAME': 'dreams_test',
     }
     
-    app = create_app(test_config=test_config)
-    
-    # Mock MongoDB to avoid requiring a running MongoDB instance
-    # Individual tests can override this if they need real DB access
-    mock_mongo = MagicMock()
-    app.mongo = mock_mongo
-    
-    yield app
+    with patch('dreamsApp.app.DreamsPipeline'), \
+         patch('dreamsApp.app.MongoClient'):
+        app = create_app(test_config=test_config)
+        
+        # Mock MongoDB to avoid requiring a running MongoDB instance
+        # Individual tests can override this if they need real DB access
+        mock_mongo = MagicMock()
+        app.mongo = mock_mongo
+        
+        yield app
     
     # Cleanup: remove temporary upload directory
     import shutil

@@ -42,7 +42,7 @@ pytest tests/ -v --cov=dreamsApp --cov-report=term-missing
 
 # HTML report (opens in browser)
 pytest tests/ -v --cov=dreamsApp --cov-report=html
-open htmlcov/index.html
+python -m webbrowser htmlcov/index.html
 ```
 
 ### Run Specific Test Files

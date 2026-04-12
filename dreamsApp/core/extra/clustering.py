@@ -1,6 +1,10 @@
 import logging
 import numpy as np
-import hdbscan
+
+try:
+    import hdbscan
+except ImportError:  # pragma: no cover - optional in lightweight test envs
+    hdbscan = None
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +25,10 @@ def get_vectors_and_metadata(doc):
     return np.array(vectors), metadata
 
 def cluster_keywords_for_all_users(keywords_collection):
+    if hdbscan is None:
+        logger.warning("hdbscan is not installed; skipping keyword clustering")
+        return
+
     all_users = keywords_collection.find({})
 
     for doc in all_users:
