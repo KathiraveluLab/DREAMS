@@ -59,7 +59,7 @@ opt_einsum==3.4.0
 optree==0.17.0
 packaging==25.0
 pandas==2.3.1
-pillow==12.1.1
+pillow==12.2.0
 protobuf==5.29.6
 Pygments==2.20.0
 PySocks==1.7.1
