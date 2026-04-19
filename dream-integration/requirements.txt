@@ -28,7 +28,7 @@ libclang==18.1.1
 llvmlite==0.47.0
 lz4==4.4.4
 Markdown==3.8.2
-markdown-it-py==3.0.0
+markdown-it-py==4.0.0
 MarkupSafe==3.0.2
 mdurl==0.1.2
 ml_dtypes==0.5.4
