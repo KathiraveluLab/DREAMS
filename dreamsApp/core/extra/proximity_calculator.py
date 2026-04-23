@@ -172,7 +172,6 @@ def composite_proximity(
     )
     
     # Weighted sum
-    # Weighted sum
     total_weight = sum(weights.values())
     if total_weight == 0:
         return 0.0
