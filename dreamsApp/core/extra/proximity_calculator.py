@@ -172,12 +172,17 @@ def composite_proximity(
     )
     
     # Weighted sum
+    # Weighted sum
+    total_weight = sum(weights.values())
+    if total_weight == 0:
+        return 0.0
+
     composite = (
         weights['geo'] * geo_prox +
         weights['cat'] * cat_prox +
         weights['ling'] * ling_prox +
         weights['cult'] * cult_prox
-    )
+    ) / total_weight
     
     return composite
 
