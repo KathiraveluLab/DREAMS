@@ -1,7 +1,11 @@
 import logging
 import threading
 from PIL import Image
-from sentence_transformers import SentenceTransformer
+
+try:
+    from sentence_transformers import SentenceTransformer
+except ImportError:  # pragma: no cover - optional in lightweight test envs
+    SentenceTransformer = None
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +19,8 @@ _image_embedding_model_id = None
 _image_model_lock = threading.Lock()
 
 def _get_text_model(model_id: str):
+    if SentenceTransformer is None:
+        raise RuntimeError("sentence-transformers is required for embedding generation")
     global _text_embedding_model, _text_embedding_model_id
     if _text_embedding_model is None or _text_embedding_model_id != model_id:
         with _text_model_lock:
@@ -24,6 +30,8 @@ def _get_text_model(model_id: str):
     return _text_embedding_model
 
 def _get_image_model(model_id: str):
+    if SentenceTransformer is None:
+        raise RuntimeError("sentence-transformers is required for embedding generation")
     global _image_embedding_model, _image_embedding_model_id
     if _image_embedding_model is None or _image_embedding_model_id != model_id:
         with _image_model_lock:
