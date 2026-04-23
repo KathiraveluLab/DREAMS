@@ -42,6 +42,7 @@ def cluster_keywords_for_all_users(keywords_collection):
             logger.debug(f"Skipping user {user_id}: insufficient data ({len(vectors)} vectors)")
             continue  # Skip clustering if insufficient data
 
+        user_id = doc.get('user_id', 'unknown')
         logger.debug(f"Clustering user {user_id}: vectors shape {vectors.shape}")
         logger.debug(f"Sample vectors for user {user_id} (first 5): {vectors[:5]}")
 
