@@ -12,10 +12,6 @@ from typing import Dict, List, Set, Tuple
 # Categorical proximity mapping based on place type relationships
 # Stored as sorted tuples to avoid redundancy
 CATEGORY_RELATIONSHIPS = {
-    ('church', 'church'): 1.0,
-    ('hospital', 'hospital'): 1.0,
-    ('restaurant', 'restaurant'): 1.0,
-    ('park', 'park'): 1.0,
     ('clinic', 'hospital'): 0.5,
     ('church', 'temple'): 0.5,
     ('cafe', 'restaurant'): 0.5,
