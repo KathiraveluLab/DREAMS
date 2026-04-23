@@ -38,6 +38,7 @@ def cluster_keywords_for_all_users(keywords_collection):
 
         vectors, metadata = get_vectors_and_metadata(doc)
         if len(vectors) < 2:
+            user_id = doc.get('user_id', 'unknown')
             logger.debug(f"Skipping user {user_id}: insufficient data ({len(vectors)} vectors)")
             continue  # Skip clustering if insufficient data
 
