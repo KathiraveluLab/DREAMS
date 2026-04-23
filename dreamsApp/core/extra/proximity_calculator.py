@@ -212,5 +212,7 @@ def normalize_geographic_distance(distance_km: float, max_distance_km: float = 5
     if max_distance_km <= 0:
         raise ValueError("max_distance_km must be greater than zero")
 
+    if max_distance_km <= 0:
+        return 1.0 if distance_km == 0 else 0.0
     scale = max_distance_km / 3.0
     return math.exp(-distance_km / scale)
