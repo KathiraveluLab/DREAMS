@@ -79,8 +79,8 @@ def chime_proximity(
     vec_b = [sig_b.chime_vector.get(d, 0.0) for d in CHIME_DIMENSIONS]
 
     dot = sum(a * b for a, b in zip(vec_a, vec_b))
-    mag_a = math.sqrt(sum(a ** 2 for a in vec_a))
-    mag_b = math.sqrt(sum(b ** 2 for b in vec_b))
+    mag_a = math.hypot(*vec_a)
+    mag_b = math.hypot(*vec_b)
 
     if mag_a == 0 or mag_b == 0:
         return 0.0
