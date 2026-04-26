@@ -27,7 +27,7 @@ flake8>=6.0.0
 # NLP / ML
 torch
 transformers>=4.40.0
-datasets>=2.19.0
+datasets>=4.8.4
 sentence-transformers>=2.6.0
 spacy>=3.7.0
 hdbscan
