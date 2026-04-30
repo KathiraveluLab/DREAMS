@@ -1,7 +1,8 @@
 import math
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
+import math
 
 
 CHIME_DIMENSIONS = ['Connectedness', 'Hope', 'Identity', 'Meaning', 'Empowerment']
@@ -61,7 +62,6 @@ def build_place_trajectories(
         Dict of place_type -> PlaceTypeTrajectory, grouped in chronological
         order of first visit per place type
     """
-    # Pre-sort all visits by time so grouping preserves chronological order
     sorted_visits = sorted(visits, key=lambda v: v.timestamp)
 
     grouped: Dict[str, List[PlaceVisit]] = {}
@@ -72,7 +72,6 @@ def build_place_trajectories(
     for place_type, place_visits in grouped.items():
         n = len(place_visits)
 
-        # x_mean and denominator depend only on n, compute once per place type
         x_mean = (n - 1) / 2.0
         denominator = sum((i - x_mean) ** 2 for i in range(n))
 
@@ -106,7 +105,7 @@ def build_place_trajectories(
 
 def detect_recovery_correlations(
     trajectories: Dict[str, PlaceTypeTrajectory],
-    recovery_dimensions: List[str] = None,
+    recovery_dimensions: Optional[List[str]] = None,
     min_visits: int = 2,
     trend_threshold: float = TREND_THRESHOLD,
 ) -> List[Tuple[str, str, float]]:
