@@ -1,25 +1,14 @@
-"""
-Proximity Trajectory Analysis
-
-Tracks how a person's emotional response to each place type evolves
-over time, and detects whether visits to recovery anchor places
-correlate with positive emotional shifts.
-
-This answers the core research question:
-"How do emotions attached to a class of places (e.g., any churches)
-evolve across a recovery journey?"
-
-Builds on:
-- place_emotion_signature.py: CHIME profiles per place type
-- temporal_narrative_graph.py: emotional episode structure
-"""
-
+import math
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 
 CHIME_DIMENSIONS = ['Connectedness', 'Hope', 'Identity', 'Meaning', 'Empowerment']
+
+# Minimum slope magnitude to classify a trend as improving or declining.
+# Aligned with the default trend_threshold in detect_recovery_correlations.
+TREND_THRESHOLD = 0.01
 
 
 @dataclass
@@ -69,43 +58,39 @@ def build_place_trajectories(
         visits: List of PlaceVisit objects, any order
 
     Returns:
-        Dict of place_type -> PlaceTypeTrajectory, sorted by visit time
+        Dict of place_type -> PlaceTypeTrajectory, grouped in chronological
+        order of first visit per place type
     """
-    import math
+    # Pre-sort all visits by time so grouping preserves chronological order
+    sorted_visits = sorted(visits, key=lambda v: v.timestamp)
 
-    # Group by place type, sort by time
     grouped: Dict[str, List[PlaceVisit]] = {}
-    for v in visits:
+    for v in sorted_visits:
         grouped.setdefault(v.place_type, []).append(v)
-    for pt in grouped:
-        grouped[pt].sort(key=lambda v: v.timestamp)
 
     trajectories = {}
     for place_type, place_visits in grouped.items():
         n = len(place_visits)
 
-        # Compute per-dimension linear slope using least squares
-        # slope > 0 means dimension is increasing over visits (recovery signal)
-        trend = {}
+        # x_mean and denominator depend only on n, compute once per place type
+        x_mean = (n - 1) / 2.0
+        denominator = sum((i - x_mean) ** 2 for i in range(n))
+
+        trend: Dict[str, float] = {}
+        total_variance = 0.0
+
         for dim in CHIME_DIMENSIONS:
             scores = [v.chime.get(dim, 0.0) for v in place_visits]
-            if n < 2:
+            y_mean = sum(scores) / n
+
+            if denominator == 0:
                 trend[dim] = 0.0
             else:
-                # x = visit index (0, 1, 2, ...), y = score
-                x_mean = (n - 1) / 2.0
-                y_mean = sum(scores) / n
-                numerator = sum((i - x_mean) * (scores[i] - y_mean) for i in range(n))
-                denominator = sum((i - x_mean) ** 2 for i in range(n))
-                trend[dim] = numerator / denominator if denominator != 0 else 0.0
+                numerator = sum((i - x_mean) * (s - y_mean) for i, s in enumerate(scores))
+                trend[dim] = numerator / denominator
 
-        # Volatility: mean RMS std-dev across dimensions
-        total_variance = 0.0
-        for dim in CHIME_DIMENSIONS:
-            scores = [v.chime.get(dim, 0.0) for v in place_visits]
-            mean = sum(scores) / n
-            variance = sum((s - mean) ** 2 for s in scores) / n
-            total_variance += variance
+            total_variance += sum((s - y_mean) ** 2 for s in scores) / n
+
         volatility = math.sqrt(total_variance / len(CHIME_DIMENSIONS))
 
         trajectories[place_type] = PlaceTypeTrajectory(
@@ -123,7 +108,7 @@ def detect_recovery_correlations(
     trajectories: Dict[str, PlaceTypeTrajectory],
     recovery_dimensions: List[str] = None,
     min_visits: int = 2,
-    trend_threshold: float = 0.01,
+    trend_threshold: float = TREND_THRESHOLD,
 ) -> List[Tuple[str, str, float]]:
     """
     Detect place types where recovery-relevant CHIME dimensions are improving.
@@ -181,6 +166,7 @@ def summarize_trajectories(
     For each place type, returns:
     - visit_count
     - dominant_trend: dimension improving most
+    - trend_slope: slope of dominant dimension
     - trend_direction: 'improving', 'stable', or 'declining'
     - volatility
 
@@ -194,9 +180,9 @@ def summarize_trajectories(
     for place_type, traj in trajectories.items():
         best_dim, best_slope = get_dominant_trend_dimension(traj)
 
-        if best_slope > 0.02:
+        if best_slope > TREND_THRESHOLD:
             direction = 'improving'
-        elif best_slope < -0.02:
+        elif best_slope < -TREND_THRESHOLD:
             direction = 'declining'
         else:
             direction = 'stable'
