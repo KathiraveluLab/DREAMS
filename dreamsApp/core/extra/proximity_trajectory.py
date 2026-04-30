@@ -78,7 +78,7 @@ def build_place_trajectories(
         total_variance = 0.0
 
         for dim in CHIME_DIMENSIONS:
-            scores = [v.chime.get(dim, 0.0) for v in place_visits]
+            scores = [v.chime[dim] for v in place_visits]
             y_mean = sum(scores) / n
 
             if denominator == 0:
