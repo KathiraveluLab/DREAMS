@@ -72,7 +72,7 @@ def build_place_trajectories(
         n = len(place_visits)
 
         x_mean = (n - 1) / 2.0
-        denominator = sum((i - x_mean) ** 2 for i in range(n))
+        denominator = n * (n**2 - 1) / 12.0
 
         trend: Dict[str, float] = {}
         total_variance = 0.0
