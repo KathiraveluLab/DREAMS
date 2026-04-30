@@ -33,7 +33,7 @@ class PlaceTypeTrajectory:
     place_type   : category of place
     visits       : chronologically ordered list of PlaceVisit
     trend        : per-dimension slope (positive = improving over time)
-    volatility   : mean std-dev across visits (emotional consistency)
+    volatility   : RMS of standard deviations across CHIME dimensions
     visit_count  : total number of visits
     """
     place_type: str
