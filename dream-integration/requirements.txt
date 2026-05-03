@@ -72,7 +72,7 @@ retina-face==0.0.17
 rich==14.3.3
 safetensors==0.5.3
 six==1.17.0
-soupsieve==2.7
+soupsieve==2.8.3
 sympy==1.14.0
 tensorboard==2.19.0
 tensorboard-data-server==0.7.2
