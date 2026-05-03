@@ -13,7 +13,7 @@ jupyter>=1.0.0
 wordcloud
 
 # Testing
-pytest>=7.0.0
+pytest>=9.0.3
 pytest-cov>=4.0.0
 Flask>=3.0.0
 Flask-Login>=0.6.0
