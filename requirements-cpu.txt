@@ -31,7 +31,7 @@ torch
 transformers>=4.40.0
 datasets>=4.8.4
 sentence-transformers>=5.4.1
-spacy>=3.7.0
+spacy>=3.8.14
 hdbscan
 google-genai
 chromadb
