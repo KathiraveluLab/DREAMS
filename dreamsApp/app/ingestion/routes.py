@@ -96,7 +96,8 @@ def upload_post():
                         }), 201
     else:
         return jsonify({'error': 'Failed to create post'}), 500
-    
+
+
 @bp.route("/run_clustering")
 def manual_cluster():
     cluster_keywords_for_all_users()

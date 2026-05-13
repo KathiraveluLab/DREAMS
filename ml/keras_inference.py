@@ -173,6 +173,6 @@ if __name__ == "__main__":
     try:
         result = analyze_image(image_path)
         print(json.dumps(result))
-    except Exception as e:
-        print(json.dumps({"error": str(e)}))
+    except Exception:
+        print(json.dumps({"error": "Inference failed"}))
         sys.exit(1)

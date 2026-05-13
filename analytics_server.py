@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
 import json
+import os
 import tempfile
+import logging
 from datetime import datetime, timedelta
 from pathlib import Path
-from flask import Flask, jsonify, render_template_string, redirect, url_for
+from flask import Flask, jsonify, render_template_string, redirect, url_for, send_file
 import random
 
 # Add dreamsApp to path
@@ -27,6 +29,7 @@ from dreamsApp.analytics import (
 )
 
 app = Flask(__name__)
+logger = logging.getLogger(__name__)
 
 # Initialize cache
 cache_dir = Path(tempfile.gettempdir()) / "dreams_analytics_cache"
@@ -42,8 +45,8 @@ try:
     from ml.latest_emotion_model import estimate_emotion_from_image, compare_image_estimates
 except ImportError as e:
     _PERCEPTUAL_DEPS_AVAILABLE = False
-    _PERCEPTUAL_DEPS_ERROR = str(e)
-    print(f"⚠️  WARNING: Perceptual emotion analysis dependencies not available: {e}")
+    _PERCEPTUAL_DEPS_ERROR = "Perceptual emotion analysis dependencies are unavailable"
+    logger.warning("Perceptual emotion analysis dependencies not available", exc_info=True)
     print("   The /api/perceptual-emotion and /api/compare-images endpoints will return fallback data.")
 
 # Simulated users with emotion data
@@ -618,17 +621,15 @@ def serve_image(filename: str):
     In production, use a dedicated static file server (Nginx, Apache) or CDN.
     Configure your reverse proxy to serve /static/images/ directly from the images directory.
     """
-    from flask import send_from_directory
     images_dir = Path(__file__).parent / "images"
-    
-    # Validate filename to prevent path traversal
+    safe_path = None
     try:
-        safe_path = (images_dir / filename).resolve()
+        safe_path = Path(os.path.realpath(images_dir / filename))
         safe_path.relative_to(images_dir.resolve())
-    except ValueError:
+    except (ValueError, OSError):
         return jsonify({'error': 'Invalid path'}), 400
-    
-    return send_from_directory(images_dir, filename)
+
+    return send_file(safe_path)
 
 @app.route('/api/frontend-payload/<user_id>')
 def api_frontend_payload(user_id: str):
@@ -680,9 +681,11 @@ def api_perceptual_emotion(image_path: str):
     This endpoint demonstrates real-world perceptual uncertainty.
     """
     if not _PERCEPTUAL_DEPS_AVAILABLE:
+        if _PERCEPTUAL_DEPS_ERROR:
+            app.logger.warning("Perceptual emotion dependencies unavailable: %s", _PERCEPTUAL_DEPS_ERROR)
         return jsonify({
             'error': 'Required dependencies not installed',
-            'message': _PERCEPTUAL_DEPS_ERROR,
+            'message': 'Perceptual emotion analysis is currently unavailable.',
             'fallback': {
                 'positive': 0.20,
                 'neutral': 0.70,
@@ -716,8 +719,9 @@ def api_perceptual_emotion(image_path: str):
         
         return jsonify(estimate)
         
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    except Exception:
+        app.logger.exception("Failed to analyze perceptual emotion")
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/compare-images')
@@ -731,7 +735,7 @@ def api_compare_images():
     if not _PERCEPTUAL_DEPS_AVAILABLE:
         return jsonify({
             'error': 'Dependencies not installed',
-            'message': _PERCEPTUAL_DEPS_ERROR
+            'message': 'Perceptual emotion analysis is currently unavailable.'
         }), 500
     
     try:
@@ -749,8 +753,9 @@ def api_compare_images():
         
         return jsonify(comparison)
         
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    except Exception:
+        app.logger.exception("Failed to compare image emotion estimates")
+        return jsonify({'error': 'An internal error occurred while comparing images.'}), 500
 
 
 if __name__ == '__main__':
@@ -761,4 +766,5 @@ if __name__ == '__main__':
     print("\nOpen http://127.0.0.1:5001 in your browser")
     print("="*60 + "\n")
     
-    app.run(debug=True, port=5001)
+    debug_mode = os.getenv("FLASK_DEBUG", "").strip().lower() in ("1", "true", "yes", "on")
+    app.run(debug=debug_mode, port=5001)

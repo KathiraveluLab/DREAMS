@@ -222,8 +222,9 @@ def thematic_refresh(user_id):
             "success": True,
             "message": "Thematic updated successfully"
         })
-    except Exception as e:
+    except Exception:
+        current_app.logger.exception("Thematic refresh failed for user_id=%s", user_id)
         return jsonify({
             "success": False,
-            "message": str(e)
+            "message": "Thematic refresh failed"
         }), 500

@@ -1,5 +1,6 @@
 import os
 import json
+import logging
 import google.genai as genai
 from google.genai import types
 from dotenv import load_dotenv
@@ -9,6 +10,8 @@ import re
 
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 
 def generate(user_id, positive_keywords, negative_keywords):
@@ -82,8 +85,10 @@ Your task:
         return jsonify(data)
 
     except json.JSONDecodeError:
-        return jsonify({"error": "Invalid JSON from Gemini", "raw": full_response})
-    except Exception as e:
-        return jsonify({"error": "Unexpected error", "details": str(e)})
+        logger.exception("Invalid JSON returned by Gemini")
+        return jsonify({"error": "Invalid response from Gemini"}), 500
+    except Exception:
+        logger.exception("Unexpected thematic generation error")
+        return jsonify({"error": "Unexpected error"}), 500
 
 
