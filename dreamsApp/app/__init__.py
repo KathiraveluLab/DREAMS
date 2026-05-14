@@ -4,9 +4,19 @@ import os
 from flask_login import LoginManager
 from .models import User  
 from bson.objectid import ObjectId 
+from data_integrity.validator import validate_dependencies
 
 def create_app(test_config=None):
     app = Flask(__name__, instance_relative_config=True)
+
+    dependency_validation = validate_dependencies()
+    if dependency_validation["valid"]:
+        app.logger.info("Dependency validation passed: all required packages are installed.")
+    else:
+        app.logger.warning(
+            "Dependency validation found missing packages: %s",
+            ", ".join(dependency_validation["missing"]),
+        )
 
     # Default config
     app.config.from_mapping(
@@ -31,6 +41,9 @@ def create_app(test_config=None):
     # MongoDB connection
     client = MongoClient(app.config["MONGO_URI"])
     app.mongo = client[app.config["MONGO_DB_NAME"]]
+
+    # Indexes for query performance
+    app.mongo['posts'].create_index('scene_type')
 
     
     login_manager = LoginManager()

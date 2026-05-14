@@ -1,6 +1,11 @@
+import logging
+
 from flask import current_app
 import numpy as np
 import hdbscan
+
+logger = logging.getLogger(__name__)
+
 
 def get_vectors_and_metadata(doc):
     vectors = []
@@ -19,6 +24,11 @@ def get_vectors_and_metadata(doc):
     return np.array(vectors), metadata
 
 def cluster_keywords_for_all_users():
+    """Cluster keywords for all users using HDBSCAN.
+
+    Pipeline stability improvement: individual user failures are
+    logged and skipped — never crash the whole clustering run.
+    """
     mongo = current_app.mongo
     keywords_collection = mongo['keywords']
 
@@ -31,31 +41,31 @@ def cluster_keywords_for_all_users():
 
         vectors, metadata = get_vectors_and_metadata(doc)
         if len(vectors) < 2:
+            logger.info("Skipping clustering for user_id=%s — insufficient data (%d vectors)", user_id, len(vectors))
             continue  # Skip clustering if insufficient data
 
-        # Debug: Print the shape of the vectors array to check its dimensions
-        print(f"Shape of vectors array: {vectors.shape}")
-        # Debug: Print the first few vectors to inspect their values
-        print(f"First 5 vectors: {vectors[:5]}")
+        # Pipeline stability improvement: HDBSCAN failure handling
+        try:
+            logger.info("Clustering %d vectors for user_id=%s", len(vectors), user_id)
 
-        clusterer = hdbscan.HDBSCAN(min_cluster_size=2, metric='euclidean')
-        cluster_labels = clusterer.fit_predict(vectors)
+            clusterer = hdbscan.HDBSCAN(min_cluster_size=2, metric='euclidean')
+            cluster_labels = clusterer.fit_predict(vectors)
 
-        # Debug: Print the cluster labels to see how the data is being clustered
-        print(f"Cluster labels: {cluster_labels}")
+            clustered_result = []
+            for i, label in enumerate(cluster_labels):
+                clustered_result.append({
+                    'keyword': metadata[i]['keyword'],
+                    'sentiment': metadata[i]['sentiment'],
+                    'cluster': int(label) if label != -1 else 'noise'
+                })
 
-        clustered_result = []
-        for i, label in enumerate(cluster_labels):
-            clustered_result.append({
-                'keyword': metadata[i]['keyword'],
-                'sentiment': metadata[i]['sentiment'],
-                'cluster': int(label) if label != -1 else 'noise'
-            })
+            # Store result back in document
+            keywords_collection.update_one(
+                {'user_id': user_id},
+                {'$set': {'clustered_keywords': clustered_result}}
+            )
+        except Exception as e:
+            logger.error("Clustering failed for user_id=%s: %s — skipping this user", user_id, e)
+            continue
 
-        # Store result back in document
-        keywords_collection.update_one(
-            {'user_id': user_id},
-            {'$set': {'clustered_keywords': clustered_result}}
-        )
-
-    print("All users clustered.")
+    logger.info("All users clustered.")
