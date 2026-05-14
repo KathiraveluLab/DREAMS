@@ -134,6 +134,23 @@ def upload_post():
         'scene_raw_top3': scene_raw_top3,
     }
 
+    mongo = current_app.mongo
+    result = mongo['posts'].insert_one(post_doc)
+
+    if result.acknowledged:
+        return jsonify({'message': 'Post created successfully',
+                        'post_id': str(result.inserted_id),
+                        'user_id': user_id,
+                        'caption': caption,
+                        'timestamp': datetime.fromisoformat(timestamp),
+                        'image_path': image_path,
+                        'sentiment' : sentiment,
+                        'generated_caption': generated_caption
+                        }), 201
+    else:
+        return jsonify({'error': 'Failed to create post'}), 500
+
+
     # Pipeline stability improvement: non-blocking DB insertion
     try:
         mongo = current_app.mongo
