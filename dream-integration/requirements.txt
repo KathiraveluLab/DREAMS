@@ -1,7 +1,7 @@
 absl-py==2.3.1
 astunparse==1.6.3
 beautifulsoup4==4.13.4
-certifi==2025.7.14
+certifi==2026.4.22
 charset-normalizer==3.4.7
 click==8.3.3
 deepface==0.0.99
