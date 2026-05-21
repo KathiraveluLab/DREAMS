@@ -23,78 +23,78 @@ def upload_post():
 
     if not all([user_id, caption, timestamp, image]):
         return jsonify({'error': 'Missing required fields'}), 400
-    
-    filename = secure_filename(image.filename)
-    upload_path = current_app.config['UPLOAD_FOLDER']
-    image_path = os.path.join(upload_path, filename)
-    image.save(image_path)
-    result = get_image_caption_and_sentiment(image_path, caption)
-    
-    sentiment = result["sentiment"]
-    generated_caption = result["imgcaption"]
+    try:
+        filename = secure_filename(image.filename)
+        upload_path = current_app.config['UPLOAD_FOLDER']
+        image_path = os.path.join(upload_path, filename)
+        image.save(image_path)
+        result = get_image_caption_and_sentiment(image_path, caption)
+        
+        sentiment = result["sentiment"]
+        generated_caption = result["imgcaption"]
 
-    # Refactor: Use shared selection logic to determine which text to analyze for recovery
-    text_for_analysis = select_text_for_analysis(caption, generated_caption)
-    chime_result = get_chime_category(text_for_analysis)
-    
-    # keyword generation from the caption
-    
-    # Extract keyword + vector pairs
-    if sentiment['label'] == 'negative':
-        keywords_with_vectors = extract_keywords_and_vectors(generated_caption)
-        keyword_type = 'negative_keywords'
-    elif sentiment['label'] == 'positive':
-        keywords_with_vectors = extract_keywords_and_vectors(generated_caption)
-        keyword_type = 'positive_keywords'
-    else:
-        keywords_with_vectors = []
-        keyword_type = None
+        # Refactor: Use shared selection logic to determine which text to analyze for recovery
+        text_for_analysis = select_text_for_analysis(caption, generated_caption)
+        chime_result = get_chime_category(text_for_analysis)
+        
+        # Extract keyword + vector pairs
+        if sentiment['label'] == 'negative':
+            keywords_with_vectors = extract_keywords_and_vectors(generated_caption)
+            keyword_type = 'negative_keywords'
+        elif sentiment['label'] == 'positive':
+            keywords_with_vectors = extract_keywords_and_vectors(generated_caption)
+            keyword_type = 'positive_keywords'
+        else:
+            keywords_with_vectors = []
+            keyword_type = None
 
-    if keywords_with_vectors:
         mongo = current_app.mongo
-        result = mongo['keywords'].update_one(
-            {'user_id': user_id},
-            {'$push': {keyword_type: {'$each': keywords_with_vectors}}},
-            upsert=True
-        )
-
-    if result.upserted_id:
-        if keyword_type == 'negative_keywords':
-            mongo['keywords'].update_one(
-                {'_id': result.upserted_id},
-                {'$set': {'positive_keywords': []}}
+        keyword_result = None
+        if keywords_with_vectors:
+            keyword_result = mongo['keywords'].update_one(
+                {'user_id': user_id},
+                {'$push': {keyword_type: {'$each': keywords_with_vectors}}},
+                upsert=True
             )
-        elif keyword_type == 'positive_keywords':
-            mongo['keywords'].update_one(
-                {'_id': result.upserted_id},
-                {'$set': {'negative_keywords': []}}
-            )
-    
 
-    post_doc = {
-        'user_id': user_id,
-        'caption': caption,
-        'timestamp': datetime.fromisoformat(timestamp),
-        'image_path': image_path,
-        'generated_caption': generated_caption,
-        'sentiment' : sentiment,
-        'chime_analysis': chime_result  # Store the new object
-    }
+        if keyword_result and keyword_result.upserted_id:
+            if keyword_type == 'negative_keywords':
+                mongo['keywords'].update_one(
+                    {'_id': keyword_result.upserted_id},
+                    {'$set': {'positive_keywords': []}}
+                )
+            elif keyword_type == 'positive_keywords':
+                mongo['keywords'].update_one(
+                    {'_id': keyword_result.upserted_id},
+                    {'$set': {'negative_keywords': []}}
+                )
+        
 
-    mongo = current_app.mongo
-    result = mongo['posts'].insert_one(post_doc)
+        post_doc = {
+            'user_id': user_id,
+            'caption': caption,
+            'timestamp': datetime.fromisoformat(timestamp),
+            'image_path': image_path,
+            'generated_caption': generated_caption,
+            'sentiment' : sentiment,
+            'chime_analysis': chime_result  # Store the new object
+        }
 
-    if result.acknowledged:
-        return jsonify({'message': 'Post created successfully',
-                        'post_id': str(result.inserted_id),
-                        'user_id': user_id,
-                        'caption': caption,
-                        'timestamp': datetime.fromisoformat(timestamp),
-                        'image_path': image_path,
-                        'sentiment' : sentiment,
-                        'generated_caption': generated_caption
-                        }), 201
-    else:
+        result = mongo['posts'].insert_one(post_doc)
+
+        if result.acknowledged:
+            return jsonify({'message': 'Post created successfully',
+                            'post_id': str(result.inserted_id),
+                            'user_id': user_id,
+                            'caption': caption,
+                            'timestamp': datetime.fromisoformat(timestamp),
+                            'image_path': image_path,
+                            'sentiment' : sentiment,
+                            'generated_caption': generated_caption
+                            }), 201
+        return jsonify({'error': 'Failed to create post'}), 500
+    except Exception:
+        current_app.logger.exception("Upload post failed for user_id=%s", user_id)
         return jsonify({'error': 'Failed to create post'}), 500
 
 

@@ -14,6 +14,7 @@ This maps to the three-class system (positive/neutral/negative) for DREAMS.
 """
 
 import json
+import logging
 import subprocess
 import sys
 from pathlib import Path
@@ -46,6 +47,8 @@ EMOTION_CATEGORY_MAP = {
     'neutral': 'neutral'
 }
 
+logger = logging.getLogger(__name__)
+
 
 def _run_inference_subprocess(image_path: str) -> Dict:
     """Run the Keras model via subprocess using Python 3.11."""
@@ -63,8 +66,9 @@ def _run_inference_subprocess(image_path: str) -> Dict:
         
         if result.returncode != 0:
             error_msg = result.stderr.strip() if result.stderr else "Unknown error"
+            logger.error("Inference subprocess failed: %s", error_msg)
             return {
-                "error": f"Inference failed: {error_msg}",
+                "error": "Inference failed",
                 "positive": 0.0,
                 "neutral": 1.0,
                 "negative": 0.0,
@@ -83,23 +87,25 @@ def _run_inference_subprocess(image_path: str) -> Dict:
             "uncertainty_margin": 0.25,
             "notes": "Model inference timed out. Defaulting to neutral.",
         }
-    except json.JSONDecodeError as e:
+    except json.JSONDecodeError:
+        logger.exception("Invalid JSON from inference subprocess")
         return {
-            "error": f"Invalid JSON response: {e}",
+            "error": "Invalid inference response",
             "positive": 0.0,
             "neutral": 1.0,
             "negative": 0.0,
             "uncertainty_margin": 0.25,
             "notes": "Model returned invalid response. Defaulting to neutral.",
         }
-    except Exception as e:
+    except Exception:
+        logger.exception("Inference subprocess failed")
         return {
-            "error": str(e),
+            "error": "Inference failed",
             "positive": 0.0,
             "neutral": 1.0,
             "negative": 0.0,
             "uncertainty_margin": 0.25,
-            "notes": f"Error: {e}. Defaulting to neutral.",
+            "notes": "Error running inference. Defaulting to neutral.",
         }
 
 
@@ -141,16 +147,17 @@ def detect_and_classify_emotion(image: np.ndarray) -> Dict:
         
         return result
         
-    except Exception as e:
+    except Exception:
+        logger.exception("Image processing failed during inference")
         return {
-            "error": str(e),
+            "error": "Image processing failed",
             "positive": 0.0,
             "neutral": 1.0,
             "negative": 0.0,
             "uncertainty_margin": 0.25,
             "detected_facial_cues": [],
             "cue_confidence": 0.0,
-            "notes": f"Error processing image: {e}. Defaulting to neutral.",
+            "notes": "Error processing image. Defaulting to neutral.",
             "disclaimer": "Emotion estimated from facial cues only. Neutral is a valid state.",
         }
 

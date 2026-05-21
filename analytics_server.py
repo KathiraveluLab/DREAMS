@@ -7,6 +7,7 @@ import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 from flask import Flask, jsonify, render_template_string, redirect, url_for, send_file
+from werkzeug.utils import safe_join
 import random
 
 # Add dreamsApp to path
@@ -617,17 +618,16 @@ def serve_image(filename: str):
     """
     Serve images from the images directory.
     
-    WARNING: This uses Flask's send_from_directory which is suitable for development only.
+    WARNING: This is suitable for development only.
     In production, use a dedicated static file server (Nginx, Apache) or CDN.
     Configure your reverse proxy to serve /static/images/ directly from the images directory.
     """
     images_dir = Path(__file__).parent / "images"
-    safe_path = None
-    try:
-        safe_path = Path(os.path.realpath(images_dir / filename))
-        safe_path.relative_to(images_dir.resolve())
-    except (ValueError, OSError):
+    safe_path = safe_join(str(images_dir), filename)
+    if safe_path is None:
         return jsonify({'error': 'Invalid path'}), 400
+    if not Path(safe_path).exists():
+        return jsonify({'error': 'File not found'}), 404
 
     return send_file(safe_path)
 
@@ -700,17 +700,14 @@ def api_perceptual_emotion(image_path: str):
         image_path = unquote(image_path)
         
         images_dir = Path(__file__).parent / "images"
-        
-        # Validate path to prevent directory traversal attacks
-        try:
-            full_path = (images_dir / image_path).resolve()
-            full_path.relative_to(images_dir.resolve())
-        except ValueError:
+        safe_path = safe_join(str(images_dir), image_path)
+        if safe_path is None:
             return jsonify({'error': 'Invalid path: access denied'}), 400
-        
+
+        full_path = Path(safe_path)
         if not full_path.exists():
             return jsonify({'error': f'Image not found: {image_path}'}), 404
-        
+
         img = Image.open(full_path).convert('RGB')
         img_array = np.array(img).astype(np.float32) / 255.0
         
