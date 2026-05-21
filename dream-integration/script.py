@@ -115,7 +115,7 @@ def migrate():
                 if not os.path.isdir(a_dir):
                     continue
 
-                print(f"    📊 Migrating analysis from {a_dir}")
+                print(f"    Migrating analysis from {a_dir}")
 
                 text_scores = {}
                 image_scores = {}

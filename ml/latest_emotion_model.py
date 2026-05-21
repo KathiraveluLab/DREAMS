@@ -22,7 +22,7 @@ from typing import Dict
 import numpy as np
 
 # Path to the inference script
-INFERENCE_SCRIPT = Path(__file__).parent / "keras_inference.py"
+INFERENCE_SCRIPT = (Path(__file__).parent / "keras_inference.py").resolve()
 PYTHON_311_PATH = __import__('os').environ.get("PYTHON_311_PATH", "python3.11")
 
 # Emotion labels from fer2013 dataset
@@ -53,8 +53,11 @@ logger = logging.getLogger(__name__)
 def _run_inference_subprocess(image_path: str) -> Dict:
     """Run the Keras model via subprocess using Python 3.11."""
     try:
+        # Use resolved absolute path for the inference script to avoid issues
+        # when the repository path contains spaces or unusual nesting.
+        script_path = str(INFERENCE_SCRIPT)
         result = subprocess.run(
-            [PYTHON_311_PATH, str(INFERENCE_SCRIPT), image_path],
+            [PYTHON_311_PATH, script_path, image_path],
             capture_output=True,
             text=True,
             timeout=60,

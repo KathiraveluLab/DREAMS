@@ -10,7 +10,15 @@ import requests
 from flask import Blueprint, request, jsonify
 from transformers import pipeline
 
+logger = logging.getLogger(__name__)
+
 HF_MODEL_ID = "ashh007/dreams-chime-bert"
+
+# Pipeline stability improvement: default neutral results for fallback
+_DEFAULT_SENTIMENT_RESULT = {
+    "imgcaption": "",
+    "sentiment": {"label": "neutral", "score": 0.0}
+}
 
 # Utility: load image from URL or path
 def load_image(path_or_url):
@@ -31,8 +39,13 @@ def preprocess(text):
     return " ".join(new_text)
 
 def select_text_for_analysis(caption: str, generated_caption: str) -> str:
-    """DRY: Utility to prioritize user caption over auto-generated one."""
-    return caption if (caption and caption.strip()) else generated_caption
+    """DRY: Utility to prioritize user caption over auto-generated one.
+
+    Pipeline stability improvement: handles None inputs safely.
+    """
+    if caption and caption.strip():
+        return caption
+    return generated_caption or ""
 
 class SentimentAnalyzer:
     def __init__(self):
@@ -46,14 +59,14 @@ class SentimentAnalyzer:
 
     def get_blip_models(self):
         if self._blip_processor is None or self._blip_model is None:
-            print("Loading Blip models...")
+            logger.info("Loading Blip models...")
             self._blip_processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-large")
             self._blip_model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-large")
         return self._blip_processor, self._blip_model
 
     def get_sentiment_models(self):
         if self._sentiment_model is None:
-            print("Loading Sentiment models...")
+            logger.info("Loading Sentiment models...")
             sentiment_model_name = "cardiffnlp/twitter-roberta-base-sentiment-latest"
             self._sentiment_tokenizer = AutoTokenizer.from_pretrained(sentiment_model_name)
             self._sentiment_config = AutoConfig.from_pretrained(sentiment_model_name)
@@ -64,36 +77,38 @@ class SentimentAnalyzer:
         if self._absa_model is None:
             try:
                 from setfit import AbsaModel
-                print("Loading ABSA models...")
+                logger.info("Loading ABSA models...")
                 ASPECT_MODEL_ID = "tomaarsen/setfit-absa-paraphrase-mpnet-base-v2-restaurants-aspect"
                 POLARITY_MODEL_ID = "tomaarsen/setfit-absa-paraphrase-mpnet-base-v2-restaurants-polarity"
                 self._absa_model = AbsaModel.from_pretrained(ASPECT_MODEL_ID, POLARITY_MODEL_ID)
             except ImportError:
-                logging.warning("SetFit not installed. ABSA functionality will be disabled.")
+                logger.warning("SetFit not installed. ABSA functionality will be disabled.")
                 return None
             except Exception as e:
-                logging.error(f"Error loading ABSA model: {e}")
+                logger.error("Error loading ABSA model: %s", e)
                 return None
         return self._absa_model
 
     def get_chime_classifier(self):
         if self._chime_classifier is None:
             try:
-                logging.info(f"Loading CHIME model from Hugging Face: {HF_MODEL_ID}...")
+                logger.info("Loading CHIME model from Hugging Face: %s...", HF_MODEL_ID)
                 self._chime_classifier = pipeline(
                     "text-classification", 
                     model=HF_MODEL_ID, 
                     tokenizer=HF_MODEL_ID,
                     return_all_scores=True
                 )
-                print("CHIME model loaded successfully.")
+                logger.info("CHIME model loaded successfully.")
             except Exception as e:
-                print(f"Error loading CHIME model: {e}")
+                logger.error("Error loading CHIME model: %s", e)
                 return None
         return self._chime_classifier
 
     def analyze_chime(self, text: str):
+        # Pipeline stability improvement: handle None/empty text safely
         if text is None or not text.strip():
+            logger.warning("Empty or None text passed to CHIME analysis — returning uncategorized default")
             return {"label": "Uncategorized", "score": 0.0}
 
         classifier = self.get_chime_classifier()
@@ -105,7 +120,7 @@ class SentimentAnalyzer:
             top_result = max(results[0], key=lambda x: x['score'])
             return top_result
         except Exception as e:
-            print(f"Inference error: {e}")
+            logger.error("CHIME inference error: %s", e)
             return {"label": "Uncategorized", "score": 0.0}
 
     def analyze_aspect_sentiment(self, text: str) -> list:
@@ -119,33 +134,47 @@ class SentimentAnalyzer:
         try:
             return model.predict(text)
         except Exception as e:
-            logging.error(f"ABSA Error: {e}")
+            logger.error("ABSA Error: %s", e)
             return []
 
     def get_image_caption_and_sentiment(self, image_path_or_url: str, caption: str, prompt: str = "a photography of"):
-        raw_image = load_image(image_path_or_url)
-        
-        blip_proc, blip_mod = self.get_blip_models()
-        sent_tok, sent_conf, sent_mod = self.get_sentiment_models()
+       
+        try:
+            raw_image = load_image(image_path_or_url)
+        except Exception as e:
+            logger.error("Failed to load image %s: %s — returning neutral defaults", image_path_or_url, e)
+            return _DEFAULT_SENTIMENT_RESULT.copy()
 
-        # Note: prompt argument currently unused in current implementation 
-        # but kept for API consistency
-        inputs = blip_proc(raw_image, return_tensors="pt")
-        with torch.no_grad():
-            out = blip_mod.generate(**inputs)
-        img_caption = blip_proc.decode(out[0], skip_special_tokens=True)
+        # Pipeline stability improvement: BLIP captioning failure handling
+        try:
+            blip_proc, blip_mod = self.get_blip_models()
+            # Note: prompt argument currently unused in current implementation 
+            # but kept for API consistency
+            inputs = blip_proc(raw_image, return_tensors="pt")
+            with torch.no_grad():
+                out = blip_mod.generate(**inputs)
+            img_caption = blip_proc.decode(out[0], skip_special_tokens=True)
+        except Exception as e:
+            logger.error("BLIP captioning failed for %s: %s — using empty caption", image_path_or_url, e)
+            img_caption = ""
 
-        processed_text = preprocess(caption) if caption else ""
-        encoded_input = sent_tok(processed_text, return_tensors="pt")
-        with torch.no_grad():
-            output = sent_mod(**encoded_input)
+        # Pipeline stability improvement: sentiment model failure handling
+        try:
+            sent_tok, sent_conf, sent_mod = self.get_sentiment_models()
+            processed_text = preprocess(caption) if caption else ""
+            encoded_input = sent_tok(processed_text, return_tensors="pt")
+            with torch.no_grad():
+                output = sent_mod(**encoded_input)
 
-        scores = softmax(output.logits[0].detach().numpy())
-        top_idx = np.argmax(scores)
-        top_sentiment = {
-            "label": sent_conf.id2label[top_idx],
-            "score": float(np.round(scores[top_idx], 4))
-        }
+            scores = softmax(output.logits[0].detach().numpy())
+            top_idx = np.argmax(scores)
+            top_sentiment = {
+                "label": sent_conf.id2label[top_idx],
+                "score": float(np.round(scores[top_idx], 4))
+            }
+        except Exception as e:
+            logger.error("Sentiment model failed for %s: %s — returning default neutral emotion vector", image_path_or_url, e)
+            top_sentiment = {"label": "neutral", "score": 0.0}
 
         return {
             "imgcaption": img_caption,

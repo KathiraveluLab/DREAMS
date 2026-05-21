@@ -1,13 +1,32 @@
+import logging
+
 import spacy
 
 nlp = spacy.load("en_core_web_sm")
 from datetime import datetime
 from sentence_transformers import SentenceTransformer
 
+logger = logging.getLogger(__name__)
+
 model = SentenceTransformer("all-MiniLM-L6-v2")  
 
 def extract_keywords_and_vectors(sentence, include_timestamp=True):
-    doc = nlp(sentence)
+    """Extract keywords and their vector embeddings from a sentence.
+
+    Pipeline stability improvement: returns empty list on NLP/embedding
+    failure instead of raising, to prevent upstream pipeline crashes.
+    """
+    # Pipeline stability improvement: guard against None/empty input
+    if not sentence or not sentence.strip():
+        logger.warning("Empty or None sentence passed to keyword extraction — returning empty list")
+        return []
+
+    try:
+        doc = nlp(sentence)
+    except Exception as e:
+        logger.error("spaCy NLP processing failed: %s — returning empty keyword list", e)
+        return []
+
     main_concepts = set()
     custom_excluded_words = {"me", "my", "i", "used", "when", "this", "parents", "bring", "sick", "got", "reminds"}
     relevant_entity_labels = ["PERSON", "NORP", "ORG", "GPE", "LOC", "PRODUCT", "EVENT", "DATE", "WORK_OF_ART", "LAW", "LANGUAGE"]
@@ -59,8 +78,12 @@ def extract_keywords_and_vectors(sentence, include_timestamp=True):
     if not final_concepts:
         return []
 
-    # Embedding
-    vectors = model.encode(final_concepts)
+    # Pipeline stability improvement: embedding failure handling
+    try:
+        vectors = model.encode(final_concepts)
+    except Exception as e:
+        logger.error("SentenceTransformer encoding failed: %s — returning empty keyword list", e)
+        return []
 
     # Output format: list of dicts
     if include_timestamp:

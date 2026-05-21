@@ -1,80 +1,197 @@
 # DREAMS
 
-Digitization for Recovery: Exploring Arts with Mining for Societal well-being.
+**Digital Reckoning of Emotional and Affective Mood States**
 
-DREAMS is an extension of the Beehive project, focused on exploring time and ordering across photo memories to better understand personal recovery journeys. The goal is to build tools that help track and analyze visual narratives over time using data mining and intelligent processing.
+DREAMS is an analytics platform that converts **image + caption data** into **time-aware emotional insights** for research and care.
 
-## Current Progress
+---
 
-- Set up core infrastructure using Flask and Hugging Face models.
-- Implemented a basic **Caption Sentiment Analysis API** to classify emotional tone in user-submitted captions.
-- Integrating this API into Beehive to capture sentiment when users upload photos.
-- Exploring time-based data structuring and narrative analysis features.
+## What It Does
 
-### [View the API Module](./dreamsApp/README.md)
+From raw inputs, DREAMS produces:
 
-## Repositories
+* Emotion predictions (face + text)
+* Scene/context classification
+* Time-ordered emotion timelines
+* Episode segmentation (meaningful phases)
+* Context-aware proximity analysis
 
-- Beehive: [github.com/KathiraveluLab/beehive](https://github.com/KathiraveluLab/Beehive)
-- DREAMS: [github.com/KathiraveluLab/DREAMS](https://github.com/KathiraveluLab/DREAMS)
+> In short: it turns experiences into structured emotional trajectories.
 
+---
 
-## Repository Structure
+## Demo
 
-```text
-DREAMS/
-├── dreamsApp/                  # Main application package
-│   ├── app/                    # Flask app package (app factory + blueprints)
-│   │   ├── __init__.py         # create_app() factory
-│   │   ├── config.py           # App configuration
-│   │   ├── models.py           # Database models
-│   │   ├── auth.py             # Authentication routes
-│   │   │
-│   │   ├── ingestion/          # Image ingestion & processing
-│   │   │   ├── __init__.py
-│   │   │   └── routes.py
-│   │   │
-│   │   ├── dashboard/          # Dashboard & analytics views
-│   │   │   ├── __init__.py
-│   │   │   └── main.py
-│   │   │
-│   │   └── utils/              # Core ML / NLP utilities
-│   │       ├── sentiment.py    # Caption sentiment analysis
-│   │       ├── keywords.py     # Keyword extraction
-│   │       ├── clustering.py   # Keyword clustering (HDBSCAN)
-│   │       └── llms.py         # LLM (Gemini) integration
-│   │
-│   └── docs/                   # Project documentation
-│
-├── data_integrity/             # Data validation utilities
-├── location_proximity/         # Location-based analysis (future)
-├── dream-integration/          # Integration & experimental code
-├── tests/                      # Unit and integration tests
-│
-├── requirements.txt            # Python dependencies
-├── pytest.ini                  # Pytest configuration
-└── README.md                   # Project documentation
+**Input**
 
- 
-## Installation and Setup
+* Image: person sitting in a park
+* Caption: "felt calm but exhausted"
+* Timestamp: `2026-02-10 17:30`
 
-```bash
-# 1. Clone the repository
-git clone https://github.com/KathiraveluLab/DREAMS.git
-cd DREAMS
+**Output**
 
-# 2. (Optional but recommended) Create and activate a virtual environment
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-# 3. Install the required dependencies
-pip install -r requirements.txt
-
-# 4. Run tests to verify everything is working
-pytest
-
-# 5. Start the Flask server in debug mode
-flask --app "dreamsApp.app:create_app()" run --debug
+```json
+{
+  "emotion": "calm",
+  "confidence": 0.81,
+  "secondary_emotion": "fatigue",
+  "scene": "park",
+  "episode_id": 3,
+  "timeline_position": "Day 12",
+  "context_tag": "outdoor_recovery"
+}
 ```
 
-More coming soon!
+**Pipeline (high-level)**
+
+1. Face emotion + caption sentiment
+2. Scene classification (Places365)
+3. Timeline building
+4. Episode segmentation
+5. Proximity analysis
+
+---
+
+## Architecture
+
+```
+Input (Image + Caption)
+        ↓
+ML Inference (Face, Text, Scene)
+        ↓
+Analytics (Timeline, Episodes, Proximity)
+        ↓
+Outputs (JSON / Visualization-ready)
+```
+
+---
+
+## Repository
+
+* `dreamsApp/` core analytics
+* `ml/` inference utilities
+* `tests/` unit + integration tests
+* `data_integrity/` schema & time validation
+* `dream-integration/` integration scripts
+* `location_proximity/` spatial analysis
+* `docs/` architecture & test plans
+
+---
+
+## Getting Started
+
+```bash
+git clone https://github.com/KathiraveluLab/DREAMS.git
+cd DREAMS
+python3.10 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python analytics_server.py
+```
+
+**Expected**
+
+* Server starts
+* Models load
+* Pipeline ready for requests
+
+---
+
+## Example Usage
+
+```python
+from dreamsApp.timeline_builder import build_timeline
+
+data = [{
+  "emotion": "happy",
+  "timestamp": "2026-01-01 10:00",
+  "scene": "home"
+}]
+
+print(build_timeline(data))
+```
+
+---
+
+## Core Modules
+
+* `emotion_timeline.py` → ordered trajectories from timestamps
+* `episode_segmentation.py` → groups into phases (e.g., stress/recovery)
+* `temporal_narrative_graph.py` → links events & transitions
+* `emotion_proximity.py` → context closeness (time + place)
+* `timeline_builder.py` → visualization-ready structures
+
+---
+
+## Workflow
+
+1. Collect consented data
+2. Validate (`data_integrity`)
+3. Run inference (emotion + scene + sentiment)
+4. Build timelines & episodes
+5. Visualize and interpret
+
+---
+
+## Limitations
+
+* Sensitive to image quality/lighting
+* Emotion labels miss nuance
+* Scene classification ambiguity
+* Not a clinical tool
+
+---
+
+## Ethics
+
+* Use only consented data
+* Treat outputs as decision support
+* Interpret with human context
+
+---
+
+## Contributing
+
+**Beginner**
+
+* Tests, docs, validation fixes
+
+**Intermediate**
+
+* Timeline optimization
+* Episode logic improvements
+
+**Advanced**
+
+* Emotion fusion (face + text)
+* Real-time pipeline
+* Proximity algorithms
+
+---
+
+## Tests
+
+```bash
+pytest
+pytest tests/test_timeline.py
+```
+
+---
+
+## Docs
+
+* `ARCHITECTURE.md`
+* `SETUP.md`
+* `docs/TEST_PLAN.md`
+
+---
+
+## Why It Matters
+
+DREAMS focuses on **where, when, and how emotions change**, not just what they are—making it useful for real-world recovery analysis.
+
+---
+
+## Acknowledgment
+
+An ongoing effort toward **context-aware, humane analytics**. Contributions welcome.
