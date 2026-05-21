@@ -29,6 +29,22 @@ def upload_post():
     timestamp = request.form.get('timestamp', datetime.now().isoformat())
     image = request.files.get('image')
 
+    if not all([user_id, caption, timestamp, image]):
+        return jsonify({'error': 'Missing required fields'}), 400
+    try:
+        filename = secure_filename(image.filename)
+        upload_path = current_app.config['UPLOAD_FOLDER']
+        image_path = os.path.join(upload_path, filename)
+        image.save(image_path)
+        result = get_image_caption_and_sentiment(image_path, caption)
+        
+        sentiment = result["sentiment"]
+        generated_caption = result["imgcaption"]
+
+        # Refactor: Use shared selection logic to determine which text to analyze for recovery
+        text_for_analysis = select_text_for_analysis(caption, generated_caption)
+        chime_result = get_chime_category(text_for_analysis)
+        
     # Pipeline stability improvement: caption defaults to empty string if missing
     caption = request.form.get('caption', '').strip()
     if not caption:
@@ -76,6 +92,27 @@ def upload_post():
             keywords_with_vectors = []
             keyword_type = None
 
+        mongo = current_app.mongo
+        keyword_result = None
+        if keywords_with_vectors:
+            keyword_result = mongo['keywords'].update_one(
+                {'user_id': user_id},
+                {'$push': {keyword_type: {'$each': keywords_with_vectors}}},
+                upsert=True
+            )
+
+        if keyword_result and keyword_result.upserted_id:
+            if keyword_type == 'negative_keywords':
+                mongo['keywords'].update_one(
+                    {'_id': keyword_result.upserted_id},
+                    {'$set': {'positive_keywords': []}}
+                )
+            elif keyword_type == 'positive_keywords':
+                mongo['keywords'].update_one(
+                    {'_id': keyword_result.upserted_id},
+                    {'$set': {'negative_keywords': []}}
+                )
+        
         if keywords_with_vectors:
             mongo = current_app.mongo
             kw_result = mongo['keywords'].update_one(
@@ -134,20 +171,31 @@ def upload_post():
         'scene_raw_top3': scene_raw_top3,
     }
 
-    mongo = current_app.mongo
-    result = mongo['posts'].insert_one(post_doc)
+        post_doc = {
+            'user_id': user_id,
+            'caption': caption,
+            'timestamp': datetime.fromisoformat(timestamp),
+            'image_path': image_path,
+            'generated_caption': generated_caption,
+            'sentiment' : sentiment,
+            'chime_analysis': chime_result  # Store the new object
+        }
 
-    if result.acknowledged:
-        return jsonify({'message': 'Post created successfully',
-                        'post_id': str(result.inserted_id),
-                        'user_id': user_id,
-                        'caption': caption,
-                        'timestamp': datetime.fromisoformat(timestamp),
-                        'image_path': image_path,
-                        'sentiment' : sentiment,
-                        'generated_caption': generated_caption
-                        }), 201
-    else:
+        result = mongo['posts'].insert_one(post_doc)
+
+        if result.acknowledged:
+            return jsonify({'message': 'Post created successfully',
+                            'post_id': str(result.inserted_id),
+                            'user_id': user_id,
+                            'caption': caption,
+                            'timestamp': datetime.fromisoformat(timestamp),
+                            'image_path': image_path,
+                            'sentiment' : sentiment,
+                            'generated_caption': generated_caption
+                            }), 201
+        return jsonify({'error': 'Failed to create post'}), 500
+    except Exception:
+        current_app.logger.exception("Upload post failed for user_id=%s", user_id)
         return jsonify({'error': 'Failed to create post'}), 500
 
 
