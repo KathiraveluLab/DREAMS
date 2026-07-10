@@ -14,8 +14,8 @@ Covers:
 import pytest
 from datetime import datetime, timedelta
 
-from dreamsApp.core.graph.emotion_timeline import EmotionTimeline, EmotionEvent
-from dreamsApp.core.graph.time_aware_proximity import (
+from dreams_app.core.graph.emotion_timeline import EmotionTimeline, EmotionEvent
+from dreams_app.core.graph.time_aware_proximity import (
     align_timelines_by_window,
     temporal_distance,
     proximity_matrix,

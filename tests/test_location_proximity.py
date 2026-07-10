@@ -1,7 +1,7 @@
 """Tests for location proximity analysis module."""
 
 import pytest
-from dreamsApp.location_proximity import (
+from dreams_app.location_proximity import (
     extract_location,
     compute_proximity,
     cluster_locations,

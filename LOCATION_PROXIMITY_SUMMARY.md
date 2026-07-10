@@ -131,7 +131,7 @@ for hospital in hospitals:
 
 ### Extend Post Schema
 ```python
-# Already integrated in dreamsApp/app/ingestion/routes.py
+# Already integrated in dreams_app/app/ingestion/routes.py
 from ..utils.location_extractor import extract_gps_from_image, enrich_location
 
 gps_data = extract_gps_from_image(image_path)
@@ -145,7 +145,7 @@ if gps_data:
 
 ### Add Dashboard Route
 ```python
-# Add to dreamsApp/app/dashboard/main.py
+# Add to dreams_app/app/dashboard/main.py
 @bp.route('/location_analysis/<user_id>')
 def location_analysis(user_id):
     # Use EmotionLocationMapper to analyze patterns

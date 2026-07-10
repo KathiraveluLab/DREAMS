@@ -38,10 +38,10 @@ pytest tests/ -v
 
 ```bash
 # Terminal output
-pytest tests/ -v --cov=dreamsApp --cov-report=term-missing
+pytest tests/ -v --cov=dreams_app --cov-report=term-missing
 
 # HTML report (opens in browser)
-pytest tests/ -v --cov=dreamsApp --cov-report=html
+pytest tests/ -v --cov=dreams_app --cov-report=html
 python -m webbrowser htmlcov/index.html
 ```
 
@@ -138,7 +138,7 @@ def test_with_mock_db(mock_mongo):
 ```python
 from unittest.mock import patch, MagicMock
 
-@patch('dreamsApp.app.utils.sentiment.pipeline')
+@patch('dreams_app.app.utils.sentiment.pipeline')
 def test_with_mocked_model(mock_pipeline):
     """Mock HuggingFace pipeline to avoid loading models."""
     mock_pipeline.return_value = MagicMock()

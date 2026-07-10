@@ -10,7 +10,7 @@ DREAMS is an extension of the Beehive project, focused on exploring time and ord
 - Integrating this API into Beehive to capture sentiment when users upload photos.
 - Exploring time-based data structuring and narrative analysis features.
 
-### [View the API Module](./dreamsApp/README.md)
+### [View the API Module](./dreams_app/README.md)
 
 ## Repositories
 
@@ -22,7 +22,7 @@ DREAMS is an extension of the Beehive project, focused on exploring time and ord
 
 ```text
 DREAMS/
-├── dreamsApp/                  # Main application package
+├── dreams_app/                  # Main application package
 │   ├── app/                    # Flask app package (app factory + blueprints)
 │   │   ├── __init__.py         # create_app() factory
 │   │   ├── config.py           # App configuration
@@ -47,7 +47,7 @@ DREAMS/
 │
 ├── data_integrity/             # Data validation utilities
 ├── location_proximity/         # Location-based analysis (future)
-├── dream-integration/          # Integration & experimental code
+├── dream_integration/          # Integration & experimental code
 ├── tests/                      # Unit and integration tests
 │
 ├── requirements.txt            # Python dependencies
@@ -85,11 +85,11 @@ pytest
 
 ### Start the Flask server in debug mode
 ```bash
-flask --app "dreamsApp.app:create_app()" run --debug
+flask --app "dreams_app.app:create_app()" run --debug
 ```
 
 ### Run the Core Pipeline Standalone
-The ML algorithm layer (`dreamsApp/core/`) is designed to operate completely independently from the Flask API layer. The Flask UI runs on MongoDB, whereas the native standalone pipeline operates safely on embedded SQLite / ChromaDB databases for fast local research testing.
+The ML algorithm layer (`dreams_app/core/`) is designed to operate completely independently from the Flask API layer. The Flask UI runs on MongoDB, whereas the native standalone pipeline operates safely on embedded SQLite / ChromaDB databases for fast local research testing.
 
 **Note:** A small synthetic dataset for running the pipeline is available in this repository:
 ```bash

@@ -8,8 +8,8 @@ from bson.objectid import ObjectId
 # Add the project root to the python path so imports work
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from dreamsApp.app import create_app
-from dreamsApp.app.fl_worker import run_federated_round
+from dreams_app.app import create_app
+from dreams_app.app.fl_worker import run_federated_round
 
 def test_fl_loop():
     app = create_app()
@@ -100,12 +100,12 @@ def test_fl_loop():
         
         # 4. Verify Model Creation & Loading logic
         print("\n>>> TEST: Verifying Inference (End-to-End)...")
-        from dreamsApp.core.sentiment import SentimentAnalyzer
+        from dreams_app.core.sentiment import SentimentAnalyzer
         
         # Check directory existence
         # Current file is in /tests, so we go up one level to root
         base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-        prod_model_path = os.path.join(base_dir, "dreamsApp", "app", "models", "production_chime_model")
+        prod_model_path = os.path.join(base_dir, "dreams_app", "app", "models", "production_chime_model")
         
         if os.path.exists(prod_model_path):
             print(f">>> TEST SUCCESS: Production model folder created at {prod_model_path}")

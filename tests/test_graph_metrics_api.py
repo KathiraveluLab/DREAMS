@@ -54,7 +54,7 @@ def _ensure_stub_modules():
 
 _ensure_stub_modules()
 
-from dreamsApp.app import create_app  # noqa: E402  (after stubs)
+from dreams_app.app import create_app  # noqa: E402  (after stubs)
 
 
 # ---------------------------------------------------------------------------

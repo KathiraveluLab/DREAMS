@@ -5,7 +5,7 @@ Implements test cases PC-UT-001 through PC-UT-007 from TEST_PLAN.md.
 
 import pytest
 import math
-from dreamsApp.core.extra.proximity_calculator import (
+from dreams_app.core.extra.proximity_calculator import (
     categorical_proximity,
     linguistic_similarity,
     cultural_similarity,

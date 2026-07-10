@@ -1,6 +1,6 @@
 # DREAMS Architecture Overview
 
-**Note**: This document provides a high-level system architecture overview. For detailed implementation of the DREAMS application components, see `dreamsApp/docs/architecture.md`.
+**Note**: This document provides a high-level system architecture overview. For detailed implementation of the DREAMS application components, see `dreams_app/docs/architecture.md`.
 
 ## System Architecture
 
@@ -255,14 +255,14 @@ graph TD
 
 ### 1. Photo Ingestion Integration
 
-**`dreamsApp/app/ingestion/routes.py`**
+**`dreams_app/app/ingestion/routes.py`**
 - Extract EXIF GPS via `extract_gps_from_image()`
 - Enrich with reverse geocoding + semantic embedding via `enrich_location()`
 - Store enriched location data (coords + place metadata + 384-dim embedding) in post schema
 
 ### 2. Dashboard Integration
 
-**`dreamsApp/app/dashboard/main.py`**
+**`dreams_app/app/dashboard/main.py`**
 - Location analysis endpoints
 - Proximity visualization routes
 - Emotion-location pattern displays

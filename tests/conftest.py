@@ -9,7 +9,7 @@ import pytest
 import os
 import tempfile
 from unittest.mock import MagicMock, patch
-from dreamsApp.app import create_app
+from dreams_app.app import create_app
 
 
 @pytest.fixture
@@ -39,8 +39,8 @@ def app():
         'MONGO_DB_NAME': 'dreams_test',
     }
     
-    with patch('dreamsApp.app.DreamsPipeline'), \
-         patch('dreamsApp.app.MongoClient'):
+    with patch('dreams_app.app.DreamsPipeline'), \
+         patch('dreams_app.app.MongoClient'):
         app = create_app(test_config=test_config)
         
         # Mock MongoDB to avoid requiring a running MongoDB instance

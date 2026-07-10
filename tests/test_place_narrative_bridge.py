@@ -1,22 +1,22 @@
 import pytest
 from datetime import datetime, timedelta
 
-from dreamsApp.core.extra.place_emotion_signature import (
+from dreams_app.core.extra.place_emotion_signature import (
     PlaceEmotionSignature,
     build_place_signature,
 )
-from dreamsApp.core.graph.place_narrative_bridge import (
+from dreams_app.core.graph.place_narrative_bridge import (
     enrich_narrative_edges_with_place_proximity,
     compute_place_proximity_matrix,
     find_emotionally_proximate_pairs,
 )
-from dreamsApp.core.graph.temporal_narrative_graph import (
+from dreams_app.core.graph.temporal_narrative_graph import (
     NarrativeEdge,
     TemporalNarrativeGraph,
     build_narrative_graph,
 )
-from dreamsApp.core.graph.emotion_episode import Episode
-from dreamsApp.core.graph.emotion_timeline import EmotionEvent
+from dreams_app.core.graph.emotion_episode import Episode
+from dreams_app.core.graph.emotion_timeline import EmotionEvent
 
 
 def make_episode(start_offset_days: int, duration_days: int = 1) -> Episode:

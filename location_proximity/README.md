@@ -88,7 +88,7 @@ Extract GPS coordinates, reverse-geocode via OSM Nominatim, and generate
 a 384-dim semantic embedding (all-MiniLM-L6-v2).
 
 ```python
-from dreamsApp.app.utils.location_extractor import extract_gps_from_image, enrich_location
+from dreams_app.app.utils.location_extractor import extract_gps_from_image, enrich_location
 
 gps = extract_gps_from_image("photo.jpg")
 # Returns: {'lat': 61.2181, 'lon': -149.9003, 'timestamp': '2024-01-15T10:30:00+00:00'}
@@ -211,7 +211,7 @@ score = composite_proximity(place1, place2, weights=weights)
 ### Extend Post Schema (Implemented)
 
 ```python
-# In dreamsApp/app/ingestion/routes.py
+# In dreams_app/app/ingestion/routes.py
 from ..utils.location_extractor import extract_gps_from_image, enrich_location
 
 @bp.route('/upload', methods=['POST'])
@@ -233,7 +233,7 @@ def upload_post():
 ### Add Location Analysis Route
 
 ```python
-# In dreamsApp/app/dashboard/main.py
+# In dreams_app/app/dashboard/main.py
 from location_proximity.emotion_location_mapper import EmotionLocationMapper
 
 @bp.route('/location_analysis/<user_id>')

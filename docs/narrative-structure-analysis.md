@@ -80,7 +80,7 @@ MongoDB posts (user_id, caption, timestamp, sentiment)
 
 ### Step 1 — EmotionTimeline
 
-**Module:** `dreamsApp/app/builder.py`
+**Module:** `dreams_app/app/builder.py`
 
 Takes raw MongoDB post documents and converts them into an immutable `EmotionTimeline` — a sorted tuple of `EmotionEvent` objects.
 
@@ -97,7 +97,7 @@ Each post becomes one `EmotionEvent`. The timeline is sorted by timestamp.
 
 ### Step 2 — Episode Segmentation
 
-**Module:** `dreamsApp/analytics/episode_segmentation.py`
+**Module:** `dreams_app/analytics/episode_segmentation.py`
 
 Splits the timeline into **episodes** using a time-gap threshold.
 
@@ -118,7 +118,7 @@ Episode(
 
 ### Step 3 — Narrative Graph Construction
 
-**Module:** `dreamsApp/analytics/temporal_narrative_graph.py`
+**Module:** `dreams_app/analytics/temporal_narrative_graph.py`
 
 Builds a directed graph where:
 - **Nodes** = episodes
@@ -159,7 +159,7 @@ The graph is always a **DAG** (directed acyclic graph) because edges only go fro
 
 ### Step 4 — Graph Analysis
 
-**Module:** `dreamsApp/analytics/graph_analysis.py`
+**Module:** `dreams_app/analytics/graph_analysis.py`
 
 Converts the `TemporalNarrativeGraph` to a networkx `DiGraph` via `to_networkx()`, then computes three categories of metrics:
 
@@ -210,11 +210,11 @@ The `weight` field (0.0–1.0) is rounded to 4 decimal places. It is used by bot
 
 ## Analytics Module
 
-### File: `dreamsApp/analytics/graph_analysis.py`
+### File: `dreams_app/analytics/graph_analysis.py`
 
 **Public API:**
 ```python
-from dreamsApp.analytics.graph_analysis import analyze_narrative_graph
+from dreams_app.analytics.graph_analysis import analyze_narrative_graph
 
 result = analyze_narrative_graph(narrative_graph)
 ```
@@ -311,7 +311,7 @@ result = analyze_narrative_graph(narrative_graph)
 3. `build_emotion_timeline()` → `segment_timeline_to_episodes()` → `build_narrative_graph()` → `analyze_narrative_graph()`
 4. Return result as JSON
 
-**File:** `dreamsApp/app/analytics/routes.py`
+**File:** `dreams_app/app/analytics/routes.py`
 
 **Blueprint:** `analytics_api` registered at `/api/analytics`
 
@@ -400,28 +400,28 @@ These are currently hardcoded but can be made configurable via `app.config` in t
 ### Analytics Layer (no Flask dependency)
 | File | Role |
 |------|------|
-| `dreamsApp/analytics/emotion_timeline.py` | `EmotionEvent`, `EmotionTimeline` — immutable data containers |
-| `dreamsApp/analytics/emotion_episode.py` | `Episode` — immutable episode container |
-| `dreamsApp/analytics/emotion_segmentation.py` | Time-gap segmentation logic |
-| `dreamsApp/analytics/episode_segmentation.py` | `segment_timeline_to_episodes()` |
-| `dreamsApp/analytics/episode_proximity.py` | `ProximityRelation`, gap/overlap computation |
-| `dreamsApp/analytics/temporal_narrative_graph.py` | `TemporalNarrativeGraph`, `build_narrative_graph()`, `to_networkx()` |
-| `dreamsApp/analytics/graph_analysis.py` | `analyze_narrative_graph()` — all graph metric computation |
+| `dreams_app/analytics/emotion_timeline.py` | `EmotionEvent`, `EmotionTimeline` — immutable data containers |
+| `dreams_app/analytics/emotion_episode.py` | `Episode` — immutable episode container |
+| `dreams_app/analytics/emotion_segmentation.py` | Time-gap segmentation logic |
+| `dreams_app/analytics/episode_segmentation.py` | `segment_timeline_to_episodes()` |
+| `dreams_app/analytics/episode_proximity.py` | `ProximityRelation`, gap/overlap computation |
+| `dreams_app/analytics/temporal_narrative_graph.py` | `TemporalNarrativeGraph`, `build_narrative_graph()`, `to_networkx()` |
+| `dreams_app/analytics/graph_analysis.py` | `analyze_narrative_graph()` — all graph metric computation |
 
 ### App Layer (Flask)
 | File | Role |
 |------|------|
-| `dreamsApp/app/builder.py` | `build_emotion_timeline()` — converts raw records to timeline |
-| `dreamsApp/app/analytics/__init__.py` | Blueprint: `analytics_api` at `/api/analytics` |
-| `dreamsApp/app/analytics/routes.py` | `GET /api/analytics/graph-metrics/<user_id>` handler |
-| `dreamsApp/app/__init__.py` | Registers the analytics blueprint in `create_app()` |
-| `dreamsApp/app/dashboard/main.py` | `narrative()` route for the visualization page |
+| `dreams_app/app/builder.py` | `build_emotion_timeline()` — converts raw records to timeline |
+| `dreams_app/app/analytics/__init__.py` | Blueprint: `analytics_api` at `/api/analytics` |
+| `dreams_app/app/analytics/routes.py` | `GET /api/analytics/graph-metrics/<user_id>` handler |
+| `dreams_app/app/__init__.py` | Registers the analytics blueprint in `create_app()` |
+| `dreams_app/app/dashboard/main.py` | `narrative()` route for the visualization page |
 
 ### Templates
 | File | Role |
 |------|------|
-| `dreamsApp/app/templates/dashboard/narrative.html` | Full visualization page (D3 + Chart.js) |
-| `dreamsApp/app/templates/dashboard/profile.html` | Modified — added link card to narrative page |
+| `dreams_app/app/templates/dashboard/narrative.html` | Full visualization page (D3 + Chart.js) |
+| `dreams_app/app/templates/dashboard/profile.html` | Modified — added link card to narrative page |
 
 ### Tests
 | File | Test Count | Scope |

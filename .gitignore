@@ -4,7 +4,7 @@ __pycache__/
 *$py.class
 
 # temp python file for local settings
-dreamsApp/temp.py
+dreams_app/temp.py
 data/*.sqlite
 
 # local custom models for sentiments Prediction
@@ -46,7 +46,7 @@ pip-log.txt
 pip-delete-this-directory.txt
 
 #Images Folder
-dreamsApp/images/
+dreams_app/images/
 
 # Unit test / coverage reports
 htmlcov/
@@ -187,5 +187,5 @@ venv310/
 venv/
 
 # Federated Learning Models
-dreamsApp/app/models/production_chime_model/
-dreamsApp/app/models/temp_training_artifact/
+dreams_app/app/models/production_chime_model/
+dreams_app/app/models/temp_training_artifact/

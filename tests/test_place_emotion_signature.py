@@ -1,6 +1,6 @@
 import math
 import pytest
-from dreamsApp.core.extra.place_emotion_signature import (
+from dreams_app.core.extra.place_emotion_signature import (
     CHIME_DIMENSIONS,
     PlaceEmotionSignature,
     build_place_signature,

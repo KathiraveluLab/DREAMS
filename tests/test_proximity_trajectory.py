@@ -1,6 +1,6 @@
 import pytest
 from datetime import datetime, timedelta
-from dreamsApp.core.extra.proximity_trajectory import (
+from dreams_app.core.extra.proximity_trajectory import (
     PlaceVisit,
     PlaceTypeTrajectory,
     build_place_trajectories,
