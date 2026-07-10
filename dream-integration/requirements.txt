@@ -50,7 +50,7 @@ nvidia-curand-cu12==10.3.7.77
 nvidia-cusolver-cu12==11.7.1.2
 nvidia-cusparse-cu12==12.5.10.65
 nvidia-cusparselt-cu12==0.8.1
-nvidia-nccl-cu12==2.26.2
+nvidia-nccl-cu12==2.30.4
 nvidia-nvjitlink-cu12==12.6.85
 nvidia-nvtx-cu12==12.6.77
 openai-whisper @ git+https://github.com/openai/whisper.git@c0d2f624c09dc18e709e37c2ad90c039a4eb72a2
