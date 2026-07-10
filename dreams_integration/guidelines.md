@@ -12,7 +12,7 @@ Please do not move or rename critical directories without a solid backing.
 
 ```mermaid
 graph TD;
-    A[dream_integration/]
+    A[dreams_integration/]
 
     %% Analysis
     A --> B[analysis/]

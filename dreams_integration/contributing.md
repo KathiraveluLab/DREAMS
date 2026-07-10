@@ -15,8 +15,8 @@ We welcome improvements, fixes, and feature enhancements. Please follow the setu
    - Clone your fork locally:
 
    ```bash
-   git clone https://github.com/<your-username>/dream_integration.git
-   cd dream_integration
+   git clone https://github.com/<your-username>/dreams_integration.git
+   cd dreams_integration
    ```
 
 2. **Create Virtual Environment**

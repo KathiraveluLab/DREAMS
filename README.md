@@ -47,7 +47,7 @@ DREAMS/
 │
 ├── data_integrity/             # Data validation utilities
 ├── location_proximity/         # Location-based analysis (future)
-├── dream_integration/          # Integration & experimental code
+├── dreams_integration/          # Integration & experimental code
 ├── tests/                      # Unit and integration tests
 │
 ├── requirements.txt            # Python dependencies

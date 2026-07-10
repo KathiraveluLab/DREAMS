@@ -25,8 +25,8 @@ This project lays the complete groundwork — a strong and functional base varia
 
 ## Project Folder Highlights
 
-- `dream_integration/analysis/` → Modular scripts for analyzing text, audio, and image inputs.  
-- `dream_integration/data/person-01/analysis-*/` → Per-user, per-sample emotion scores stored in JSON format.  
+- `dreams_integration/analysis/` → Modular scripts for analyzing text, audio, and image inputs.  
+- `dreams_integration/data/person-01/analysis-*/` → Per-user, per-sample emotion scores stored in JSON format.  
 
 ## Future Scope
 
