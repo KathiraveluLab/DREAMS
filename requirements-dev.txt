@@ -4,7 +4,7 @@
 # Core test framework
 pytest>=9.0.3
 pytest-cov>=4.0.0
-pytest-mock>=3.12.0
+pytest-mock>=3.15.1
 
 # Flask testing (already in requirements.txt but explicit here for clarity)
 Flask>=3.0.0
