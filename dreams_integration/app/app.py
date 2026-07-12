@@ -147,8 +147,9 @@ def analyze():
                 os.makedirs(os.path.dirname(text_out), exist_ok=True)
                 os.replace(legacy_candidate, text_out)
 
-        except subprocess.CalledProcessError as e:
-            flash(f"Text analysis failed: {e}", "error")
+        except subprocess.CalledProcessError:
+            app.logger.exception("Text analysis failed for person=%s sample=%s", person, sample)
+            flash("Text analysis failed.", "error")
 
 
 
@@ -173,8 +174,9 @@ def analyze():
                 os.makedirs(os.path.dirname(img_out), exist_ok=True)
                 os.replace(legacy_candidate_img, img_out)
 
-        except subprocess.CalledProcessError as e:
-            flash(f"Image analysis failed: {e}", "error")
+        except subprocess.CalledProcessError:
+            app.logger.exception("Image analysis failed for person=%s sample=%s", person, sample)
+            flash("Image analysis failed.", "error")
 
     results = {}
     if os.path.exists(text_out):
@@ -198,4 +200,5 @@ def analyze():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    debug_mode = os.getenv("FLASK_DEBUG", "").strip().lower() in ("1", "true", "yes", "on")
+    app.run(debug=debug_mode)

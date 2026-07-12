@@ -51,12 +51,20 @@ def _get_keyword_model():
     return _keyword_model
 
 def extract_keywords_and_vectors(sentence, include_timestamp=True):
+    if not sentence or not sentence.strip():
+        logger.warning("Empty sentence passed to keyword extraction; returning empty list")
+        return []
+
     nlp = _get_nlp()
     model = _get_keyword_model()
     if nlp is None or model is None:
         return []
 
-    doc = nlp(sentence)
+    try:
+        doc = nlp(sentence)
+    except Exception:
+        logger.exception("spaCy keyword extraction failed")
+        return []
     main_concepts = set()
     custom_excluded_words = {"me", "my", "i", "used", "when", "this", "parents", "bring", "sick", "got", "reminds"}
     relevant_entity_labels = ["PERSON", "NORP", "ORG", "GPE", "LOC", "PRODUCT", "EVENT", "DATE", "WORK_OF_ART", "LAW", "LANGUAGE"]
@@ -109,7 +117,11 @@ def extract_keywords_and_vectors(sentence, include_timestamp=True):
         return []
 
     # Embedding
-    vectors = model.encode(final_concepts)
+    try:
+        vectors = model.encode(final_concepts)
+    except Exception:
+        logger.exception("Keyword embedding failed")
+        return []
 
     # Output format: list of dicts
     if include_timestamp:

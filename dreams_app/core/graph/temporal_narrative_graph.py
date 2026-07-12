@@ -1,5 +1,6 @@
 # dreams_app/analytics/temporal_narrative_graph.py
 
+import hashlib
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Tuple, List, Dict, Any, Optional
@@ -70,6 +71,16 @@ class TemporalNarrativeGraph:
     def is_empty(self) -> bool:
         return len(self.nodes) == 0
     
+    @property
+    def graph_id(self) -> str:
+        """Compute a deterministic ID based on graph content."""
+        content = ""
+        for node in self.nodes:
+            content += f":{node.episode_id}"
+        for edge in self.edges:
+            content += f":{edge.source_index}:{edge.target_index}:{edge.relation.value}"
+        return hashlib.sha256(content.encode('utf-8')).hexdigest()[:32]
+    
     def edges_for_node(self, node_index: int) -> Tuple[NarrativeEdge, ...]:
         if node_index < 0 or node_index >= len(self.nodes):
             raise IndexError(f"node_index {node_index} out of bounds for graph with {len(self.nodes)} nodes")
@@ -136,6 +147,7 @@ class TemporalNarrativeGraph:
     
     def to_dict(self) -> Dict[str, Any]:
         return {
+            'graph_id': self.graph_id,
             'nodes': [node.to_dict() for node in self.nodes],
             'edges': [edge.to_dict() for edge in self.edges],
             'adjacency_threshold_seconds': (

@@ -1,5 +1,6 @@
 # dreams_app/analytics/emotion_episode.py
 
+import hashlib
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Tuple, Optional, Dict, Any
@@ -59,6 +60,12 @@ class Episode:
     def contains_timestamp(self, timestamp: datetime) -> bool:
         return self.start_time <= timestamp < self.end_time
     
+    @property
+    def episode_id(self) -> str:
+        """Compute a deterministic ID based on episode structure."""
+        content = f"{self.source_subject_id}:{self.start_time.isoformat()}:{self.end_time.isoformat()}"
+        return hashlib.sha256(content.encode('utf-8')).hexdigest()[:32]
+    
     def to_dict(self) -> Dict[str, Any]:
         events_list = []
         for event in self.events:
@@ -75,6 +82,7 @@ class Episode:
             events_list.append(event_dict)
         
         result: Dict[str, Any] = {
+            'episode_id': self.episode_id,
             'start_time': self.start_time.isoformat(),
             'end_time': self.end_time.isoformat(),
             'events': events_list,
