@@ -46,25 +46,29 @@ def cluster_keywords_for_all_users(keywords_collection):
         logger.debug(f"Clustering user {user_id}: vectors shape {vectors.shape}")
         logger.debug(f"Sample vectors for user {user_id} (first 5): {vectors[:5]}")
 
-        clusterer = hdbscan.HDBSCAN(min_cluster_size=2, metric='euclidean')
-        cluster_labels = clusterer.fit_predict(vectors)
+        try:
+            clusterer = hdbscan.HDBSCAN(min_cluster_size=2, metric='euclidean')
+            cluster_labels = clusterer.fit_predict(vectors)
 
-        unique_clusters = len(set(cluster_labels)) - (1 if -1 in cluster_labels else 0)
-        noise_count = np.sum(cluster_labels == -1)
-        logger.info(f"HDBSCAN produced {unique_clusters} clusters for user {user_id} ({noise_count} noise points)")
+            unique_clusters = len(set(cluster_labels)) - (1 if -1 in cluster_labels else 0)
+            noise_count = np.sum(cluster_labels == -1)
+            logger.info(f"HDBSCAN produced {unique_clusters} clusters for user {user_id} ({noise_count} noise points)")
 
-        clustered_result = []
-        for i, label in enumerate(cluster_labels):
-            clustered_result.append({
-                'keyword': metadata[i]['keyword'],
-                'sentiment': metadata[i]['sentiment'],
-                'cluster': int(label) if label != -1 else 'noise'
-            })
+            clustered_result = []
+            for i, label in enumerate(cluster_labels):
+                clustered_result.append({
+                    'keyword': metadata[i]['keyword'],
+                    'sentiment': metadata[i]['sentiment'],
+                    'cluster': int(label) if label != -1 else 'noise'
+                })
 
-        # Store result back in document
-        keywords_collection.update_one(
-            {'user_id': user_id},
-            {'$set': {'clustered_keywords': clustered_result}}
-        )
+            # Store result back in document
+            keywords_collection.update_one(
+                {'user_id': user_id},
+                {'$set': {'clustered_keywords': clustered_result}}
+            )
+        except Exception:
+            logger.exception("Clustering failed for user_id=%s; skipping this user", user_id)
+            continue
 
     logger.info("Clustering complete for all users")

@@ -1,5 +1,6 @@
 import os
 import json
+import logging
 from google import genai
 from google.genai import types
 from dotenv import load_dotenv
@@ -7,6 +8,7 @@ import re
 
 
 load_dotenv()
+logger = logging.getLogger(__name__)
 
 
 def generate(user_id, positive_keywords, negative_keywords, thematic_analysis_collection):
@@ -65,11 +67,11 @@ Your task:
     if match:
         cleaned_response = match.group(1)
     else:
-        cleaned_response = full_response 
+        cleaned_response = full_response
 
     try:
         data = json.loads(cleaned_response)
-        
+
         thematic_analysis_collection.update_one(
             {"user_id": str(user_id)},
             {"$set": {"data": data}},
@@ -79,6 +81,8 @@ Your task:
         return data
 
     except json.JSONDecodeError:
-        raise ValueError(f"Invalid JSON from Gemini: {full_response}")
-    except Exception as e:
-        raise RuntimeError(f"Unexpected error during thematic generation: {str(e)}")
+        logger.exception("Invalid JSON returned by Gemini")
+        raise ValueError("Invalid JSON from Gemini")
+    except Exception:
+        logger.exception("Unexpected error during thematic generation")
+        raise RuntimeError("Unexpected error during thematic generation")
