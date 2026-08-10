@@ -189,3 +189,15 @@ venv/
 # Federated Learning Models
 dreams_app/app/models/production_chime_model/
 dreams_app/app/models/temp_training_artifact/
+
+# Design artifacts
+_paper
+_bmad
+
+# AI Agent files
+.claude
+.codex
+.cursor
+.vscode
+.agent
+.gemini
