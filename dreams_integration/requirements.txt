@@ -29,7 +29,7 @@ llvmlite==0.47.0
 lz4==4.4.4
 Markdown==3.8.2
 markdown-it-py==4.0.0
-MarkupSafe==3.0.2
+MarkupSafe==3.0.3
 mdurl==0.1.2
 ml_dtypes==0.5.4
 more-itertools==10.7.0
