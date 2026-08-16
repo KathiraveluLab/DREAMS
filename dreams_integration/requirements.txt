@@ -46,7 +46,7 @@ nvidia-cuda-runtime-cu12==12.6.77
 nvidia-cudnn-cu12==9.20.0.48
 nvidia-cufft-cu12==11.3.0.4
 nvidia-cufile-cu12==1.11.1.6
-nvidia-curand-cu12==10.3.7.77
+nvidia-curand-cu12==10.3.10.19
 nvidia-cusolver-cu12==11.7.1.2
 nvidia-cusparse-cu12==12.5.10.65
 nvidia-cusparselt-cu12==0.8.1
