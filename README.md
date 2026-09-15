@@ -88,12 +88,4 @@ pytest
 flask --app "dreams_app.app:create_app()" run --debug
 ```
 
-### Run the Core Pipeline Standalone
-The ML algorithm layer (`dreams_app/core/`) is designed to operate completely independently from the Flask API layer. The Flask UI runs on MongoDB, whereas the native standalone pipeline operates safely on embedded SQLite / ChromaDB databases for fast local research testing.
-
-**Note:** A small synthetic dataset for running the pipeline is available in this repository:
-```bash
-git clone git@github.com:ayusrjn/dreams-synthetic-dataset.git
-```
-
 For an in-depth, step-by-step tutorial on how to programmatically execute the DREAMS pipeline and generate visual trajectory plots, please see **`Example.ipynb`**.
