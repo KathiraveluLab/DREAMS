@@ -7,6 +7,9 @@ import os
 import pytest
 from unittest.mock import patch, MagicMock
 import numpy as np
+from PIL import Image
+from PIL.ExifTags import IFD, Base
+from PIL.TiffImagePlugin import IFDRational
 
 import dreams_app.core.location_extractor as location_extractor
 
@@ -259,3 +262,62 @@ class TestEnrichLocation:
         # Should NOT have geocode-specific fields
         assert "display_name" not in result
         assert "place_category" not in result
+
+
+# ── TestExtractGps ────────────────────────────────────────────────────────
+
+
+def _write_photo(path, lat_ref="N", lon_ref="W", gps_time=True, gps=True):
+    """Save a small JPEG with EXIF laid out the way cameras write it."""
+    exif = Image.Exif()
+    if gps:
+        gps_ifd = exif.get_ifd(IFD.GPSInfo)
+        gps_ifd[1] = lat_ref
+        gps_ifd[2] = (IFDRational(61), IFDRational(13), IFDRational(513, 100))
+        gps_ifd[3] = lon_ref
+        gps_ifd[4] = (IFDRational(149), IFDRational(54), IFDRational(108, 100))
+        if gps_time:
+            gps_ifd[7] = (IFDRational(10), IFDRational(30), IFDRational(15))
+            gps_ifd[29] = "2024:06:01"
+    exif.get_ifd(IFD.Exif)[Base.DateTimeOriginal] = "2024:06:01 02:30:15"
+    Image.new("RGB", (8, 8), "white").save(str(path), exif=exif)
+    return str(path)
+
+
+class TestExtractGps:
+    """4 tests for extract_gps_from_image()."""
+
+    def test_reads_coordinates(self, tmp_path):
+        """Geotagged photo returns signed decimal degrees."""
+        result = location_extractor.extract_gps_from_image(
+            _write_photo(tmp_path / "a.jpg")
+        )
+
+        assert result["lat"] == pytest.approx(61.218092, abs=1e-5)
+        assert result["lon"] == pytest.approx(-149.9003, abs=1e-5)
+        assert result["timestamp"] == "2024-06-01T10:30:15+00:00"
+
+    def test_southern_and_eastern_refs(self, tmp_path):
+        """S latitude is negative, E longitude stays positive."""
+        result = location_extractor.extract_gps_from_image(
+            _write_photo(tmp_path / "a.jpg", lat_ref="S", lon_ref="E")
+        )
+
+        assert result["lat"] == pytest.approx(-61.218092, abs=1e-5)
+        assert result["lon"] == pytest.approx(149.9003, abs=1e-5)
+
+    def test_falls_back_to_datetime_original(self, tmp_path):
+        """Without a GPS timestamp the capture time is used."""
+        result = location_extractor.extract_gps_from_image(
+            _write_photo(tmp_path / "a.jpg", gps_time=False)
+        )
+
+        assert result["timestamp"] == "2024-06-01T02:30:15"
+
+    def test_no_gps_returns_none(self, tmp_path):
+        """Photo with EXIF but no GPS block returns None."""
+        result = location_extractor.extract_gps_from_image(
+            _write_photo(tmp_path / "a.jpg", gps=False)
+        )
+
+        assert result is None
