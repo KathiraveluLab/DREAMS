@@ -271,15 +271,17 @@ def _write_photo(path, lat_ref="N", lon_ref="W", gps_time=True, gps=True):
     """Save a small JPEG with EXIF laid out the way cameras write it."""
     exif = Image.Exif()
     if gps:
-        gps_ifd = exif.get_ifd(IFD.GPSInfo)
-        gps_ifd[1] = lat_ref
-        gps_ifd[2] = (IFDRational(61), IFDRational(13), IFDRational(513, 100))
-        gps_ifd[3] = lon_ref
-        gps_ifd[4] = (IFDRational(149), IFDRational(54), IFDRational(108, 100))
+        gps_ifd = {
+            1: lat_ref,
+            2: (IFDRational(61), IFDRational(13), IFDRational(513, 100)),
+            3: lon_ref,
+            4: (IFDRational(149), IFDRational(54), IFDRational(108, 100)),
+        }
         if gps_time:
             gps_ifd[7] = (IFDRational(10), IFDRational(30), IFDRational(15))
             gps_ifd[29] = "2024:06:01"
-    exif.get_ifd(IFD.Exif)[Base.DateTimeOriginal] = "2024:06:01 02:30:15"
+        exif[IFD.GPSInfo] = gps_ifd
+    exif[IFD.Exif] = {Base.DateTimeOriginal: "2024:06:01 02:30:15"}
     Image.new("RGB", (8, 8), "white").save(str(path), exif=exif)
     return str(path)
 
