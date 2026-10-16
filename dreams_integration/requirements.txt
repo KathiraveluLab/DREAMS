@@ -10,7 +10,7 @@ fire==0.7.0
 Flask==3.1.3
 flask-cors==6.0.2
 flatbuffers==25.2.10
-fsspec==2025.7.0
+fsspec==2026.6.0
 gast==0.6.0
 gdown==6.1.0
 google-pasta==0.2.0
@@ -72,7 +72,7 @@ retina-face==0.0.17
 rich==14.3.3
 safetensors==0.5.3
 six==1.17.0
-soupsieve==2.8.4
+soupsieve==2.9
 sympy==1.14.0
 tensorboard==2.19.0
 tensorboard-data-server==0.7.2
@@ -88,6 +88,6 @@ transformers==5.14.1
 triton==3.3.1
 typing_extensions==4.15.0
 tzdata==2026.2
-urllib3==2.7.0
-Werkzeug==3.1.6
+urllib3==2.8.0
+Werkzeug==3.1.9
 wrapt==2.1.2
