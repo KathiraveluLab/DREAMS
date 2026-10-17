@@ -1,5 +1,7 @@
 """Tests for location proximity analysis module."""
 
+import math
+
 import pytest
 from dreams_app.location_proximity import (
     extract_location,
@@ -79,3 +81,11 @@ class TestLocationProximity:
         nearby = find_nearby_locations(target, locations, 1000.0)
         assert len(nearby) == 1
         assert nearby[0] == locations[0]
+
+    def test_near_antipodal_points_do_not_raise(self):
+        """Rounding can push the haversine term just above 1, which used to raise."""
+        distance = calculate_distance(
+            39.87720582134085, -97.64560034263705,
+            -39.87720582045031, 82.35439965736295,
+        )
+        assert distance == pytest.approx(math.pi * 6371000.0, rel=1e-6)
