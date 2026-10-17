@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional
 
 import requests
 from PIL import Image
-from PIL.ExifTags import GPSTAGS, TAGS
+from PIL.ExifTags import GPSTAGS, IFD, Base
 
 logger = logging.getLogger(__name__)
 
@@ -107,16 +107,10 @@ def extract_gps_from_image(image_path: str) -> Optional[Dict[str, Any]]:
             if not exif:
                 return None
 
-            gps_info = None
-            datetime_original = None
-            for tag_id, value in exif.items():
-                tag_name = TAGS.get(tag_id, tag_id)
-                if tag_name == "GPSInfo":
-                    gps_info = {GPSTAGS.get(t, t): value[t] for t in value}
-                elif tag_name == "DateTimeOriginal":
-                    datetime_original = value
-                if gps_info is not None and datetime_original is not None:
-                    break
+            # GPS and DateTimeOriginal live in sub-IFDs, not the base IFD
+            gps_ifd = exif.get_ifd(IFD.GPSInfo)
+            gps_info = {GPSTAGS.get(t, t): v for t, v in gps_ifd.items()}
+            datetime_original = exif.get_ifd(IFD.Exif).get(Base.DateTimeOriginal)
 
             if not gps_info:
                 return None
