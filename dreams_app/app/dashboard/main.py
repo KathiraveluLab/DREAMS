@@ -83,6 +83,9 @@ def profile(target):
     mongo.find({'user_id': target_user_id}).sort('timestamp', 1)
     )
 
+    if not user_posts:
+        return "No posts found.", 404
+
     for post in user_posts:
         post['sentiment_label'] = post['sentiment']['label']
         post['sentiment_score'] = post['sentiment']['score']
