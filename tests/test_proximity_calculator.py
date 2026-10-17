@@ -273,6 +273,45 @@ class TestCompositeProximity:
             composite_proximity(without_geo, with_geo)
         )
 
+    def test_only_known_dimensions_are_used(self):
+        """PC-EC-003: with only the type known, the type alone decides the score."""
+        church = {'type': 'church'}
+
+        assert composite_proximity(church, {'type': 'church'}) == pytest.approx(1.0)
+        assert composite_proximity(church, {'type': 'hospital'}) == pytest.approx(0.0)
+
+    def test_places_with_no_information_score_zero(self):
+        """Nothing known about either place means no evidence of similarity."""
+        assert composite_proximity({}, {}) == 0.0
+
+    def test_weights_are_renormalised_over_known_dimensions(self):
+        """Type (0.4) and language (0.15) known: (0.4*1 + 0.15*0) / 0.55."""
+        place1 = {'type': 'church', 'language': 'english'}
+        place2 = {'type': 'church', 'language': 'spanish'}
+
+        assert composite_proximity(place1, place2) == pytest.approx(0.4 / 0.55)
+
+    def test_dimension_known_for_only_one_place_is_ignored(self):
+        """A dimension counts only when both places have it."""
+        place1 = {'type': 'church', 'language': 'english'}
+        place2 = {'type': 'church'}
+
+        assert composite_proximity(place1, place2) == pytest.approx(1.0)
+
+    def test_empty_cultural_tags_on_both_places_are_ignored(self):
+        """Two empty tag lists carry no information, so they do not add similarity."""
+        place1 = {'type': 'church', 'language': 'english', 'cultural_tags': []}
+        place2 = {'type': 'church', 'language': 'spanish', 'cultural_tags': []}
+
+        # Only type and language count: (0.4*1 + 0.15*0) / 0.55
+        assert composite_proximity(place1, place2) == pytest.approx(0.4 / 0.55)
+
+    def test_geo_proximity_alone_is_used_when_nothing_else_is_known(self):
+        place1 = {'geo_proximity': 0.4}
+        place2 = {'geo_proximity': 0.4}
+
+        assert composite_proximity(place1, place2) == pytest.approx(0.4)
+
 
 class TestNormalizeGeographicDistance:
     """Test geographic distance normalization."""

@@ -138,6 +138,11 @@ def composite_proximity(
                  
     Returns:
         Composite proximity score between 0.0 and 1.0
+
+    Missing data: a dimension takes part only if both places have a value for it
+    ('geo_proximity' on either place counts). Missing dimensions are left out and
+    the weights are renormalised over the rest. If no dimension is known, the
+    score is 0.0.
         
     Examples:
         >>> p1 = {'type': 'church', 'language': 'english', 'cultural_tags': ['christian']}
@@ -148,45 +153,34 @@ def composite_proximity(
     default_weights = {'geo': 0.3, 'cat': 0.4, 'ling': 0.15, 'cult': 0.15}
     weights = {**default_weights, **(weights or {})}
     
+    # Only the dimensions both places have data for take part (TEST_PLAN PC-EC-003,
+    # "use available dimensions"). A missing value is unknown, not similar or different.
+    scores: Dict[str, float] = {}
+
     # Geographic proximity from the pre-calculated values. Use both places so the
     # score does not depend on which one is passed first.
     geo_values = [
         p['geo_proximity'] for p in (place1, place2)
         if p.get('geo_proximity') is not None
     ]
-    geo_prox = sum(geo_values) / len(geo_values) if geo_values else 1.0
-    
-    # Categorical proximity
-    cat_prox = categorical_proximity(
-        place1.get('type', ''),
-        place2.get('type', '')
-    )
-    
-    # Linguistic similarity
-    ling_prox = linguistic_similarity(
-        place1.get('language', ''),
-        place2.get('language', '')
-    )
-    
-    # Cultural similarity
-    cult_prox = cultural_similarity(
-        place1.get('cultural_tags', []),
-        place2.get('cultural_tags', [])
-    )
-    
-    # Weighted sum
-    total_weight = sum(weights.values())
+    if geo_values:
+        scores['geo'] = sum(geo_values) / len(geo_values)
+
+    if place1.get('type') and place2.get('type'):
+        scores['cat'] = categorical_proximity(place1['type'], place2['type'])
+
+    if place1.get('language') and place2.get('language'):
+        scores['ling'] = linguistic_similarity(place1['language'], place2['language'])
+
+    if place1.get('cultural_tags') and place2.get('cultural_tags'):
+        scores['cult'] = cultural_similarity(place1['cultural_tags'], place2['cultural_tags'])
+
+    # Weighted sum, renormalised over the dimensions that are present
+    total_weight = sum(weights[name] for name in scores)
     if total_weight == 0:
         return 0.0
 
-    composite = (
-        weights['geo'] * geo_prox +
-        weights['cat'] * cat_prox +
-        weights['ling'] * ling_prox +
-        weights['cult'] * cult_prox
-    ) / total_weight
-    
-    return composite
+    return sum(weights[name] * score for name, score in scores.items()) / total_weight
 
 
 def normalize_geographic_distance(distance_km: float, max_distance_km: float = 500.0) -> float:
