@@ -119,6 +119,11 @@ def upload_post():
     if missing:
          return jsonify({'error': f"Missing required fields: {', '.join(missing)}"}), 400
 
+    try:
+        datetime.fromisoformat(timestamp)
+    except ValueError:
+        return jsonify({'error': 'Invalid timestamp, expected ISO 8601'}), 400
+
     filename = secure_filename(image.filename)
     allowed = current_app.config.get('ALLOWED_EXTENSIONS', {'png', 'jpg', 'jpeg', 'gif'})
     if '.' not in filename or filename.rsplit('.', 1)[1].lower() not in allowed:
