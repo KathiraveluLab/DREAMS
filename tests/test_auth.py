@@ -128,6 +128,23 @@ def test_login_success_logs_user_in_and_redirects_to_dashboard(client, mock_mong
     with client.session_transaction() as session:
         assert session['_user_id'] == 'abc123'
 
+def test_login_with_user_without_password_hash_is_rejected(client, mock_mongo):
+    # A user document that has no password_hash must not crash the login.
+    mock_mongo.users.find_one.return_value = {
+        '_id': 'abc123',
+        'username': 'alice',
+        'email': 'alice@example.com',
+    }
+
+    response = client.post(
+        '/auth/login',
+        data={'username': 'alice', 'password': 'whatever'},
+    )
+
+    assert response.status_code == 302
+    assert response.headers['Location'].endswith('/auth/login')
+    assert 'Invalid username or password' in _flashed_messages(client)
+
 
 # --- /auth/logout -----------------------------------------------------------
 
