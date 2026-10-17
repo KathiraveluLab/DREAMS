@@ -259,6 +259,7 @@ def upload_post():
 
 
 @bp.route("/run_clustering")
+@login_required
 def manual_cluster():
     cluster_keywords_for_all_users(current_app.mongo['keywords'])
     return "Clustering done"
