@@ -129,7 +129,9 @@ def composite_proximity(
     
     Args:
         place1: First location dict with keys: 'type', 'language', 'cultural_tags', 'geo_proximity'
-        place2: Second location dict with same structure
+        place2: Second location dict with same structure. If both places have a
+                'geo_proximity', their mean is used, so the result does not
+                depend on the order of the arguments.
         weights: Optional weight dict with keys: 'geo', 'cat', 'ling', 'cult'
                  Defaults to α=0.3, β=0.4, γ=0.15, δ=0.15 from TEST_PLAN
                  Missing keys will use default values.
@@ -146,8 +148,13 @@ def composite_proximity(
     default_weights = {'geo': 0.3, 'cat': 0.4, 'ling': 0.15, 'cult': 0.15}
     weights = {**default_weights, **(weights or {})}
     
-    # Geographic proximity from pre-calculated value
-    geo_prox = place1.get('geo_proximity', 1.0)
+    # Geographic proximity from the pre-calculated values. Use both places so the
+    # score does not depend on which one is passed first.
+    geo_values = [
+        p['geo_proximity'] for p in (place1, place2)
+        if p.get('geo_proximity') is not None
+    ]
+    geo_prox = sum(geo_values) / len(geo_values) if geo_values else 1.0
     
     # Categorical proximity
     cat_prox = categorical_proximity(
