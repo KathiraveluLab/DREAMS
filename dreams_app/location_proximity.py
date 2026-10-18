@@ -54,6 +54,7 @@ def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     a = math.sin(delta_phi / 2.0)**2 + \
         math.cos(phi1) * math.cos(phi2) * \
         math.sin(delta_lambda / 2.0)**2
+    a = min(1.0, a)  # rounding can push this just above 1 for near-antipodal points
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
     return R * c
