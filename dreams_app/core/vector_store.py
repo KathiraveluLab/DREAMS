@@ -37,6 +37,10 @@ class VectorStore:
                 "image_embeddings": self.client.get_or_create_collection(
                     name="pipeline_image_embeddings",
                     metadata={"description": "CLIP vision embeddings"}
+                ),
+                "layer_2_semantic" : self.client.get_or_create_collection(
+                    name="pipeline_layer_2_semantic",
+                    metadata={"description": "Location semantic embeddings"}
                 )
             }
             logger.info(f"Initialized ChromaDB at {persist_dir} with {len(self.collections)} collections")
@@ -46,7 +50,14 @@ class VectorStore:
 
     def store_vector(self, collection_name: str, doc_id: str, embedding: List[float], metadata: Dict[str, Any] = None):
         """Store a single embedding vector in the specified collection."""
-        if not self.client or collection_name not in self.collections:
+        if not self.client:
+            return False
+        
+        if collection_name not in self.collections:
+            logger.warning(
+                "Unknown vector collection '%s'; vector for %s was not stored",
+                collection_name, doc_id,
+            )
             return False
             
         try:
