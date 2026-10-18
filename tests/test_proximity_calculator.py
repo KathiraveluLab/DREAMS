@@ -227,6 +227,52 @@ class TestCompositeProximity:
         result = composite_proximity(place1, place2)
         assert result == pytest.approx(0.64, abs=0.02)
 
+    def test_result_does_not_depend_on_argument_order(self):
+        """The score must be the same whichever place is passed first."""
+        place1 = {
+            'type': 'church',
+            'language': 'english',
+            'cultural_tags': ['christian'],
+            'geo_proximity': 0.9
+        }
+        place2 = {
+            'type': 'church',
+            'language': 'english',
+            'cultural_tags': ['christian'],
+            'geo_proximity': 0.1
+        }
+
+        assert composite_proximity(place1, place2) == pytest.approx(
+            composite_proximity(place2, place1)
+        )
+
+    def test_geo_proximity_of_both_places_is_averaged(self):
+        """When both places carry geo_proximity, their mean is used."""
+        place1 = {
+            'type': 'church',
+            'language': 'english',
+            'cultural_tags': ['christian'],
+            'geo_proximity': 0.9
+        }
+        place2 = {
+            'type': 'church',
+            'language': 'english',
+            'cultural_tags': ['christian'],
+            'geo_proximity': 0.1
+        }
+
+        # Expected: 0.3*0.5 + 0.4*1.0 + 0.15*1.0 + 0.15*1.0 = 0.85
+        assert composite_proximity(place1, place2) == pytest.approx(0.85)
+
+    def test_geo_proximity_from_either_place_is_used(self):
+        """A single geo_proximity value counts whichever place carries it."""
+        with_geo = {'type': 'church', 'geo_proximity': 0.2}
+        without_geo = {'type': 'church'}
+
+        assert composite_proximity(with_geo, without_geo) == pytest.approx(
+            composite_proximity(without_geo, with_geo)
+        )
+
 
 class TestNormalizeGeographicDistance:
     """Test geographic distance normalization."""
