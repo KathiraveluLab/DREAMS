@@ -8,19 +8,49 @@ except ImportError:  # pragma: no cover - optional in lightweight test envs
 
 logger = logging.getLogger(__name__)
 
-def get_vectors_and_metadata(doc):
+def _embed_keywords(keywords):
+    """Embed keyword text with the model used for keyword extraction.
+
+    Returns None when the model is not available.
+    """
+    from dreams_app.core.extra.keywords import _get_keyword_model
+
+    model = _get_keyword_model()
+    if model is None:
+        return None
+    return model.encode(keywords)
+
+
+def get_vectors_and_metadata(doc, embed=None):
+    """Collect one vector per keyword of a user's document.
+
+    upload_post stores keywords without their embedding, so keywords that have no
+    stored embedding are embedded on demand with ``embed`` (a function taking a list
+    of keyword strings and returning one vector each). Without ``embed`` they are
+    left out.
+    """
     vectors = []
     metadata = []
+    to_embed = []
 
     for sentiment in ['positive_keywords', 'negative_keywords']:
         for kw in doc.get(sentiment, []):
+            entry = {
+                'keyword': kw.get('keyword'),
+                'sentiment': sentiment
+            }
             vec = kw.get('embedding')  # Correct key here
             if vec:
                 vectors.append(vec)
-                metadata.append({
-                    'keyword': kw.get('keyword'),
-                    'sentiment': sentiment
-                })
+                metadata.append(entry)
+            elif embed is not None and entry['keyword']:
+                to_embed.append(entry)
+
+    if to_embed:
+        embedded = embed([entry['keyword'] for entry in to_embed])
+        if embedded is not None:
+            vectors.extend(embedded)
+            metadata.extend(to_embed)
 
     return np.array(vectors), metadata
 
@@ -36,7 +66,7 @@ def cluster_keywords_for_all_users(keywords_collection):
         if not user_id:
             continue
 
-        vectors, metadata = get_vectors_and_metadata(doc)
+        vectors, metadata = get_vectors_and_metadata(doc, embed=_embed_keywords)
         if len(vectors) < 2:
             user_id = doc.get('user_id', 'unknown')
             logger.debug(f"Skipping user {user_id}: insufficient data ({len(vectors)} vectors)")
