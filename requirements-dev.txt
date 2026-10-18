@@ -13,7 +13,7 @@ Flask>=3.0.0
 pymongo>=4.17.0
 
 # Graph analysis (already in requirements.txt)
-networkx>=3.0
+networkx>=3.7
 
 # Code quality
 black>=23.0.0
