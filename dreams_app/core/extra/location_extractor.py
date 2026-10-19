@@ -125,6 +125,15 @@ def extract_gps_from_image(image_path: str) -> Optional[Dict[str, Any]]:
             if gps_info.get("GPSLongitudeRef") == "W":
                 lon = -lon
 
+            # Corrupt EXIF can decode to out-of-range (or NaN) values; a comparison
+            # with NaN is False, so it is rejected here as well.
+            if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
+                logger.warning(
+                    "Ignoring out-of-range GPS in '%s': lat=%s, lon=%s",
+                    image_path, lat, lon,
+                )
+                return None
+
             result: Dict[str, Any] = {"lat": lat, "lon": lon}
             timestamp = _parse_gps_timestamp(gps_info)
             if not timestamp and datetime_original:

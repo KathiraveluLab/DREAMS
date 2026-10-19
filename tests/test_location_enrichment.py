@@ -267,15 +267,16 @@ class TestEnrichLocation:
 # ── TestExtractGps ────────────────────────────────────────────────────────
 
 
-def _write_photo(path, lat_ref="N", lon_ref="W", gps_time=True, gps=True):
+def _write_photo(path, lat_ref="N", lon_ref="W", gps_time=True, gps=True,
+                 lat_degrees=61, lon_degrees=149):
     """Save a small JPEG with EXIF laid out the way cameras write it."""
     exif = Image.Exif()
     if gps:
         gps_ifd = {
             1: lat_ref,
-            2: (IFDRational(61), IFDRational(13), IFDRational(513, 100)),
+            2: (IFDRational(lat_degrees), IFDRational(13), IFDRational(513, 100)),
             3: lon_ref,
-            4: (IFDRational(149), IFDRational(54), IFDRational(108, 100)),
+            4: (IFDRational(lon_degrees), IFDRational(54), IFDRational(108, 100)),
         }
         if gps_time:
             gps_ifd[7] = (IFDRational(10), IFDRational(30), IFDRational(15))
@@ -287,7 +288,7 @@ def _write_photo(path, lat_ref="N", lon_ref="W", gps_time=True, gps=True):
 
 
 class TestExtractGps:
-    """4 tests for extract_gps_from_image()."""
+    """Tests for extract_gps_from_image()."""
 
     def test_reads_coordinates(self, tmp_path):
         """Geotagged photo returns signed decimal degrees."""
@@ -315,6 +316,18 @@ class TestExtractGps:
         )
 
         assert result["timestamp"] == "2024-06-01T02:30:15"
+
+    @pytest.mark.parametrize("kwargs", [
+        {"lat_degrees": 95},
+        {"lon_degrees": 200},
+    ])
+    def test_out_of_range_coordinates_return_none(self, tmp_path, kwargs):
+        """Corrupt EXIF that decodes to impossible coordinates is not returned."""
+        result = location_extractor.extract_gps_from_image(
+            _write_photo(tmp_path / "a.jpg", **kwargs)
+        )
+
+        assert result is None
 
     def test_no_gps_returns_none(self, tmp_path):
         """Photo with EXIF but no GPS block returns None."""
