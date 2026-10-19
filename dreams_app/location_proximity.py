@@ -116,7 +116,8 @@ def find_nearby_locations(target_location: Location, locations: List[Location],
     """
     nearby = []
     for loc in locations:
-        if loc == target_location:
+        # Skip the target itself, but not a different place at the same coordinates.
+        if loc is target_location:
             continue
         try:
             prox = compute_proximity(target_location, loc, radius_meters)
