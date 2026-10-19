@@ -1,5 +1,5 @@
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dreams_app.core.extra.proximity_trajectory import (
     PlaceVisit,
     PlaceTypeTrajectory,
@@ -251,3 +251,22 @@ class TestSummarizeTrajectories:
     def test_empty_trajectories_returns_empty(self):
         result = summarize_trajectories({})
         assert result == {}
+
+
+def test_mixed_naive_and_aware_timestamps_are_ordered_together():
+    # Uploads without a timestamp get an aware "now"; a client may send a naive one.
+    def visit(ts, hope):
+        v = make_visit('park', 0, hope, 0.5)
+        v.timestamp = ts
+        return v
+
+    visits = [
+        visit(datetime(2024, 1, 3, tzinfo=timezone.utc), 0.9),
+        visit(datetime(2024, 1, 1), 0.1),  # naive, treated as UTC
+        visit(datetime(2024, 1, 2, tzinfo=timezone.utc), 0.5),
+    ]
+
+    traj = build_place_trajectories(visits)['park']
+
+    assert [v.chime['Hope'] for v in traj.visits] == [0.1, 0.5, 0.9]
+    assert traj.trend['Hope'] == pytest.approx(0.4)

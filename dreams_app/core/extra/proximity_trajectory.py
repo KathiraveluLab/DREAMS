@@ -1,6 +1,6 @@
 import math
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 
 
@@ -43,6 +43,11 @@ class PlaceTypeTrajectory:
     visit_count: int
 
 
+def _utc(ts: datetime) -> datetime:
+    """Treat a naive timestamp as UTC so naive and aware ones can be ordered together."""
+    return ts.replace(tzinfo=timezone.utc) if ts.tzinfo is None else ts
+
+
 def build_place_trajectories(
     visits: List[PlaceVisit],
 ) -> Dict[str, PlaceTypeTrajectory]:
@@ -55,13 +60,14 @@ def build_place_trajectories(
     - volatility: mean RMS std-dev across CHIME dimensions
 
     Args:
-        visits: List of PlaceVisit objects, any order
+        visits: List of PlaceVisit objects, any order. Naive timestamps are
+            treated as UTC, so they can be mixed with timezone-aware ones.
 
     Returns:
         Dict of place_type -> PlaceTypeTrajectory, grouped in chronological
         order of first visit per place type
     """
-    sorted_visits = sorted(visits, key=lambda v: v.timestamp)
+    sorted_visits = sorted(visits, key=lambda v: _utc(v.timestamp))
 
     grouped: Dict[str, List[PlaceVisit]] = {}
     for v in sorted_visits:
