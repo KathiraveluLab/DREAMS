@@ -108,7 +108,7 @@ def run_federated_round(app=None):
         
         try:
             # CLEANUP: Reset any stale 'processing' documents (older than 1 hour)
-            one_hour_ago = datetime.datetime.utcnow() - datetime.timedelta(hours=1)
+            one_hour_ago = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=1)
             stale_reset = mongo['posts'].update_many(
                 {
                     'is_fl_processed': 'processing',
@@ -138,7 +138,7 @@ def run_federated_round(app=None):
                 {'_id': {'$in': candidate_ids}, 'is_fl_processed': False},  # Re-check status!
                 {'$set': {
                     'is_fl_processed': 'processing',
-                    'processing_started_at': datetime.datetime.now()
+                    'processing_started_at': datetime.datetime.now(datetime.timezone.utc)
                 }}
             )
             
