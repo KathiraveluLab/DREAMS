@@ -11,6 +11,7 @@ Flask>=3.0.0
 
 # MongoDB testing
 pymongo>=4.17.0
+mongomock>=4.1.2
 
 # Graph analysis (already in requirements.txt)
 networkx>=3.7
