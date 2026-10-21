@@ -118,8 +118,8 @@ The FL Worker performs:
 ### Step 5: Inference
 
 The `sentiment.py` module automatically:
-- Checks for `production_chime_model` on startup.
-- Loads it if available (self-corrected model).
+- Checks for `production_chime_model` before each prediction.
+- Loads it if available (self-corrected model), and reloads it whenever a training round replaces the folder, so a promoted model is used without restarting the server.
 - Falls back to HuggingFace if not (base model).
 
 ---
