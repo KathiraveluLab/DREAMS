@@ -7,7 +7,8 @@ Validates timestamp ordering and detects temporal anomalies:
 - Out-of-order events
 """
 
-from typing import List, Dict, Any, Optional
+import re
+from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime, timezone
 
 from .reporter import ValidationIssue, Severity
@@ -134,7 +135,8 @@ def _parse_timestamp(value: Any) -> Optional[datetime]:
         except (ValueError, AttributeError):
             pass
     
-    if isinstance(value, (int, float)):
+    # bool is an int subclass, but True/False are flags, not times
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
         # Try Unix timestamp
         try:
             timestamp_value = value
@@ -144,7 +146,8 @@ def _parse_timestamp(value: Any) -> Optional[datetime]:
                 timestamp_value = timestamp_value / 1000
             
             return datetime.fromtimestamp(timestamp_value, tz=timezone.utc)
-        except (ValueError, OSError):
+        except (ValueError, OSError, OverflowError):
+            # Out-of-range values (1e300, infinity) are not usable timestamps
             pass
     
     return None
@@ -166,9 +169,8 @@ def _check_ordering(timestamps: List[Dict[str, Any]], strict: bool) -> List[Vali
     if len(timestamps) < 2:
         return issues
     
-    # Sort by location to check sequence within arrays
-    # Group by parent array (e.g., all items in "samples")
-    grouped = _group_by_parent_array(timestamps)
+    # Compare each field only with the same field of the neighbouring array items
+    grouped = _group_into_sequences(timestamps)
     
     for group_name, group_timestamps in grouped.items():
         for i in range(1, len(group_timestamps)):
@@ -206,43 +208,45 @@ def _check_ordering(timestamps: List[Dict[str, Any]], strict: bool) -> List[Vali
     return issues
 
 
-def _group_by_parent_array(timestamps: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+_ARRAY_INDEX = re.compile(r"\[(\d+)\]")
+
+
+def _sequence_position(location: str) -> Optional[Tuple[str, int]]:
     """
-    Group timestamps by their parent array for sequential checking.
-    
-    For example, "samples[0].timestamp" and "samples[1].timestamp" 
-    should be in the same group.
+    Split a location into (sequence key, position) using its last array index.
+
+    "samples[2].timestamp" -> ("samples[].timestamp", 2), and
+    "sessions[1].readings[0].timestamp" -> ("sessions[1].readings[].timestamp", 0), so the
+    items of one array are ordered against each other and nothing else. A location with no
+    array index belongs to no sequence and returns None.
     """
-    groups = {}
-    
+    matches = list(_ARRAY_INDEX.finditer(location))
+    if not matches:
+        return None
+    last = matches[-1]
+    key = location[:last.start()] + "[]" + location[last.end():]
+    return key, int(last.group(1))
+
+
+def _group_into_sequences(timestamps: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Group timestamps into the sequences that must be in order.
+
+    One sequence is one timestamp field across the items of one array, for example
+    "samples[0].timestamp", "samples[1].timestamp", ... Different fields of the same record
+    (created_at vs capture_time) or of nested arrays are different sequences, because
+    nothing says they must be ordered against each other.
+    """
+    groups: Dict[str, List[Tuple[int, Dict[str, Any]]]] = {}
+
     for ts_info in timestamps:
-        location = ts_info["location"]
-        
-        # Extract parent array (e.g., "samples" from "samples[0].timestamp")
-        if '[' in location:
-            parent = location.split('[')[0]
-        else:
-            parent = "root"
-        
-        if parent not in groups:
-            groups[parent] = []
-        groups[parent].append(ts_info)
-    
-    # Sort each group by index
-    for parent, group in groups.items():
-        group.sort(key=lambda x: _extract_index(x["location"]))
-    
-    return groups
+        position = _sequence_position(ts_info["location"])
+        if position is None:
+            continue
+        key, index = position
+        groups.setdefault(key, []).append((index, ts_info))
 
-
-def _extract_index(location: str) -> int:
-    """Extract array index from location string."""
-    if '[' not in location:
-        return 0
-    
-    try:
-        start = location.index('[')
-        end = location.index(']', start)
-        return int(location[start + 1:end])
-    except (ValueError, IndexError):
-        return 0
+    return {
+        key: [info for _, info in sorted(members, key=lambda member: member[0])]
+        for key, members in groups.items()
+    }
