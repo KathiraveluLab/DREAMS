@@ -1,6 +1,12 @@
 import logging
+import threading
 import numpy as np
-from dreams_app.core.chime_classifier import init_chime_classifier, pick_top_chime_result
+from dreams_app.core.chime_classifier import (
+    chime_model_stamp,
+    init_chime_classifier,
+    local_chime_model_path,
+    pick_top_chime_result,
+)
 
 try:
     import torch
@@ -45,6 +51,9 @@ class SentimentAnalyzer:
         self._sentiment_model = None
         self._sentiment_model_name = None
         self._chime_classifier = None
+        # Which model folder (and which version of it) the cached classifier was loaded from.
+        self._chime_model_key = None
+        self._chime_lock = threading.Lock()
 
     def get_sentiment_models(self, sentiment_model_name: str = "cardiffnlp/twitter-roberta-base-sentiment-latest"):
         if AutoTokenizer is None or AutoConfig is None or AutoModelForSequenceClassification is None:
@@ -78,13 +87,25 @@ class SentimentAnalyzer:
         return top_sentiment
 
     def get_chime_classifier(self):
-        self._chime_classifier = init_chime_classifier(
-            self._chime_classifier,
-            pipeline,
-            HF_MODEL_ID,
-            logger,
-        )
-        return self._chime_classifier
+        # The federated-learning worker replaces the production model folder after a
+        # successful round, so reload the classifier when that folder has changed.
+        local_path = local_chime_model_path()
+        model_key = (local_path, chime_model_stamp(local_path) if local_path else None)
+
+        with self._chime_lock:
+            if self._chime_classifier is not None and model_key != self._chime_model_key:
+                logger.info("CHIME model on disk changed; reloading the classifier.")
+                self._chime_classifier = None
+
+            self._chime_classifier = init_chime_classifier(
+                self._chime_classifier,
+                pipeline,
+                HF_MODEL_ID,
+                logger,
+            )
+            if self._chime_classifier is not None:
+                self._chime_model_key = model_key
+            return self._chime_classifier
 
     def analyze_chime(self, text: str):
         if text is None or not text.strip():
