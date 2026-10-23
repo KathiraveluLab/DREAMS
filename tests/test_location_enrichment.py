@@ -329,6 +329,14 @@ class TestExtractGps:
 
         assert result is None
 
+    def test_nan_coordinates_return_none(self, tmp_path, monkeypatch):
+        """A NaN decoded from corrupt EXIF is rejected, not returned."""
+        monkeypatch.setattr(location_extractor, "_dms_to_decimal", lambda dms: float("nan"))
+
+        result = location_extractor.extract_gps_from_image(_write_photo(tmp_path / "a.jpg"))
+
+        assert result is None
+
     def test_no_gps_returns_none(self, tmp_path):
         """Photo with EXIF but no GPS block returns None."""
         result = location_extractor.extract_gps_from_image(
