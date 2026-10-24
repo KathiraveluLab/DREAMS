@@ -89,3 +89,13 @@ class TestLocationProximity:
             -39.87720582045031, 82.35439965736295,
         )
         assert distance == pytest.approx(math.pi * 6371000.0, rel=1e-6)
+
+    def test_find_nearby_locations_keeps_other_places_at_same_coordinates(self):
+        """A different place at identical coordinates is nearby; only the target itself is skipped."""
+        target: Location = {"lat": 61.2181, "lon": -149.9003}
+        same_spot: Location = {"lat": 61.2181, "lon": -149.9003}
+        locations: list[Location] = [target, same_spot]
+
+        nearby = find_nearby_locations(target, locations, 100.0)
+        assert nearby == [same_spot]
+        assert nearby[0] is same_spot

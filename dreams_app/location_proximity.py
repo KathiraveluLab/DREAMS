@@ -106,6 +106,11 @@ def find_nearby_locations(target_location: Location, locations: List[Location],
                          radius_meters: float) -> List[Location]:
     """Find all locations within specified radius of target location.
     
+    The target is excluded by identity (the same object in ``locations``), not by
+    value, so a different place at the same coordinates is still returned. A copy of
+    the target, for example one loaded again from storage, is therefore treated as
+    another place.
+    
     Args:
         target_location: Reference location with lat/lon coordinates
         locations: List of locations to search through
@@ -116,7 +121,8 @@ def find_nearby_locations(target_location: Location, locations: List[Location],
     """
     nearby = []
     for loc in locations:
-        if loc == target_location:
+        # Skip the target itself, but not a different place at the same coordinates.
+        if loc is target_location:
             continue
         try:
             prox = compute_proximity(target_location, loc, radius_meters)
