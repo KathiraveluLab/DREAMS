@@ -143,7 +143,7 @@ def upload_post():
         upload_path = current_app.config['UPLOAD_FOLDER']
         image_path = os.path.join(upload_path, unique_filename)
         image.save(image_path)
-    except (UnidentifiedImageError, OSError, ValueError, RuntimeError):
+    except (UnidentifiedImageError, Image.DecompressionBombError, OSError, ValueError, RuntimeError):
         image_path = locals().get("image_path")
         if image_path and os.path.exists(image_path):
             os.remove(image_path)
