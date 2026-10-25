@@ -55,6 +55,17 @@ def validate_schema(data: dict, schema_path: Optional[Path] = None) -> List[Vali
         import jsonschema
         from jsonschema import Draft7Validator
         
+        try:
+            Draft7Validator.check_schema(schema)
+        except jsonschema.SchemaError as e:
+            issues.append(ValidationIssue(
+                severity=Severity.ERROR,
+                category="schema",
+                message=f"Invalid schema: {e.message}",
+                location=str(schema_path)
+            ))
+            return issues
+
         validator = Draft7Validator(schema)
         errors = sorted(validator.iter_errors(data), key=lambda e: e.path)
         
