@@ -179,6 +179,7 @@ class TemporalNarrativeGraphSerializer:
                 'source_index': edge.source_index,
                 'target_index': edge.target_index,
                 'relation': edge.relation.value,
+                'weight': edge.weight,
             })
 
         data: Dict[str, Any] = {
@@ -216,6 +217,7 @@ class TemporalNarrativeGraphSerializer:
                 source_index=edge_data['source_index'],
                 target_index=edge_data['target_index'],
                 relation=ProximityRelation(edge_data['relation']),
+                weight=edge_data.get('weight', 1.0),
             ))
 
         adjacency_threshold: Optional[timedelta] = None
