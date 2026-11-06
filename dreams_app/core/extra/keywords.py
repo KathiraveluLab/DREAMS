@@ -105,7 +105,7 @@ def extract_keywords_and_vectors(sentence, include_timestamp=True):
     for i, concept_i in enumerate(concepts_list):
         is_substring = False
         for j, concept_j in enumerate(concepts_list):
-            if i != j and concept_i in concept_j and len(concept_i.split()) < len(concept_j.split()):
+            if i != j and f" {concept_i} " in f" {concept_j} " and len(concept_i.split()) < len(concept_j.split()):
                 is_substring = True
                 break
         if not is_substring:
