@@ -8,13 +8,13 @@ We use the Twitter-RoBERTa model, which was fine-tuned on Twitter data collected
 
 ## API: **/api/upload**
 
-This endpoint accepts a `POST` request from Beehive as `multipart/form-data` (not JSON) and requires a logged-in session. It validates the image, processes the data (caption + image), performs sentiment analysis, generates an image caption, and stores the result in the database.
+This endpoint accepts a `POST` request from Beehive as `multipart/form-data` (not JSON) and requires a logged-in session (unauthenticated requests are redirected to `/auth/login`). It validates the image, processes the data (caption + image), performs sentiment analysis, generates an image caption, and stores the result in the database.
 
 Form fields: `user_id`, `caption` and `image` (a file) are required. `timestamp` is optional, in ISO 8601 format; when omitted, the current UTC time is used. Missing fields, an invalid timestamp, an unsupported file extension or a file that is not a valid image return `400` with an `error` message.
 
 ### Example Request
 ```bash
-curl -X POST http://127.0.0.1:5001/api/upload \
+curl -b cookies.txt -X POST http://127.0.0.1:5001/api/upload \
   -F "user_id=101" \
   -F "caption=Seventy-five days in. I never thought I’d make it this far. Super proud." \
   -F "timestamp=2025-08-06T18:30:00" \
