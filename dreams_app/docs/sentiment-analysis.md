@@ -8,30 +8,31 @@ We use the Twitter-RoBERTa model, which was fine-tuned on Twitter data collected
 
 ## API: **/api/upload**
 
-This endpoint accepts a POST request from Beehive, processes the data (caption + image), performs sentiment analysis, generates an image caption, and stores the result in the database.
+This endpoint accepts a `POST` request from Beehive as `multipart/form-data` (not JSON) and requires a logged-in session. It validates the image, processes the data (caption + image), performs sentiment analysis, generates an image caption, and stores the result in the database.
+
+Form fields: `user_id`, `caption` and `image` (a file) are required. `timestamp` is optional, in ISO 8601 format; when omitted, the current UTC time is used. Missing fields, an invalid timestamp, an unsupported file extension or a file that is not a valid image return `400` with an `error` message.
 
 ### Example Request
-```json
-{
-  "user_id": "101",
-  "caption": "Seventy-five days in. I never thought I’d make it this far. Super proud.",
-  "timestamp": "2025-08-06T18:30:00",
-  "image": "family.jpeg"
-}
+```bash
+curl -X POST http://127.0.0.1:5001/api/upload \
+  -F "user_id=101" \
+  -F "caption=Seventy-five days in. I never thought I’d make it this far. Super proud." \
+  -F "timestamp=2025-08-06T18:30:00" \
+  -F "image=@family.jpeg"
 ```
-### Example Response:
+### Example Response (`201 Created`):
 ```json
 {
     "caption": "Seventy-five days in. I never thought I’d make it this far. Super proud.",
     "generated_caption": "arafed family with two children posing for a picture",
-    "image_path": "/home/DREAMS/DREAMS/dreams_app/images/family.jpeg",
+    "image_path": "/home/DREAMS/DREAMS/dreams_app/images/3f2a9c0e5b7d4e1f8a6b2c4d9e0f1a2b_family.jpeg",
     "message": "Post created successfully",
     "post_id": "68ac0594891111fd92300f17",
     "sentiment": {
         "label": "positive",
         "score": 0.9822999835014343
     },
-    "timestamp": "Wed, 06 Aug 2025 18:30:00 GMT",
+    "timestamp": "2025-08-06T18:30:00+00:00",
     "user_id": "101"
 }
 ```
