@@ -185,10 +185,21 @@ class TestNodeMetrics:
         required = {
             "node_index", "emotion_label", "start_time", "end_time",
             "event_count", "degree_centrality", "in_degree_centrality",
-            "out_degree_centrality", "betweenness_centrality",
+            "out_degree_centrality", "betweenness_centrality", "pagerank",
         }
         for node in result["node_metrics"]:
             assert required.issubset(node.keys())
+
+    def test_pagerank_sums_to_one(self, base_time):
+        eps = [
+            make_episode(base_time, i, 2, ["positive" if i % 2 == 0 else "negative"])
+            for i in range(4)
+        ]
+        result = analyze_narrative_graph(
+            build_narrative_graph(eps, adjacency_threshold=timedelta(0))
+        )
+        total_pr = sum(n["pagerank"] for n in result["node_metrics"])
+        assert total_pr == pytest.approx(1.0, abs=1e-4)
 
     def test_central_node_has_higher_betweenness(self, base_time):
         """Middle episode adjacent to both ends should have highest betweenness."""

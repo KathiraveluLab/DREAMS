@@ -129,6 +129,10 @@ def _compute_node_metrics(G: nx.DiGraph) -> List[Dict[str, Any]]:
     in_degree_cent = nx.in_degree_centrality(G)
     out_degree_cent = nx.out_degree_centrality(G)
     betweenness_cent = nx.betweenness_centrality(G, weight='weight')
+    try:
+        pagerank_cent = nx.pagerank(G, weight='weight')
+    except Exception:
+        pagerank_cent = {n: 1.0 / G.number_of_nodes() for n in G.nodes()} if G.number_of_nodes() else {}
 
     metrics: List[Dict[str, Any]] = []
     for i in sorted(G.nodes()):
@@ -143,6 +147,7 @@ def _compute_node_metrics(G: nx.DiGraph) -> List[Dict[str, Any]]:
             "in_degree_centrality": in_degree_cent.get(i, 0.0),
             "out_degree_centrality": out_degree_cent.get(i, 0.0),
             "betweenness_centrality": betweenness_cent.get(i, 0.0),
+            "pagerank": pagerank_cent.get(i, 0.0),
         })
     return metrics
 
