@@ -143,6 +143,21 @@ class TestGraphSummary:
         result = analyze_narrative_graph(build_narrative_graph([ep1, ep2]))
         assert result["graph_summary"]["connected_components"] == 2
 
+    def test_fully_connected_graph_has_density_one(self, base_time):
+        # Four episodes an hour apart, all within the adjacency threshold, so
+        # every pair is connected.
+        eps = [
+            Episode(start_time=base_time + timedelta(hours=i),
+                    end_time=base_time + timedelta(hours=i, minutes=1),
+                    events=())
+            for i in range(4)
+        ]
+        graph = build_narrative_graph(eps, adjacency_threshold=timedelta(days=1))
+        summary = analyze_narrative_graph(graph)["graph_summary"]
+
+        assert summary["edge_count"] == 6
+        assert summary["density"] == pytest.approx(1.0)
+
     def test_density_increases_with_edges(self, base_time):
         # Sparse: two disjoint episodes (0 edges)
         sparse = build_narrative_graph([

@@ -116,7 +116,10 @@ def _compute_graph_summary(G: nx.DiGraph) -> Dict[str, Any]:
     return {
         "node_count": G.number_of_nodes(),
         "edge_count": G.number_of_edges(),
-        "density": nx.density(G),
+        # Edges only run from earlier to later episodes (source < target), so a
+        # fully connected graph has n*(n-1)/2 edges. nx.density on the DiGraph
+        # divides by n*(n-1) and would cap at 0.5; measure on the undirected view.
+        "density": nx.density(G.to_undirected()),
         "connected_components": nx.number_weakly_connected_components(G),
         "is_dag": nx.is_directed_acyclic_graph(G),
     }
