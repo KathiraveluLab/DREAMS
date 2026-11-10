@@ -1,5 +1,7 @@
 import os
 
+CHIME_LABELS = ("Connectedness", "Hope", "Identity", "Meaning", "Empowerment")
+
 
 def resolve_chime_model_path(default_model_id: str, logger):
     """Return local FL model path when available, else default model id."""
@@ -61,3 +63,23 @@ def pick_top_chime_result(results):
         return max(results, key=lambda x: x.get("score", 0.0))
 
     return {"label": "Uncategorized", "score": 0.0}
+
+
+def chime_score_map(results):
+    """Return {label: score} for every CHIME label in a classifier output.
+
+    Handles both [dict] and [[dict]] outputs. Labels outside CHIME_LABELS are
+    ignored. Returns an empty dict when there is nothing usable.
+    """
+    if results and isinstance(results[0], list):
+        results = results[0]
+
+    scores = {}
+    for item in results or []:
+        if not isinstance(item, dict) or item.get("label") not in CHIME_LABELS:
+            continue
+        try:
+            scores[item["label"]] = float(item["score"])
+        except (KeyError, TypeError, ValueError):
+            continue
+    return scores

@@ -1,6 +1,10 @@
 import logging
 import numpy as np
-from dreams_app.core.chime_classifier import init_chime_classifier, pick_top_chime_result
+from dreams_app.core.chime_classifier import (
+    chime_score_map,
+    init_chime_classifier,
+    pick_top_chime_result,
+)
 
 try:
     import torch
@@ -96,7 +100,10 @@ class SentimentAnalyzer:
 
         try:
             results = classifier(text)
-            return pick_top_chime_result(results)
+            top = pick_top_chime_result(results)
+            # Keep the whole distribution so place-level CHIME profiles can be built later.
+            scores = chime_score_map(results)
+            return {**top, "scores": scores} if scores else top
         except Exception as e:
             logger.error(f"CHIME inference error: {e}")
             return {"label": "Uncategorized", "score": 0.0}
