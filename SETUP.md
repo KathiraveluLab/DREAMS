@@ -1,7 +1,7 @@
 # DREAMS Analytics Setup Guide
 
 A simple guide to set up and run the DREAMS emotion detection model on your local machine.
-
+The instructions assume you have Python 3.12 or 3.13 installed.
 ---
 
 ## Prerequisites
@@ -47,43 +47,37 @@ Before installation, make sure you have these Python packages. They will be inst
 
 ## macOS Setup
 
-### Step 1: Install Python 3.11
 
-```bash
-# Using Homebrew (recommended)
-brew install python@3.11
-```
-
-### Step 2: Clone and Enter the Project
+### Step 1: Clone and Enter the Project
 
 ```bash
 cd Desktop/dreams/DREAMS
 ```
 
-### Step 3: Create Virtual Environment
+### Step 2: Create Virtual Environment
 
 ```bash
-python3.11 -m venv venv
+python -m venv venv
 source venv/bin/activate
 ```
 
-### Step 4: Install Dependencies
+### Step 3: Install Dependencies
 
 ```bash
 # Install main dependencies
 pip install -r requirements.txt
 
-# Install ML model dependencies for Python 3.11
+# Install ML model dependencies for Python
 pip install tensorflow keras opencv-python-headless pillow
 ```
 
-### Step 5: Run the Server
+### Step 4: Run the Server
 
 ```bash
 python analytics_server.py
 ```
 
-### Step 6: Open in Browser
+### Step 5: Open in Browser
 
 Visit: **http://127.0.0.1:5001**
 
@@ -91,44 +85,37 @@ Visit: **http://127.0.0.1:5001**
 
 ## Windows Setup
 
-### Step 1: Install Python 3.11
-
-1. Download Python 3.11 from [python.org](https://www.python.org/downloads/)
-2. Run the installer
-3. ✅ Check **"Add Python to PATH"**
-4. Click Install
-
-### Step 2: Open Command Prompt
+### Step 1: Open Command Prompt
 
 Press `Win + R`, type `cmd`, and press Enter.
 
-### Step 3: Navigate to Project
+### Step 2: Navigate to Project
 
 ```cmd
 cd Desktop\dreams\DREAMS
 ```
 
-### Step 4: Create Virtual Environment
+### Step 3: Create Virtual Environment
 
 ```cmd
 python -m venv venv
 venv\Scripts\activate
 ```
 
-### Step 5: Install Dependencies
+### Step 4: Install Dependencies
 
 ```cmd
 pip install -r requirements.txt
 pip install tensorflow keras opencv-python-headless pillow
 ```
 
-### Step 6: Run the Server
+### Step 5: Run the Server
 
 ```cmd
 python analytics_server.py
 ```
 
-### Step 7: Open in Browser
+### Step 5: Open in Browser
 
 Visit: **http://127.0.0.1:5001**
 
@@ -150,12 +137,7 @@ Visit: **http://127.0.0.1:5001**
 pip install <module_name>
 ```
 
-### TensorFlow Not Installing
 
-Make sure you're using **Python 3.11** (not 3.12 or higher):
-```bash
-python --version
-```
 
 ### Model Loading Error
 
