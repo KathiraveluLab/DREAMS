@@ -6,7 +6,7 @@ A simple guide to set up and run the DREAMS emotion detection model on your loca
 
 ## Prerequisites
 
-- **Python 3.11** (required - TensorFlow doesn't support Python 3.12+ yet)
+- **Python 3.12 or 3.13**
 - **pip** (Python package manager, comes with Python)
 - **Git** (to clone the repository)
 
