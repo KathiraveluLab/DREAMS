@@ -10,6 +10,7 @@ from flask import Flask, jsonify, render_template_string, redirect, url_for, sen
 from werkzeug.utils import safe_join
 from flask import Flask, jsonify, render_template_string, redirect, url_for, make_response
 import random
+import zlib
 
 # Add repository root to path
 import sys
@@ -94,19 +95,21 @@ except (FileNotFoundError, json.JSONDecodeError) as e:
 
 def generate_sample_posts(user_id: str) -> list:
     """Generate sample posts with emotions for a user."""
-    random.seed(hash(user_id))  # Deterministic per user
+    # Deterministic per user, and the same in every process: hash() of a str is salted per
+    # process, so it can't seed this. A private generator also leaves the global one alone.
+    rng = random.Random(zlib.crc32(user_id.encode("utf-8")))
     base_time = datetime(2024, 1, 1, 9, 0, 0)
     
     emotions = ["positive", "neutral", "negative"]
     posts = []
     
     # Generate 20-40 posts over 30 days
-    num_posts = random.randint(20, 40)
+    num_posts = rng.randint(20, 40)
     
     for i in range(num_posts):
-        day_offset = random.randint(0, 29)
-        hour_offset = random.randint(0, 23)
-        minute_offset = random.randint(0, 59)
+        day_offset = rng.randint(0, 29)
+        hour_offset = rng.randint(0, 23)
+        minute_offset = rng.randint(0, 59)
         
         timestamp = base_time + timedelta(days=day_offset, hours=hour_offset, minutes=minute_offset)
         
@@ -118,7 +121,7 @@ def generate_sample_posts(user_id: str) -> list:
         else:
             weights = [0.3, 0.3, 0.4]  # More negative
         
-        emotion = random.choices(emotions, weights=weights)[0]
+        emotion = rng.choices(emotions, weights=weights)[0]
         
         post = {
             '_id': f"post_{user_id}_{i}",
@@ -127,7 +130,7 @@ def generate_sample_posts(user_id: str) -> list:
             'caption': f"Sample caption {i} for {user_id}",
             'sentiment': {
                 'label': emotion,
-                'score': random.uniform(0.5, 1.0)
+                'score': rng.uniform(0.5, 1.0)
             }
         }
         
@@ -810,6 +813,13 @@ NARRATIVE_TEMPLATE = """
 
 # ============== ROUTES ==============
 
+def _unknown_user(user_id: str):
+    """404 response for an id that is not a demo user, else None."""
+    if user_id not in SAMPLE_USERS:
+        return jsonify({'error': 'User not found'}), 404
+    return None
+
+
 @app.route('/')
 def index():
     return render_template_string(MAIN_TEMPLATE, users=SAMPLE_USERS)
@@ -817,8 +827,9 @@ def index():
 
 @app.route('/narrative/<user_id>')
 def narrative_view(user_id: str):
-    if user_id not in SAMPLE_USERS:
-        return jsonify({'error': 'User not found'}), 404
+    unknown = _unknown_user(user_id)
+    if unknown:
+        return unknown
     response = make_response(render_template_string(
         NARRATIVE_TEMPLATE,
         user_id=user_id,
@@ -832,6 +843,9 @@ def narrative_view(user_id: str):
 
 @app.route('/api/timeline/<user_id>')
 def api_timeline(user_id: str):
+    unknown = _unknown_user(user_id)
+    if unknown:
+        return unknown
     posts = generate_sample_posts(user_id)
     timeline = build_timeline_from_posts(posts, user_id)
     
@@ -858,6 +872,9 @@ def api_timeline(user_id: str):
 
 @app.route('/api/episodes/<user_id>')
 def api_episodes(user_id: str):
+    unknown = _unknown_user(user_id)
+    if unknown:
+        return unknown
     posts = generate_sample_posts(user_id)
     timeline = build_timeline_from_posts(posts, user_id)
     episodes = segment_timeline_to_episodes(timeline, timedelta(hours=6))
@@ -880,6 +897,9 @@ def api_episodes(user_id: str):
 
 @app.route('/api/narrative-graph/<user_id>')
 def api_narrative_graph(user_id: str):
+    unknown = _unknown_user(user_id)
+    if unknown:
+        return unknown
     posts = generate_sample_posts(user_id)
     timeline = build_timeline_from_posts(posts, user_id)
     episodes = segment_timeline_to_episodes(timeline, timedelta(hours=6))
@@ -932,6 +952,9 @@ def serve_sample_data(filename: str):
 
 @app.route('/api/frontend-payload/<user_id>')
 def api_frontend_payload(user_id: str):
+    unknown = _unknown_user(user_id)
+    if unknown:
+        return unknown
     posts = generate_sample_posts(user_id)
     timeline = build_timeline_from_posts(posts, user_id)
     episodes = segment_timeline_to_episodes(timeline, timedelta(hours=6))
@@ -1013,6 +1036,9 @@ def api_frontend_payload(user_id: str):
 
 @app.route('/api/cache-status/<user_id>')
 def api_cache_status(user_id: str):
+    unknown = _unknown_user(user_id)
+    if unknown:
+        return unknown
     posts = generate_sample_posts(user_id)
     timeline = build_timeline_from_posts(posts, user_id)
     episodes = segment_timeline_to_episodes(timeline, timedelta(hours=6))
