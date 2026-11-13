@@ -161,25 +161,25 @@ Examples:
     report = ValidationReport()
     
     # Run validators
-    print(f"Validating: {args.input}")
-    print(f"Base directory: {args.base_dir.resolve()}")
+    print(f"Validating: {args.input}", file=sys.stderr)
+    print(f"Base directory: {args.base_dir.resolve()}", file=sys.stderr)
     if args.schema:
-        print(f"Schema: {args.schema}")
-    print()
+        print(f"Schema: {args.schema}", file=sys.stderr)
+    print(file=sys.stderr)
     
     # Schema validation
     if args.schema:
-        print("Running schema validation...")
+        print("Running schema validation...", file=sys.stderr)
         issues = validate_schema(data, args.schema)
         report.extend(issues)
     
     # Path validation
-    print("Running path validation...")
+    print("Running path validation...", file=sys.stderr)
     issues = validate_paths(data, args.base_dir)
     report.extend(issues)
     
     # Temporal validation
-    print("Running temporal validation...")
+    print("Running temporal validation...", file=sys.stderr)
     issues = validate_temporal(data, strict_monotonic=args.strict_temporal)
     report.extend(issues)
     
