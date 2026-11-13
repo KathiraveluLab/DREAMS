@@ -124,10 +124,12 @@ def upload_post():
     except ValueError:
         return jsonify({'error': 'Invalid timestamp, expected ISO 8601'}), 400
 
-    filename = secure_filename(image.filename)
+    stem, extension = os.path.splitext(image.filename.strip())
+    extension = extension.lstrip('.')
     allowed = current_app.config.get('ALLOWED_EXTENSIONS', {'png', 'jpg', 'jpeg', 'gif'})
-    if '.' not in filename or filename.rsplit('.', 1)[1].lower() not in allowed:
+    if extension.lower() not in allowed:
         return jsonify({'error': 'Unsupported file extension'}), 400
+    filename = f"{secure_filename(stem) or 'image'}.{extension}"
 
     try:
         # Security: Validate image from request stream before any disk write.
