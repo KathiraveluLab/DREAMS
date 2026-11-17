@@ -106,6 +106,20 @@ class TestEmotionTimelineSerializer:
         assert restored.events[0].score == timeline.events[0].score
         assert restored.fingerprint() == timeline.fingerprint()
     
+    def test_round_trip_keeps_timeline_metadata(self, base_time: datetime) -> None:
+        events = (EmotionEvent(timestamp=base_time, emotion_label="neutral"),)
+        timeline = EmotionTimeline(
+            subject_id="test", events=events, metadata={"source": "csv"}
+        )
+
+        payload = EmotionTimelineSerializer.serialize(timeline)
+        restored = EmotionTimelineSerializer.deserialize(
+            SerializedPayload.from_json(payload.to_json())
+        )
+
+        assert restored.metadata == {"source": "csv"}
+        assert restored == timeline
+
     def test_round_trip_empty(self) -> None:
         timeline = EmotionTimeline(subject_id="empty", events=())
         payload = EmotionTimelineSerializer.serialize(timeline)
