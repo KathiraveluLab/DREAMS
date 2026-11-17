@@ -1,5 +1,6 @@
 from datetime import datetime
 import logging
+import re
 import threading
 
 try:
@@ -53,6 +54,11 @@ def _get_keyword_model():
 def extract_keywords_and_vectors(sentence, include_timestamp=True):
     if not sentence or not sentence.strip():
         logger.warning("Empty sentence passed to keyword extraction; returning empty list")
+        return []
+
+    sentence = re.sub(r"(?<![\w-])(?:arafed|araflane)(?![\w-])[,;:]?", "", sentence, flags=re.IGNORECASE)
+    sentence = " ".join(sentence.split())
+    if not sentence:
         return []
 
     nlp = _get_nlp()
