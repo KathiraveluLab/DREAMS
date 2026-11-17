@@ -71,6 +71,8 @@ class EmotionTimelineSerializer:
             'subject_id': timeline.subject_id,
             'events': events_data,
         }
+        if timeline.metadata is not None:
+            data['metadata'] = timeline.metadata
 
         return SerializedPayload(
             data=data,
@@ -98,6 +100,7 @@ class EmotionTimelineSerializer:
         return EmotionTimeline(
             subject_id=data['subject_id'],
             events=tuple(events),
+            metadata=data.get('metadata'),
         )
 
 
