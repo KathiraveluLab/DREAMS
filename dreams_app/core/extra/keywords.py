@@ -66,7 +66,11 @@ def extract_keywords_and_vectors(sentence, include_timestamp=True):
         logger.exception("spaCy keyword extraction failed")
         return []
     main_concepts = set()
-    custom_excluded_words = {"me", "my", "i", "used", "when", "this", "parents", "bring", "sick", "got", "reminds"}
+    blip_artifacts = {"arafed", "araflane"}
+    custom_excluded_words = {
+        "me", "my", "i", "used", "when", "this", "parents",
+        "bring", "sick", "got", "reminds", "arafed", "araflane",
+    }
     relevant_entity_labels = ["PERSON", "NORP", "ORG", "GPE", "LOC", "PRODUCT", "EVENT", "DATE", "WORK_OF_ART", "LAW", "LANGUAGE"]
 
     # Named Entities
@@ -112,7 +116,12 @@ def extract_keywords_and_vectors(sentence, include_timestamp=True):
             final_filtered_concepts.add(concept_i)
 
     # Final cleanup
-    final_concepts = [c for c in final_filtered_concepts if c not in custom_excluded_words and len(c.strip()) > 2]
+    final_concepts = [
+        c for c in final_filtered_concepts
+        if c not in custom_excluded_words
+        and not (set(c.split()) & blip_artifacts)
+        and len(c.strip()) > 2
+    ]
     if not final_concepts:
         return []
 

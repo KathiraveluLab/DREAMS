@@ -209,3 +209,80 @@ def normalize_geographic_distance(distance_km: float, max_distance_km: float = 5
         raise ValueError("max_distance_km must be greater than zero")
     scale = max_distance_km / 3.0
     return math.exp(-distance_km / scale)
+
+
+def cluster_places_dbscan(
+    places: List[Dict],
+    eps: float = 0.4,
+    min_samples: int = 2,
+    weights: Dict[str, float] = None,
+) -> List[int]:
+    """Cluster places using density-based clustering (DBSCAN) over composite proximity.
+
+    Constructs a precomputed pairwise distance matrix D_ij = 1.0 - P_composite(L_i, L_j)
+    and groups locations into socio-cultural micro-environments without requiring a
+    pre-specified cluster count. Noise points receive label -1.
+
+    Args:
+        places: List of place dicts accepted by composite_proximity.
+        eps: Maximum composite distance (1 - proximity) between neighbor places.
+        min_samples: Minimum number of places required to form a dense region.
+        weights: Optional dimension weights passed to composite_proximity.
+
+    Returns:
+        List of integer cluster labels (one per place in input order; -1 for noise).
+    """
+    if eps <= 0:
+        raise ValueError("eps must be greater than zero")
+    if min_samples < 1:
+        raise ValueError("min_samples must be at least 1")
+    n = len(places)
+    if n == 0:
+        return []
+
+    dist_matrix: List[List[float]] = [[0.0] * n for _ in range(n)]
+    for i in range(n):
+        for j in range(i + 1, n):
+            prox = composite_proximity(places[i], places[j], weights=weights)
+            dist = max(0.0, 1.0 - prox)
+            dist_matrix[i][j] = dist
+            dist_matrix[j][i] = dist
+
+    try:
+        import numpy as np
+        from sklearn.cluster import DBSCAN
+
+        clustering = DBSCAN(eps=eps, min_samples=min_samples, metric="precomputed")
+        labels = clustering.fit_predict(np.asarray(dist_matrix, dtype=float))
+        return [int(lbl) for lbl in labels]
+    except ImportError:
+        neighbors = [
+            [j for j in range(n) if dist_matrix[i][j] <= eps]
+            for i in range(n)
+        ]
+        core_points = {i for i in range(n) if len(neighbors[i]) >= min_samples}
+        labels = [-1] * n
+        cluster_id = 0
+        visited: Set[int] = set()
+
+        for i in range(n):
+            if i in visited or i not in core_points:
+                continue
+            visited.add(i)
+            labels[i] = cluster_id
+            queue = list(neighbors[i])
+            idx = 0
+            while idx < len(queue):
+                q = queue[idx]
+                idx += 1
+                if q not in visited:
+                    visited.add(q)
+                    if q in core_points:
+                        for nb in neighbors[q]:
+                            if nb not in queue:
+                                queue.append(nb)
+                if labels[q] == -1:
+                    labels[q] = cluster_id
+            cluster_id += 1
+        return labels
+

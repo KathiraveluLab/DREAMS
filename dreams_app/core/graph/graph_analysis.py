@@ -116,7 +116,10 @@ def _compute_graph_summary(G: nx.DiGraph) -> Dict[str, Any]:
     return {
         "node_count": G.number_of_nodes(),
         "edge_count": G.number_of_edges(),
-        "density": nx.density(G),
+        # Edges only run from earlier to later episodes (source < target), so a
+        # fully connected graph has n*(n-1)/2 edges. nx.density on the DiGraph
+        # divides by n*(n-1) and would cap at 0.5; measure on the undirected view.
+        "density": nx.density(G.to_undirected()),
         "connected_components": nx.number_weakly_connected_components(G),
         "is_dag": nx.is_directed_acyclic_graph(G),
     }
@@ -129,6 +132,10 @@ def _compute_node_metrics(G: nx.DiGraph) -> List[Dict[str, Any]]:
     in_degree_cent = nx.in_degree_centrality(G)
     out_degree_cent = nx.out_degree_centrality(G)
     betweenness_cent = nx.betweenness_centrality(G, weight='weight')
+    try:
+        pagerank_cent = nx.pagerank(G, weight='weight')
+    except Exception:
+        pagerank_cent = {n: 1.0 / G.number_of_nodes() for n in G.nodes()} if G.number_of_nodes() else {}
 
     metrics: List[Dict[str, Any]] = []
     for i in sorted(G.nodes()):
@@ -143,6 +150,7 @@ def _compute_node_metrics(G: nx.DiGraph) -> List[Dict[str, Any]]:
             "in_degree_centrality": in_degree_cent.get(i, 0.0),
             "out_degree_centrality": out_degree_cent.get(i, 0.0),
             "betweenness_centrality": betweenness_cent.get(i, 0.0),
+            "pagerank": pagerank_cent.get(i, 0.0),
         })
     return metrics
 

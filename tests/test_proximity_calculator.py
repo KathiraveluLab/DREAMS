@@ -11,6 +11,7 @@ from dreams_app.core.extra.proximity_calculator import (
     cultural_similarity,
     composite_proximity,
     normalize_geographic_distance,
+    cluster_places_dbscan,
 )
 
 
@@ -393,3 +394,44 @@ class TestEdgeCases:
         # 50 common out of 150 total = 0.333...
         result = cultural_similarity(tags1, tags2)
         assert result == pytest.approx(0.333, abs=0.01)
+
+
+class TestClusterPlacesDBSCAN:
+    """Test DBSCAN clustering over composite proximity distance matrix."""
+
+    def test_empty_places_returns_empty_list(self):
+        assert cluster_places_dbscan([]) == []
+
+    def test_clusters_similar_places_and_marks_outlier_as_noise(self):
+        places = [
+            {
+                'type': 'church',
+                'language': 'english',
+                'cultural_tags': ['christian', 'community'],
+                'geo_proximity': 0.95,
+            },
+            {
+                'type': 'church',
+                'language': 'english',
+                'cultural_tags': ['christian', 'traditional'],
+                'geo_proximity': 0.90,
+            },
+            {
+                'type': 'hospital',
+                'language': 'spanish',
+                'cultural_tags': ['medical', 'clinical'],
+                'geo_proximity': 0.05,
+            },
+        ]
+        labels = cluster_places_dbscan(places, eps=0.35, min_samples=2)
+        assert len(labels) == 3
+        assert labels[0] == labels[1]
+        assert labels[0] >= 0
+        assert labels[2] == -1
+
+    def test_invalid_parameters_raise_value_error(self):
+        with pytest.raises(ValueError, match="eps must be greater than zero"):
+            cluster_places_dbscan([], eps=0.0)
+        with pytest.raises(ValueError, match="min_samples must be at least 1"):
+            cluster_places_dbscan([], eps=0.4, min_samples=0)
+
