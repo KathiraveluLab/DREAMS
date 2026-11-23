@@ -127,9 +127,13 @@ class DreamsPipeline:
 
         success_count = 0
         for row in tqdm(df.itertuples(), total=len(df), desc="Ingesting Posts"):
+            # Blank cells are NaN in pandas, and str(nan) would turn them into the text "nan".
+            if pd.isna(row.user_id) or pd.isna(row.image_path):
+                logger.error(f"Skipping row {row.Index}: user_id and image_path are required")
+                continue
             user_id = str(row.user_id)
             image_path = str(row.image_path)
-            caption = str(row.caption)
+            caption = "" if pd.isna(row.caption) else str(row.caption)
             
             timestamp_iso = None
             if "timestamp" in df.columns and pd.notna(row.timestamp):
