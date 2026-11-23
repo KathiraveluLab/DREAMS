@@ -77,8 +77,12 @@ class DreamsPipeline:
             ts = post['timestamp']
             if not isinstance(ts, datetime):
                 ts = datetime.fromisoformat(str(ts))
+            # MongoDB returns naive UTC datetimes while uploads and ISO strings can carry an
+            # offset; compare them all as naive UTC so mixed posts can be ordered.
+            if ts.tzinfo is not None:
+                ts = ts.astimezone(timezone.utc).replace(tzinfo=None)
 
-            sentiment = post.get('sentiment', {})
+            sentiment = post.get('sentiment') or {}
             records.append({
                 'timestamp': ts,
                 'emotion_label': sentiment.get('label', 'neutral'),
