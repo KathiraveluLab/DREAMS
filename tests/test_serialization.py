@@ -205,3 +205,33 @@ class TestTemporalNarrativeGraphSerializer:
         restored = TemporalNarrativeGraphSerializer.deserialize(payload)
         
         assert restored.adjacency_threshold == threshold
+
+    def test_edge_weight_round_trip(self, base_time: datetime) -> None:
+        episodes = [
+            Episode(start_time=base_time, end_time=base_time + timedelta(hours=1), events=()),
+            Episode(start_time=base_time + timedelta(hours=1, minutes=30),
+                    end_time=base_time + timedelta(hours=2), events=()),
+        ]
+        graph = build_narrative_graph(episodes, timedelta(hours=1))
+        assert graph.edges[0].weight < 1.0
+
+        payload = SerializedPayload.from_json(
+            TemporalNarrativeGraphSerializer.serialize(graph).to_json()
+        )
+        restored = TemporalNarrativeGraphSerializer.deserialize(payload)
+
+        assert restored == graph
+
+    def test_deserialize_edge_without_weight_defaults_to_one(self, base_time: datetime) -> None:
+        episodes = [
+            Episode(start_time=base_time, end_time=base_time + timedelta(hours=1), events=()),
+            Episode(start_time=base_time + timedelta(hours=1), end_time=base_time + timedelta(hours=2), events=()),
+        ]
+        graph = build_narrative_graph(episodes, timedelta(0))
+        payload = TemporalNarrativeGraphSerializer.serialize(graph)
+        for edge in payload.data['edges']:
+            edge.pop('weight', None)
+
+        restored = TemporalNarrativeGraphSerializer.deserialize(payload)
+
+        assert [e.weight for e in restored.edges] == [1.0]
