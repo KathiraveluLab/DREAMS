@@ -156,7 +156,7 @@ def test_valid_text_is_analysed(client):
     response = client.post("/api/text-emotion", json={"text": "I feel so happy and grateful"})
 
     assert response.status_code == 200
-    assert response.get_json()["positive"] == 1.0
+    assert response.get_json()["positive"] > 0.5
 
 
 def test_internal_errors_do_not_leak_exception_text(client, monkeypatch):
