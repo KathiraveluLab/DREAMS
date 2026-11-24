@@ -152,11 +152,15 @@ def test_bad_bodies_get_json_400(client, kwargs):
     assert response.get_json()["error"]
 
 
-def test_valid_text_is_analysed(client):
+def test_valid_text_is_analysed(client, monkeypatch):
+    _install_transformers(monkeypatch, _joy_pipeline)
+
     response = client.post("/api/text-emotion", json={"text": "I feel so happy and grateful"})
 
     assert response.status_code == 200
-    assert response.get_json()["positive"] == 1.0
+    body = response.get_json()
+    assert body["model"] == "j-hartmann/emotion-english-distilroberta-base"
+    assert body["positive"] == pytest.approx(0.9)
 
 
 def test_internal_errors_do_not_leak_exception_text(client, monkeypatch):
