@@ -992,11 +992,11 @@ def api_frontend_payload(user_id: str):
                     if _TEXT_SENTIMENT_AVAILABLE:
                         try:
                             text_emotions[img_path] = analyze_text_sentiment(caption)
-                        except Exception as e:
+                        except Exception:
                             text_emotions[img_path] = {
                                 'positive': 0.33, 'negative': 0.33, 'neutral': 0.34,
                                 'uncertainty_margin': 0.20,
-                                'notes': f'Analysis error: {e}',
+                                'notes': 'Analysis error.',
                                 'disclaimer': 'Error during analysis.',
                             }
 
@@ -1039,15 +1039,19 @@ def api_text_emotion():
         }), 500
 
     from flask import request
-    data = request.get_json()
-    if not data or 'text' not in data:
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or 'text' not in data:
         return jsonify({'error': 'Missing "text" field in request body'}), 400
+    text = data['text']
+    if not isinstance(text, str) or not text.strip():
+        return jsonify({'error': '"text" must be a non-empty string'}), 400
 
     try:
-        result = analyze_text_sentiment(data['text'])
+        result = analyze_text_sentiment(text)
         return jsonify(result)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    except Exception:
+        app.logger.exception("Text sentiment analysis failed")
+        return jsonify({'error': 'Text sentiment analysis failed'}), 500
 
 
 @app.route('/api/perceptual-emotion/<path:image_path>')

@@ -15,11 +15,19 @@ Emotion mapping (7-class → 3-class):
 
 from typing import Dict
 import re
+import threading
+import time
 
 # Lazy-load transformers pipeline
 _sentiment_pipeline = None
 _pipeline_loaded = False
 _pipeline_error = None
+_pipeline_retry_at = 0.0
+_pipeline_lock = threading.Lock()
+
+# After a failed load (for example the model hub is unreachable) the keyword fallback is used
+# for this long before the model is tried again.
+PIPELINE_RETRY_S = 300
 
 
 def _clean_text(text: str) -> str:
@@ -70,31 +78,46 @@ NEUTRAL_WORDS = {
 
 
 def _load_pipeline():
-    """Lazy-load the transformers sentiment pipeline."""
-    global _sentiment_pipeline, _pipeline_loaded, _pipeline_error
+    """Lazy-load the transformers sentiment pipeline.
+
+    A failed load is retried after PIPELINE_RETRY_S seconds, so a model hub outage at the first
+    request does not leave the process on the keyword fallback until it is restarted.
+    """
+    global _sentiment_pipeline, _pipeline_loaded, _pipeline_error, _pipeline_retry_at
     if _pipeline_loaded:
         return _sentiment_pipeline
-    _pipeline_loaded = True
-    try:
-        from transformers import pipeline
-        _sentiment_pipeline = pipeline(
-            "text-classification",
-            model="j-hartmann/emotion-english-distilroberta-base",
-            top_k=None,
-        )
+    if time.monotonic() < _pipeline_retry_at:
+        return None
+    with _pipeline_lock:
+        if _pipeline_loaded:
+            return _sentiment_pipeline
+        if time.monotonic() < _pipeline_retry_at:
+            return None
+        try:
+            from transformers import pipeline
+            _sentiment_pipeline = pipeline(
+                "text-classification",
+                model="j-hartmann/emotion-english-distilroberta-base",
+                top_k=None,
+            )
+        except Exception as e:
+            _pipeline_error = str(e)
+            _pipeline_retry_at = time.monotonic() + PIPELINE_RETRY_S
+            print(
+                f"WARNING: Text sentiment pipeline not available: {e}. "
+                f"Using keyword fallback; will retry in {PIPELINE_RETRY_S}s."
+            )
+            return None
+        _pipeline_loaded = True
+        _pipeline_error = None
         print("✅ Text sentiment pipeline loaded (j-hartmann/emotion-english-distilroberta-base)")
         return _sentiment_pipeline
-    except Exception as e:
-        _pipeline_error = str(e)
-        print(f"WARNING: Text sentiment pipeline not available: {e}. Using keyword fallback.")
-        return None
 
 
 def _keyword_fallback(text: str) -> Dict:
     """Simple keyword-based sentiment analysis fallback."""
-    words = set(
-        re.sub(r"[#.,!?'\"]", " ", text.lower()).split()
-    )
+    # Words are runs of letters and digits, so "sad:", "(happy)" and "happy-go-lucky" match.
+    words = set(re.findall(r"[a-z0-9]+", text.lower()))
 
     pos_count = len(words & POSITIVE_WORDS)
     neg_count = len(words & NEGATIVE_WORDS)
