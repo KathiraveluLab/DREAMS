@@ -110,6 +110,7 @@ Each validator is independent and returns a list of `ValidationIssue` objects. T
 --base-dir, -b    Base directory for media paths (default: current directory)
 --strict-temporal Require strictly increasing timestamps
 --quiet, -q       Only show errors (suppress warnings/info)
+--json            Print the report as JSON on stdout (progress messages go to stderr)
 ```
 
 ## Design Philosophy
