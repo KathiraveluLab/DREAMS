@@ -24,7 +24,6 @@ def test_upload_of_decompression_bomb_is_rejected_with_400(client, app, mock_mon
     response = client.post(
         '/api/upload',
         data={
-            'user_id': 'alice',
             'caption': 'a walk in the park',
             'image': (_huge_blank_png(), 'photo.png'),
         },
