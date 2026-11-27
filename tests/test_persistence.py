@@ -172,3 +172,20 @@ class TestStructuralChangeInvalidation:
         temp_cache.put(payload1)
         assert temp_cache.is_valid(payload1.fingerprint)
         assert not temp_cache.is_valid(payload2.fingerprint)
+
+
+def test_cache_status_reports_graph_cached_after_narrative_graph_request(tmp_path, monkeypatch):
+    import analytics_server
+
+    monkeypatch.setattr(
+        analytics_server, "cache", StructuralCache(ContentAddressedStore(tmp_path))
+    )
+    client = analytics_server.app.test_client()
+
+    assert client.get("/api/narrative-graph/user_001").status_code == 200
+    assert client.get("/api/timeline/user_001").status_code == 200
+
+    status = client.get("/api/cache-status/user_001").get_json()
+
+    assert status["timeline_cached"] is True
+    assert status["graph_cached"] is True

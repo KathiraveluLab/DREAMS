@@ -1042,7 +1042,7 @@ def api_cache_status(user_id: str):
     posts = generate_sample_posts(user_id)
     timeline = build_timeline_from_posts(posts, user_id)
     episodes = segment_timeline_to_episodes(timeline, timedelta(hours=6))
-    graph = build_narrative_graph(episodes) if episodes else None
+    graph = build_narrative_graph(episodes, adjacency_threshold=timedelta(hours=12)) if episodes else None
     
     return jsonify({
         'user_id': user_id,
