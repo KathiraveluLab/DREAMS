@@ -43,7 +43,6 @@ def _upload(client, app, filename):
         return client.post(
             '/api/upload',
             data={
-                'user_id': 'alice',
                 'caption': 'a walk in the park',
                 'image': (_png(), filename),
             },
