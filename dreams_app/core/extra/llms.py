@@ -62,7 +62,7 @@ Your task:
         contents=contents,
         config=generate_content_config,
     ):
-        full_response += chunk.text
+        full_response += chunk.text or ""
     match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', full_response, re.DOTALL)
     if match:
         cleaned_response = match.group(1)
