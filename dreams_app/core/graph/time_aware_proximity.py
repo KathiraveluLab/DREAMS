@@ -20,6 +20,8 @@ def align_timelines_by_window(
     """
     Align timelines into fixed windows. At most one event per timeline per window.
     Returns dict mapping window index to tuple of events (None if missing).
+    With anchor="explicit", events before anchor_time fall in negative window
+    indices.
     """
     if window <= timedelta(0):
         raise ValueError("Window must be a positive timedelta")
@@ -64,11 +66,12 @@ def align_timelines_by_window(
         window_start_base = anchor_dt
     
     total_span = global_end - window_start_base
-    num_windows = max(1, int(total_span / window) + 1)
+    first_window = min(0, (global_start - window_start_base) // window)
+    last_window = max(0, total_span // window)
     
     result: Dict[int, Tuple[Optional[EmotionEvent], ...]] = {}
     
-    for window_idx in range(num_windows):
+    for window_idx in range(first_window, last_window + 1):
         window_start = window_start_base + (window_idx * window)
         window_end = window_start + window
         

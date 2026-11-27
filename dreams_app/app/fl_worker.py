@@ -1,6 +1,7 @@
 import shutil
 import os
 import datetime
+import uuid
 from dreams_app.app import create_app
 from dreams_app.core.logger import setup_logger
 
@@ -94,6 +95,19 @@ def validate_model(model, tokenizer, training_samples, label2id):
 
     return True
 
+def _utcnow():
+    # Timezone-aware UTC, matching the timestamps written by the dashboard routes.
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
+def _release_claims(posts, round_id):
+    """Hand back only the documents claimed by this round (never another worker's)."""
+    posts.update_many(
+        {'fl_round_id': round_id, 'is_fl_processed': 'processing'},
+        {'$set': {'is_fl_processed': False}, '$unset': {'processing_started_at': '', 'fl_round_id': ''}}
+    )
+
+
 def run_federated_round(app=None):
     if torch is None or AutoModelForSequenceClassification is None or AutoTokenizer is None or AutoConfig is None:
         logger.warning("Required ML dependencies are not installed; skipping federated round.")
@@ -105,16 +119,17 @@ def run_federated_round(app=None):
     with app.app_context():
         mongo = app.mongo
         logger.info("FL WORKER: Waking up...")
+        round_id = uuid.uuid4().hex
         
         try:
             # CLEANUP: Reset any stale 'processing' documents (older than 1 hour)
-            one_hour_ago = datetime.datetime.utcnow() - datetime.timedelta(hours=1)
+            one_hour_ago = _utcnow() - datetime.timedelta(hours=1)
             stale_reset = mongo['posts'].update_many(
                 {
                     'is_fl_processed': 'processing',
                     'processing_started_at': {'$lt': one_hour_ago}
                 },
-                {'$set': {'is_fl_processed': False}, '$unset': {'processing_started_at': ''}}
+                {'$set': {'is_fl_processed': False}, '$unset': {'processing_started_at': '', 'fl_round_id': ''}}
             )
             if stale_reset.modified_count > 0:
                 logger.warning(f"Reset {stale_reset.modified_count} stale 'processing' documents.")
@@ -138,21 +153,19 @@ def run_federated_round(app=None):
                 {'_id': {'$in': candidate_ids}, 'is_fl_processed': False},  # Re-check status!
                 {'$set': {
                     'is_fl_processed': 'processing',
-                    'processing_started_at': datetime.datetime.now()
+                    'processing_started_at': _utcnow(),
+                    'fl_round_id': round_id
                 }}
             )
             
             if claim_result.modified_count < BATCH_SIZE:
                 logger.warning(f"Race condition detected: Only claimed {claim_result.modified_count}/{BATCH_SIZE} documents. Another worker may be running. Aborting.")
-                # Release any documents we did claim back to 'False'
-                mongo['posts'].update_many(
-                    {'_id': {'$in': candidate_ids}, 'is_fl_processed': 'processing'},
-                    {'$set': {'is_fl_processed': False}, '$unset': {'processing_started_at': ''}}
-                )
+                # Release only the documents we claimed; the rest belong to another worker
+                _release_claims(mongo['posts'], round_id)
                 return
             
             # Step 1c: Now fetch the full documents we successfully claimed
-            pending_posts = list(mongo['posts'].find({'_id': {'$in': candidate_ids}, 'is_fl_processed': 'processing'}))
+            pending_posts = list(mongo['posts'].find({'_id': {'$in': candidate_ids}, 'is_fl_processed': 'processing', 'fl_round_id': round_id}))
             logger.info(f"Successfully claimed {len(pending_posts)} documents for training.")
 
             # Prepare Data
@@ -176,7 +189,10 @@ def run_federated_round(app=None):
                     valid_ids.append(p['_id'])
                 elif lbl == 'None':
                     # Mark 'None' as processed but don't train
-                    mongo['posts'].update_one({'_id': p['_id']}, {'$set': {'is_fl_processed': True, 'fl_status': 'skipped'}})
+                    mongo['posts'].update_one(
+                        {'_id': p['_id'], 'is_fl_processed': 'processing', 'fl_round_id': round_id},
+                        {'$set': {'is_fl_processed': True, 'fl_status': 'skipped'}, '$unset': {'processing_started_at': '', 'fl_round_id': ''}}
+                    )
                     # Log only the document ID, not the content
                     logger.debug(f"Skipped 'None' label for post {p['_id']}")
 
@@ -236,6 +252,7 @@ def run_federated_round(app=None):
             # 5. Validation Gate
             passed = validate_model(model, tokenizer, training_data, label2id)
 
+            fl_status = 'trained' if passed else 'rejected'
             if passed:
                 logger.info("Update Accepted! Promoting to Production...")
                 # ATOMIC SWAP using os.rename (instant on same filesystem)
@@ -275,17 +292,21 @@ def run_federated_round(app=None):
 
             # 6. Finish
             logger.info("Updating database records...")
-            mongo['posts'].update_many(
-                {'_id': {'$in': valid_ids}},
+            # Only documents still claimed by this round are finished. A user who re-corrected
+            # a post while training ran has put it back in the queue (is_fl_processed False);
+            # that newer correction must stay pending rather than be marked as trained.
+            finish_result = mongo['posts'].update_many(
+                {'_id': {'$in': valid_ids}, 'is_fl_processed': 'processing', 'fl_round_id': round_id},
                 {
                     '$set': {
                         'is_fl_processed': True,  # Mark as fully processed (was 'processing')
-                        'fl_round_date': datetime.datetime.now()
+                        'fl_status': fl_status,
+                        'fl_round_date': _utcnow()
                     },
-                    '$unset': {'processing_started_at': ''}  # Clean up temp field
+                    '$unset': {'processing_started_at': '', 'fl_round_id': ''}  # Clean up temp fields
                 }
             )
-            logger.info(f"Round Successfully Completed. Processed {len(valid_ids)} items.")
+            logger.info(f"Round Successfully Completed. Processed {finish_result.modified_count} items.")
             
         except Exception as e:
             logger.error(f"CRITICAL FAILURE during FL round: {str(e)}", exc_info=True)
@@ -294,10 +315,7 @@ def run_federated_round(app=None):
                 shutil.rmtree(TEMP_MODEL_DIR)
             # Release any documents we claimed back to the queue
             try:
-                mongo['posts'].update_many(
-                    {'is_fl_processed': 'processing'},
-                    {'$set': {'is_fl_processed': False}, '$unset': {'processing_started_at': ''}}
-                )
+                _release_claims(mongo['posts'], round_id)
                 logger.info("Released claimed documents back to queue after failure.")
             except Exception as release_error:
                 logger.warning(f"Failed to release claimed documents back to queue: {release_error}")

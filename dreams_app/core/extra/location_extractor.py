@@ -18,6 +18,8 @@ import requests
 from PIL import Image
 from PIL.ExifTags import GPSTAGS, IFD, Base
 
+from dreams_app.location_proximity import validate_coordinates
+
 logger = logging.getLogger(__name__)
 
 # ── Configuration ────────────────────────────────────────────────────────
@@ -124,6 +126,15 @@ def extract_gps_from_image(image_path: str) -> Optional[Dict[str, Any]]:
             lon = _dms_to_decimal(gps_info["GPSLongitude"])
             if gps_info.get("GPSLongitudeRef") == "W":
                 lon = -lon
+
+            # Corrupt EXIF can decode to out-of-range (or NaN) values; a comparison
+            # with NaN is False, so it is rejected here as well.
+            if not validate_coordinates(lat, lon):
+                logger.warning(
+                    "Ignoring out-of-range GPS in '%s': lat=%s, lon=%s",
+                    image_path, lat, lon,
+                )
+                return None
 
             result: Dict[str, Any] = {"lat": lat, "lon": lon}
             timestamp = _parse_gps_timestamp(gps_info)

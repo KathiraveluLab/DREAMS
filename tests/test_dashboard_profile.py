@@ -23,3 +23,16 @@ def test_profile_for_user_without_posts_returns_404(client, mock_mongo):
 
     assert response.status_code == 404
     assert 'No posts found' in response.get_data(as_text=True)
+
+
+def test_dashboard_index_links_each_user_to_narrative(client, mock_mongo):
+    _log_in(client, mock_mongo)
+    posts = mock_mongo.__getitem__.return_value
+    posts.distinct.return_value = ['alice', 'bob']
+
+    response = client.get('/dashboard/')
+
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert '/dashboard/user/alice/narrative' in html
+    assert '/dashboard/user/bob/narrative' in html

@@ -93,9 +93,9 @@ Each validator is independent and returns a list of `ValidationIssue` objects. T
 
 ### Temporal Validation
 - Detects future timestamps
-- Detects out-of-order events in sequences
+- Detects out-of-order events in sequences: one timestamp field is compared across the items of one array (for example `samples[0].timestamp`, `samples[1].timestamp`), never against other fields of the same record such as `created_at` vs `capture_time`
 - Optional strict mode (no duplicate timestamps)
-- Handles ISO 8601 strings and Unix timestamps
+- Handles ISO 8601 strings and Unix timestamps; booleans and out-of-range numbers are not timestamps and are ignored
 
 ## Exit Codes
 
@@ -110,6 +110,7 @@ Each validator is independent and returns a list of `ValidationIssue` objects. T
 --base-dir, -b    Base directory for media paths (default: current directory)
 --strict-temporal Require strictly increasing timestamps
 --quiet, -q       Only show errors (suppress warnings/info)
+--json            Print the report as JSON on stdout (progress messages go to stderr)
 ```
 
 ## Design Philosophy

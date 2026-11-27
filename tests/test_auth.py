@@ -146,6 +146,24 @@ def test_login_with_user_without_password_hash_is_rejected(client, mock_mongo):
     assert 'Invalid username or password' in _flashed_messages(client)
 
 
+def test_login_without_password_field_is_rejected(client, mock_mongo):
+    # A POST that leaves the password field out must not crash the login.
+    mock_mongo.users.find_one.return_value = {
+        '_id': 'abc123',
+        'username': 'alice',
+        'email': 'alice@example.com',
+        'password_hash': generate_password_hash('correct-horse'),
+    }
+
+    response = client.post('/auth/login', data={'username': 'alice'})
+
+    assert response.status_code == 302
+    assert response.headers['Location'].endswith('/auth/login')
+    assert 'Invalid username or password' in _flashed_messages(client)
+    with client.session_transaction() as session:
+        assert '_user_id' not in session
+
+
 # --- /auth/logout -----------------------------------------------------------
 
 def test_logout_requires_login(client):

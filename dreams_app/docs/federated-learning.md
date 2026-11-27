@@ -109,8 +109,8 @@ The FL Worker performs:
    - Trains only the classifier head (lightweight, fast).
    - Runs for 3 epochs with conservative learning rate (1e-5).
 4. **Validation Gate**:
-   - **Anchor Check**: Model must correctly classify 3/5 basic examples.
-   - **Improvement Check**: Model must correctly classify 50% of training data.
+   - **Anchor Check**: Model must correctly classify at least 4 of the 5 basic examples.
+   - **Improvement Check**: Model must correctly classify at least 50% of the training data.
 5. **Deployment**:
    - If validation passes → Atomic swap to production folder.
    - If validation fails → Discard changes, log error.
@@ -118,8 +118,8 @@ The FL Worker performs:
 ### Step 5: Inference
 
 The `sentiment.py` module automatically:
-- Checks for `production_chime_model` on startup.
-- Loads it if available (self-corrected model).
+- Checks for `production_chime_model` before each prediction.
+- Loads it if available (self-corrected model), and reloads it whenever a training round replaces the folder, so a promoted model is used without restarting the server.
 - Falls back to HuggingFace if not (base model).
 
 ---

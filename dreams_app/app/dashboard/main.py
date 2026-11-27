@@ -285,31 +285,30 @@ def show_clusters(user_id):
 @bp.route('/refresh_thematic/<user_id>', methods=['POST'])
 @login_required
 def thematic_refresh(user_id):
+    # profile.html reads `success` and `message` from every response.
+    def failure(message):
+        return jsonify({'success': False, 'error': message, 'message': message}), 500
+
     try:
         if generate is None:
-            return jsonify({'error': 'LLM dependency is not available'}), 500
+            return failure('LLM dependency is not available')
 
         keywords_data = current_app.mongo['keywords'].find_one({'user_id': str(user_id)})
         positive_keywords = [item['keyword'] for item in keywords_data.get('positive_keywords', [])] if keywords_data else []
 
         negative_keywords = [item['keyword'] for item in keywords_data.get('negative_keywords', [])] if keywords_data else []
-    
-        try:
-            thematic_data = generate(str(user_id), positive_keywords, negative_keywords, current_app.mongo['thematic_analysis'])
-            current_app.logger.info("Refreshed thematic data:")
 
-            return jsonify({
-                'message': 'Thematics refreshed successfully',
-                'thematic_data': thematic_data
-            }), 200
-        except Exception as e:
-            current_app.logger.error(f"Error regenerating thematics", exc_info=e)
-            return jsonify({'error': 'Failed to refresh thematics'}), 500
-    except Exception as e:
+        thematic_data = generate(str(user_id), positive_keywords, negative_keywords, current_app.mongo['thematic_analysis'])
+        current_app.logger.info("Refreshed thematic data:")
+
         return jsonify({
-            "success": False,
-            "message": str(e)
-        }), 500
+            'success': True,
+            'message': 'Thematics refreshed successfully',
+            'thematic_data': thematic_data
+        }), 200
+    except Exception:
+        current_app.logger.exception("Error regenerating thematics")
+        return failure('Failed to refresh thematics')
 
 @bp.route('/correct_chime', methods=['POST'])
 @login_required
