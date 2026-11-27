@@ -32,7 +32,6 @@ def test_upload_with_invalid_timestamp_is_rejected_before_saving(client, app, mo
     response = client.post(
         '/api/upload',
         data={
-            'user_id': 'alice',
             'caption': 'a walk in the park',
             'timestamp': 'yesterday',
             'image': (_png(), 'photo.png'),

@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 from flask import current_app, jsonify, request
 from PIL import Image, UnidentifiedImageError
-from flask_login import login_required
+from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 
 from . import bp
@@ -110,14 +110,26 @@ def _store_embeddings_background(post_id, user_id, caption_embedding, image_embe
 @bp.route('/upload', methods=['POST'])
 @login_required
 def upload_post():
-    user_id = request.form.get('user_id')
+    # Owner comes from the authenticated session, never from the client.
+    user_id = current_user.get_id()
+
+    # If the client sends a user_id anyway, it must match the session.
+    # A mismatch means someone is deliberately trying to write as another user.
+    supplied_user_id = request.form.get('user_id')
+    if supplied_user_id is not None and str(supplied_user_id) != str(user_id):
+        logger.warning(
+            "Upload rejected: user %s attempted to post as %s", user_id, supplied_user_id
+        )
+        return jsonify({'error': 'Forbidden: cannot upload on behalf of another user'}), 403
+
     caption = request.form.get('caption')
     timestamp = request.form.get('timestamp', datetime.now(timezone.utc).isoformat())
     image = request.files.get('image')
 
-    missing = [k for k, v in {'caption': caption, 'image': image, 'user_id': user_id}.items() if not v]
+    # user_id is no longer a client-supplied field, so it's removed from this check.
+    missing = [k for k, v in {'caption': caption, 'image': image}.items() if not v]
     if missing:
-         return jsonify({'error': f"Missing required fields: {', '.join(missing)}"}), 400
+        return jsonify({'error': f"Missing required fields: {', '.join(missing)}"}), 400
 
     try:
         datetime.fromisoformat(timestamp)
