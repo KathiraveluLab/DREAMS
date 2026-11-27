@@ -166,6 +166,46 @@ class TestAlignTimelinesByWindow:
         
         assert len(result) >= 1
     
+    def test_explicit_anchor_keeps_events_before_anchor(
+        self,
+        base_time: datetime,
+        multi_event_timeline: EmotionTimeline
+    ):
+        result = align_timelines_by_window(
+            timelines=(multi_event_timeline,),
+            window=timedelta(hours=1),
+            anchor="explicit",
+            anchor_time=base_time + timedelta(hours=10)
+        )
+
+        kept = [e for events in result.values() for e in events if e is not None]
+        assert kept == [
+            multi_event_timeline.events[0],
+            multi_event_timeline.events[1],
+            multi_event_timeline.events[2],
+        ]
+        assert min(result) < 0
+        assert 0 in result
+
+    def test_explicit_anchor_later_than_events_distance(
+        self,
+        base_time: datetime,
+        multi_event_timeline: EmotionTimeline,
+        sparse_timeline: EmotionTimeline
+    ):
+        anchor_time = base_time + timedelta(days=30)
+        window = timedelta(hours=1)
+
+        explicit = temporal_distance(
+            multi_event_timeline, sparse_timeline, window,
+            anchor="explicit", anchor_time=anchor_time
+        )
+
+        assert explicit == temporal_distance(
+            multi_event_timeline, sparse_timeline, window, anchor="start"
+        )
+        assert explicit > 0.0
+
     def test_explicit_anchor_requires_time(
         self,
         multi_event_timeline: EmotionTimeline
